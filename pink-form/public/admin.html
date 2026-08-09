@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Form Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <a class="link" href="/">Back to Home</a>
+      <h2>Form Admin (MVP)</h2>
+      <p class="hint">Create/edit form schema JSON and publish it immediately.</p>
+
+      <div class="actions">
+        <button id="seed-btn" type="button">Seed First Client Form</button>
+      </div>
+
+      <label for="module-select">Existing Forms</label>
+      <select id="module-select"></select>
+
+      <label for="schema-json">Module JSON</label>
+      <textarea id="schema-json" rows="20"></textarea>
+
+      <button id="save-btn" type="button">Save Form</button>
+      <div id="status"></div>
+
+      <p class="hint">Public URL: <a id="public-url" href="#" target="_blank" rel="noreferrer">-</a></p>
+    </main>
+    <script src="/admin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+process.env.NODE_ENV = "test";
+process.env.PORT = "5001";
+process.env.MONGO_URI = "mongodb://127.0.0.1:27017/pink_saas_test";
+process.env.JWT_ACCESS_SECRET = "test_access_secret_123456";
+process.env.JWT_REFRESH_SECRET = "test_refresh_secret_123456";
+process.env.JWT_ACCESS_EXPIRES_IN = "15m";
+process.env.JWT_REFRESH_EXPIRES_IN = "7d";
+process.env.SUPER_ADMIN_EMAIL = "superadmin@test.com";
+process.env.SUPER_ADMIN_PASSWORD = "StrongPass123!";
+process.env.SUPER_ADMIN_NAME = "Test Super Admin";

@@ -1,0 +1,118 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(180deg, #f8f3ff 0%, #fff 100%);
+  color: #222;
+}
+
+.container {
+  max-width: 780px;
+  margin: 2rem auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  padding: 1.5rem;
+}
+
+h1, h2 {
+  margin-top: 0;
+  color: #c2185b;
+}
+
+h3 {
+  margin: 0 0 0.5rem;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+input, textarea, select, button {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.btn, button {
+  background: #c2185b;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  padding: 0.65rem 0.95rem;
+  border-radius: 8px;
+}
+
+.btn:hover, button:hover {
+  background: #a3154c;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.grid .full {
+  grid-column: 1 / -1;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.card {
+  border: 1px solid #f1d3e1;
+  border-radius: 10px;
+  padding: 0.9rem;
+  background: #fff8fc;
+}
+
+.error {
+  color: #b00020;
+  font-size: 0.85rem;
+  margin-top: -0.7rem;
+  margin-bottom: 0.8rem;
+}
+
+.success {
+  background: #e8f5e9;
+  color: #1b5e20;
+  padding: 0.8rem;
+  border-radius: 8px;
+}
+
+.hint {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.actions {
+  margin: 1rem 0;
+}
+
+.lead {
+  margin-top: -0.2rem;
+  color: #444;
+}
+
+.link {
+  display: inline-block;
+  margin-bottom: 0.9rem;
+  color: #7b1b5b;
+}
+
+@media (max-width: 680px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

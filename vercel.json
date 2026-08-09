@@ -1,0 +1,13 @@
+{
+  "installCommand": "npm install",
+  "buildCommand": "node build.js",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "includeFiles": "api/public"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.js" }
+  ]
+}

@@ -1,0 +1,235 @@
+openapi: 3.0.3
+info:
+  title: Pink SaaS API
+  version: 1.0.0
+  description: Multi-tenant SaaS backend API (invite-only auth + RBAC + HBAC)
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service healthy
+  /auth/login:
+    post:
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login success
+  /auth/refresh:
+    post:
+      summary: Rotate refresh token
+      responses:
+        "200":
+          description: Refresh success
+  /auth/verify-otp:
+    post:
+      summary: Verify invite OTP
+      responses:
+        "200":
+          description: OTP verified
+  /auth/set-password:
+    post:
+      summary: Set initial password
+      responses:
+        "200":
+          description: Password set
+  /auth/forgot-password:
+    post:
+      summary: Request password reset token
+      responses:
+        "200":
+          description: Request accepted
+  /auth/reset-password:
+    post:
+      summary: Reset password by token
+      responses:
+        "200":
+          description: Password reset
+  /users:
+    get:
+      summary: List users for current tenant context
+      responses:
+        "200":
+          description: User list
+  /users/{userId}:
+    patch:
+      summary: Update user (employee ID, roles, position)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User updated
+  /users/invite:
+    post:
+      summary: Invite internal user (optional empCode for employee ID)
+      responses:
+        "201":
+          description: Invite sent
+  /tenants:
+    get:
+      summary: List tenants
+      responses:
+        "200":
+          description: Tenant list
+    post:
+      summary: Create tenant
+      responses:
+        "201":
+          description: Tenant created
+  /roles:
+    get:
+      summary: List roles
+      responses:
+        "200":
+          description: Role list
+    post:
+      summary: Create role
+      responses:
+        "201":
+          description: Role created
+  /roles/{roleId}:
+    patch:
+      summary: Update role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role updated
+    delete:
+      summary: Delete custom role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Role removed
+  /permissions:
+    get:
+      summary: List permissions catalog
+      responses:
+        "200":
+          description: Permission list
+  /positions:
+    get:
+      summary: List positions
+      responses:
+        "200":
+          description: Position list
+    post:
+      summary: Create position
+      responses:
+        "201":
+          description: Position created
+  /assignments:
+    get:
+      summary: List assignments
+      responses:
+        "200":
+          description: Assignment list
+    post:
+      summary: Assign seat to user
+      responses:
+        "201":
+          description: Assignment created
+  /workflows:
+    get:
+      summary: List workflows
+      responses:
+        "200":
+          description: Workflow list
+    post:
+      summary: Create workflow
+      responses:
+        "201":
+          description: Workflow created
+  /workflows/submissions:
+    post:
+      summary: Submit workflow request
+      responses:
+        "201":
+          description: Submission created
+  /forms:
+    get:
+      summary: List forms
+      responses:
+        "200":
+          description: Form list
+    post:
+      summary: Create form
+      responses:
+        "201":
+          description: Form created
+  /public/form/{token}:
+    get:
+      summary: Get external form by token
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token form payload
+  /kyc/initiate:
+    post:
+      summary: Initiate KYC
+      responses:
+        "201":
+          description: KYC initiated
+  /signatures:
+    post:
+      summary: Save signature with hash chain
+      responses:
+        "201":
+          description: Signature stored
+  /documents/generate-pdf:
+    post:
+      summary: Generate compiled PDF document
+      responses:
+        "201":
+          description: PDF generated
+  /imports/employees:
+    post:
+      summary: Upload employee import file
+      responses:
+        "201":
+          description: Import processed
+  /notifications:
+    post:
+      summary: Create/send notification event
+      responses:
+        "201":
+          description: Notification sent
+  /audit/logs:
+    get:
+      summary: Paginated audit logs
+      responses:
+        "200":
+          description: Audit log list
