@@ -22,38 +22,76 @@ function getTransporter() {
 }
 
 async function verifySmtpConnection() {
+  const sendgridConfigured = !!(env.EMAIL_MODE === "sendgrid" && env.SENDGRID_API_KEY);
   const smtpConfigured = !!(env.EMAIL_MODE === "smtp" && env.SMTP_HOST);
+
   logger.info(
     {
       emailMode: env.EMAIL_MODE,
+      sendgridConfigured,
       smtpHost: env.SMTP_HOST || "(not set)",
       smtpPort: env.SMTP_PORT,
       smtpUser: env.SMTP_USER ? env.SMTP_USER.replace(/(.{3}).*(@.*)/, "$1***$2") : "(not set)",
       smtpFrom: env.SMTP_FROM || "(not set)",
-      configured: smtpConfigured,
+      configured: sendgridConfigured || smtpConfigured,
     },
-    "SMTP configuration loaded"
+    "Email configuration loaded"
   );
 
-  if (!smtpConfigured) {
-    logger.warn("SMTP not configured — emails will be logged only (mock mode)");
-    return false;
+  if (sendgridConfigured) {
+    logger.info("SendGrid API configured — emails will be delivered");
+    return true;
   }
 
-  try {
-    await getTransporter().verify();
-    logger.info("SMTP connection verified successfully — emails will be delivered");
-    return true;
-  } catch (err) {
-    logger.error(
-      { err: err.message, host: env.SMTP_HOST, port: env.SMTP_PORT },
-      "SMTP connection verification failed — emails will NOT be delivered"
-    );
-    return false;
+  if (smtpConfigured) {
+    try {
+      await getTransporter().verify();
+      logger.info("SMTP connection verified successfully — emails will be delivered");
+      return true;
+    } catch (err) {
+      logger.error(
+        { err: err.message, host: env.SMTP_HOST, port: env.SMTP_PORT },
+        "SMTP connection verification failed — emails will NOT be delivered"
+      );
+      return false;
+    }
   }
+
+  logger.warn("No email provider configured — emails will be logged only (mock mode)");
+  return false;
 }
 
 async function sendEmail({ to, subject, html }) {
+  if (env.EMAIL_MODE === "sendgrid" && env.SENDGRID_API_KEY) {
+    const sender = env.SMTP_FROM || env.SMTP_USER || "no-reply@pink.local";
+    try {
+      const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: sender },
+          subject,
+          content: [{ type: "text/html", value: html }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`SendGrid API error ${response.status}: ${errBody}`);
+      }
+
+      logger.info({ to, subject }, "SendGrid email sent successfully");
+      return { success: true, mode: "sendgrid" };
+    } catch (err) {
+      logger.error({ to, subject, err: err.message }, "SendGrid email failed");
+      throw err;
+    }
+  }
+
   if (env.EMAIL_MODE === "smtp" && env.SMTP_HOST) {
     const sender = env.SMTP_FROM || env.SMTP_USER || "no-reply@pink.local";
     try {

@@ -31,6 +31,7 @@ const schema = Joi.object({
   SMTP_FROM: Joi.string().allow("").default(""),
   EMAIL_MODE: Joi.string().valid("mock", "smtp").default(process.env.NODE_ENV === "production" ? "smtp" : "mock"),
   DEV_OTP: Joi.string().allow("").default(""),
+  SENDGRID_API_KEY: Joi.string().allow("").default(""),
   AWS_REGION: Joi.string().default("ap-south-1"),
   AWS_S3_BUCKET: Joi.string().allow("").default(""),
   PINK_FORM_SUBMISSIONS_PATH: Joi.string().default("/api/v1/schema-forms/submissions"),
