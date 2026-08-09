@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/org-embed/:path*", "destination": "/org-embed/:path*" },
     { "source": "/((?!assets/|.*\\..*).*)", "destination": "/index.html" }
   ]
 }
