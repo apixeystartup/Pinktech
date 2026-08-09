@@ -1,8 +1,15 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/org-embed/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/org-embed/:path*", "destination": "/org-embed/:path*" },
-    { "source": "/((?!assets/|.*\\..*).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|org-embed|.*\\..*).*)", "destination": "/index.html" }
   ]
 }
