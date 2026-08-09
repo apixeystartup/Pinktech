@@ -14,7 +14,13 @@ function toggleTheme() {
 function AppLayout() {
   const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant } = useAuth();
   const [tenants, setTenants] = useState([]);
-  const navSections = getNavSections(permissionCodes);
+  const allNavSections = getNavSections(permissionCodes);
+  const navSections = isPlatformUser
+    ? allNavSections
+    : allNavSections.map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.to !== "/tenants"),
+      })).filter((section) => section.items.length > 0);
   const canManageTenants = permissionCodes.includes("tenant.manage");
   const isPlatformUser = user?.tenantCode === "PLATFORM" || currentTenant?.code === "PLATFORM";
 

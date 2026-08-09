@@ -12,5 +12,9 @@ const marker = path.join(repoRoot, "frontend", "public", "org-embed", "index.htm
 
 if (!fs.existsSync(marker)) {
   console.info("[frontend] org-embed missing — running npm run build:org-embed …");
-  execSync("npm run build:org-embed", { cwd: repoRoot, stdio: "inherit" });
+  try {
+    execSync("npm run build:org-embed", { cwd: repoRoot, stdio: "inherit" });
+  } catch {
+    console.warn("[frontend] org-embed build failed, skipping");
+  }
 }
