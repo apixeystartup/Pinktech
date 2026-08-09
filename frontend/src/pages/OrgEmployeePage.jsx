@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ModulePage from "../components/common/ModulePage";
 import TenantScopeBanner from "../components/common/TenantScopeBanner";
 import useAuth from "../hooks/useAuth";
@@ -76,6 +76,8 @@ export default function OrgEmployeePage() {
     };
   }, [syncIframeHeight, src, tenantContextId]);
 
+  const [iframeError, setIframeError] = useState(false);
+
   return (
     <ModulePage
       title="ORG employee"
@@ -83,14 +85,21 @@ export default function OrgEmployeePage() {
     >
       <TenantScopeBanner context="ORG employee" />
       <div className="org-embed-module">
-        <iframe
-          ref={iframeRef}
-          key={tenantContextId || "home"}
-          title="ORG employee"
-          src={src}
-          className="org-embed-iframe"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups"
-        />
+        {iframeError ? (
+          <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)" }}>
+            <p>Org Explorer module is not available yet.</p>
+          </div>
+        ) : (
+          <iframe
+            ref={iframeRef}
+            key={tenantContextId || "home"}
+            title="ORG employee"
+            src={src}
+            className="org-embed-iframe"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups"
+            onError={() => setIframeError(true)}
+          />
+        )}
       </div>
     </ModulePage>
   );
