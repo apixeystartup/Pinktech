@@ -9,7 +9,7 @@ const Permission = require("../../models/permission.model");
 const Import = require("../../models/import.model");
 const ImportError = require("../../models/importError.model");
 const ApiError = require("../../common/errors/ApiError");
-const { norm, stripVacantSuffix, titleCase } = require("../../utils/orgNorm");
+const { norm, titleCase, generateNameVariants } = require("../../utils/orgNorm");
 const { parseOrgWorkbookBuffer } = require("./orgWorkbookParser.service");
 const rolesService = require("../roles/roles.service");
 
@@ -96,13 +96,12 @@ function normalizeWorkbookEmail(raw) {
 
 /**
  * Copy normalized sheet email into orgContactEmail for every non-vacant row (always refreshed on re-import).
+ * Uses the row._userId link set during the main upsert loop for safe pairing.
  */
-function applyOfficialEmailsFromSheet(users, rows) {
+function applyOfficialEmailsFromSheet(userById, rows) {
   let stored = 0;
-  const n = Math.min(users.length, rows.length);
-  for (let i = 0; i < n; i += 1) {
-    const row = rows[i];
-    const u = users[i];
+  for (const row of rows) {
+    const u = userById.get(String(row._userId));
     if (!u) continue;
     if (row.isVacant) {
       u.orgContactEmail = null;
@@ -122,19 +121,20 @@ function applyOfficialEmailsFromSheet(users, rows) {
 /**
  * Set User.email from the workbook column when the row has a valid address and this user still
  * uses a synthetic placeholder. Respects tenant-wide uniqueness and first-claim within the import batch.
+ * Uses row._userId link for safe pairing instead of fragile index matching.
  */
-async function applyWorkbookSheetEmails(tenantId, users, rows) {
+async function applyWorkbookSheetEmails(tenantId, userById, rows) {
   const emailsParsedFromWorkbook = rows.filter(
     (r) => !r.isVacant && r.empId && normalizeWorkbookEmail(r.workEmail),
   ).length;
 
   const promote = [];
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = rows[i];
+  for (const row of rows) {
     if (row.isVacant) continue;
     const m = normalizeWorkbookEmail(row.workEmail);
     if (!m) continue;
-    const u = users[i];
+    const u = userById.get(String(row._userId));
+    if (!u) continue;
     if (!isSyntheticOrgEmail(u.email)) continue;
     promote.push({ u, m: m.toLowerCase() });
   }
@@ -266,11 +266,14 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
     }
 
     const users = [];
+    const seenEmpCodes = new Set();
 
     for (const row of rows) {
       let u = null;
       if (row.empId) {
-        u = byEmpId.get(String(row.empId).trim().toUpperCase()) || null;
+        const empKey = String(row.empId).trim().toUpperCase();
+        u = byEmpId.get(empKey) || null;
+        if (!u && seenEmpCodes.has(empKey)) continue;
       }
       if (!u && row.rowNumber) {
         u = byOriginalRow.get(row.rowNumber) || null;
@@ -332,11 +335,15 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
         }
       }
 
+      row._userId = String(u._id);
+      if (!row.isVacant && u.empCode) seenEmpCodes.add(u.empCode);
       users.push(u);
     }
 
-    const officialEmailsStored = applyOfficialEmailsFromSheet(users, rows);
-    const { emailsParsedFromWorkbook, emailsApplied } = await applyWorkbookSheetEmails(tenantId, users, rows);
+    const userById = new Map(users.map((u) => [String(u._id), u]));
+
+    const officialEmailsStored = applyOfficialEmailsFromSheet(userById, rows);
+    const { emailsParsedFromWorkbook, emailsApplied } = await applyWorkbookSheetEmails(tenantId, userById, rows);
 
     const nameIndex = new Map();
     const roleIndex = new Map();
@@ -345,13 +352,11 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
     rows.forEach((r) => {
       const role = roleOf(r.designation);
       if (!r.isVacant && r.name) {
-        const k = norm(r.name);
-        if (!nameIndex.has(k)) nameIndex.set(k, []);
-        nameIndex.get(k).push(r);
-        const stripped = norm(stripVacantSuffix(r.name));
-        if (stripped && stripped !== k) {
-          if (!nameIndex.has(stripped)) nameIndex.set(stripped, []);
-          nameIndex.get(stripped).push(r);
+        const variants = generateNameVariants(r.name);
+        for (const k of variants) {
+          if (!k) continue;
+          if (!nameIndex.has(k)) nameIndex.set(k, []);
+          nameIndex.get(k).push(r);
         }
         if (role) {
           if (!roleIndex.has(role)) roleIndex.set(role, []);
@@ -366,7 +371,8 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
     let errorCount = 0;
     for (let i = 0; i < rows.length; i += 1) {
       const row = rows[i];
-      const u = users[i];
+      const u = userById.get(row._userId);
+      if (!u) continue;
       const raw = row.reportingManagerRaw;
 
       let resolvedRow = null;
@@ -383,7 +389,8 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
             pickBest(vacantRoleIndex.get(vacantRole) || [], row) || pickBest(roleIndex.get(higher) || [], row);
           resolution = resolvedRow ? `placeholder->${vacantRole}/${higher}` : "external_root";
         } else {
-          for (const candidate of [norm(raw), norm(stripVacantSuffix(raw))]) {
+          const rawVariants = generateNameVariants(raw);
+          for (const candidate of rawVariants) {
             const hits = nameIndex.get(candidate);
             if (hits && hits.length) {
               resolvedRow = pickBest(hits, row);
@@ -403,8 +410,8 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
         }
       }
 
-      const resolvedIdx = resolvedRow ? rows.indexOf(resolvedRow) : -1;
-      const parentId = resolvedIdx >= 0 ? users[resolvedIdx]._id : null;
+      const resolvedUserId = resolvedRow ? resolvedRow._userId : null;
+      const parentId = resolvedUserId ? userById.get(resolvedUserId)?._id || null : null;
       if (parentId && String(parentId) === String(u._id)) {
         u.reportingToUserId = null;
         u.managerResolution = "orphan";
