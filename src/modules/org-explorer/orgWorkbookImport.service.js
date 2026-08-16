@@ -5,7 +5,6 @@
 
 const User = require("../../models/user.model");
 const Role = require("../../models/role.model");
-const Permission = require("../../models/permission.model");
 const Import = require("../../models/import.model");
 const ImportError = require("../../models/importError.model");
 const ApiError = require("../../common/errors/ApiError");
@@ -39,17 +38,6 @@ const ROLE_RANK = {
 function roleOf(designation) {
   if (!designation) return null;
   return ROLE_TOKENS[designation.trim().toUpperCase()] || null;
-}
-
-function pickRandomPermissions(permissionIds) {
-  if (!permissionIds.length) return [];
-  const shuffled = [...permissionIds];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  const count = Math.max(1, Math.ceil(shuffled.length * 0.4));
-  return shuffled.slice(0, count);
 }
 
 function workbookEmail({ tenantId, rowNumber, empId, name, isVacant }) {
@@ -198,11 +186,18 @@ async function discoverRolesForUsers(tenantId, users) {
       aliasIndex.set(norm(a), r._id);
     }
   }
-  const allPerm = await Permission.find({}, { _id: 1 }).lean();
-  const permissionIds = allPerm.map((p) => p._id);
 
   const desigs = [...new Set(users.map((u) => u.designationOverride).filter(Boolean))];
   let createdRoles = 0;
+
+  const autoRoles = await Role.find({ tenantId, "auto.detectedAt": { $exists: true } });
+  for (const r of autoRoles) {
+    if (r.permissionIds && r.permissionIds.length > 0) {
+      r.permissionIds = [];
+      await r.save();
+    }
+  }
+
   for (const des of desigs) {
     const key = norm(des);
     if (aliasIndex.has(key)) continue;
@@ -210,7 +205,7 @@ async function discoverRolesForUsers(tenantId, users) {
       tenantId,
       name: titleCase(String(des).trim()),
       type: "CUSTOM",
-      permissionIds: pickRandomPermissions(permissionIds),
+      permissionIds: [],
       aliases: [String(des).trim().toUpperCase()],
       auto: { level: 1, scope: "HQ", detectedAt: new Date() },
       employeeCount: 0,
