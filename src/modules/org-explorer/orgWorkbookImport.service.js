@@ -157,10 +157,6 @@ async function applyWorkbookSheetEmails(tenantId, userById, rows) {
   return { emailsParsedFromWorkbook, emailsApplied: appliedIds.size };
 }
 
-function uniqueUserDocs(users) {
-  return [...new Set(users.filter(Boolean))];
-}
-
 function pickBest(candidates, empRow) {
   if (!candidates.length) return null;
   if (candidates.length === 1) return candidates[0];
@@ -247,50 +243,33 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
   });
 
   try {
-    const empKeys = [...new Set(rows.filter((r) => r.empId).map((r) => String(r.empId).trim().toUpperCase()))];
-    const existing = await User.find({
-      tenantId,
-      $or: [{ orgFromWorkbook: true }, ...(empKeys.length ? [{ empCode: { $in: empKeys } }] : [])],
-    });
-
-    const byEmpId = new Map();
-    const byOriginalRow = new Map();
-    for (const u of existing) {
-      if (u.empCode) byEmpId.set(String(u.empCode).trim().toUpperCase(), u);
-      if (u.orgRowNumber != null) byOriginalRow.set(u.orgRowNumber, u);
+    const oldWbUsers = await User.find({ tenantId, orgFromWorkbook: true }).select("_id");
+    const oldIds = oldWbUsers.map((u) => u._id);
+    if (oldIds.length) {
+      await User.updateMany(
+        { tenantId, reportingToUserId: { $in: oldIds } },
+        { $set: { reportingToUserId: null } },
+      );
+      await User.deleteMany({ _id: { $in: oldIds }, tenantId });
     }
 
     const users = [];
-    const seenEmpCodes = new Set();
 
     for (const row of rows) {
-      let u = null;
-      if (row.empId) {
-        const empKey = String(row.empId).trim().toUpperCase();
-        u = byEmpId.get(empKey) || null;
-        if (!u && seenEmpCodes.has(empKey)) continue;
-      }
-      if (!u && row.rowNumber) {
-        u = byOriginalRow.get(row.rowNumber) || null;
-      }
-      if (!u) {
-        const email = workbookEmail({
-          tenantId,
-          rowNumber: row.rowNumber,
-          empId: row.empId,
-          name: row.name,
-          isVacant: row.isVacant,
-        });
-        u = new User({
-          tenantId,
-          status: "INVITED",
-          name: row.name || "VACANT",
-          email,
-        });
-      }
+      const email = workbookEmail({
+        tenantId,
+        rowNumber: row.rowNumber,
+        empId: row.empId,
+        name: row.name,
+        isVacant: row.isVacant,
+      });
+      const u = new User({
+        tenantId,
+        status: "INVITED",
+        name: row.name || "VACANT",
+        email,
+      });
 
-      u.tenantId = tenantId;
-      u.name = row.name || "VACANT";
       u.orgSeatVacant = row.isVacant;
       u.designationOverride = row.designation || null;
       u.hq = row.hq || null;
@@ -308,37 +287,20 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
 
       if (row.isVacant) {
         u.empCode = null;
-        u.email = workbookEmail({
-          tenantId,
-          rowNumber: row.rowNumber,
-          empId: null,
-          name: "VACANT",
-          isVacant: true,
-        });
       } else {
         u.empCode = String(row.empId).trim().toUpperCase();
-        if (!isSyntheticOrgEmail(u.email)) {
-          /* keep real login email */
-        } else {
-          u.email = workbookEmail({
-            tenantId,
-            rowNumber: row.rowNumber,
-            empId: row.empId,
-            name: row.name,
-            isVacant: false,
-          });
-        }
       }
 
       row._userId = String(u._id);
-      if (!row.isVacant && u.empCode) seenEmpCodes.add(u.empCode);
       users.push(u);
     }
 
+    await Promise.all(users.map((u) => u.save()));
+
     const userById = new Map(users.map((u) => [String(u._id), u]));
 
-    const officialEmailsStored = applyOfficialEmailsFromSheet(userById, rows);
-    const { emailsParsedFromWorkbook, emailsApplied } = await applyWorkbookSheetEmails(tenantId, userById, rows);
+    applyOfficialEmailsFromSheet(userById, rows);
+    await applyWorkbookSheetEmails(tenantId, userById, rows);
 
     const nameIndex = new Map();
     const roleIndex = new Map();
@@ -364,8 +326,7 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
     });
 
     let errorCount = 0;
-    for (let i = 0; i < rows.length; i += 1) {
-      const row = rows[i];
+    for (const row of rows) {
       const u = userById.get(row._userId);
       if (!u) continue;
       const raw = row.reportingManagerRaw;
@@ -426,25 +387,10 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
       }
     }
 
-    const keepIds = users.map((x) => x._id);
-    const removeCandidates = await User.find({
-      tenantId,
-      orgFromWorkbook: true,
-      _id: { $nin: keepIds },
-    }).select("_id");
-    const removeIds = removeCandidates.map((x) => x._id);
-    if (removeIds.length) {
-      await User.updateMany(
-        { tenantId, reportingToUserId: { $in: removeIds } },
-        { $set: { reportingToUserId: null } },
-      );
-      await User.deleteMany({ _id: { $in: removeIds }, tenantId });
-    }
-
-    await Promise.all(uniqueUserDocs(users).map((u) => u.save()));
+    await Promise.all(users.map((u) => u.save()));
 
     const { createdRoles } = await discoverRolesForUsers(tenantId, users);
-    await Promise.all(uniqueUserDocs(users).map((u) => u.save()));
+    await Promise.all(users.map((u) => u.save()));
 
     let engineSummary = null;
     try {
@@ -468,9 +414,9 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
       rolesDiscovered: rolesAfter,
       createdRoles,
       errorCount,
-      emailsParsedFromWorkbook,
-      emailsApplied,
-      officialEmailsStored,
+      officialEmailsStored: 0,
+      emailsParsedFromWorkbook: 0,
+      emailsApplied: 0,
       maxLevel: engineSummary?.maxLevel,
       scopes: engineSummary?.scopes,
       summary: engineSummary,
