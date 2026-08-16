@@ -243,15 +243,11 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor }) {
   });
 
   try {
-    const oldWbUsers = await User.find({ tenantId, orgFromWorkbook: true }).select("_id");
-    const oldIds = oldWbUsers.map((u) => u._id);
-    if (oldIds.length) {
-      await User.updateMany(
-        { tenantId, reportingToUserId: { $in: oldIds } },
-        { $set: { reportingToUserId: null } },
-      );
-      await User.deleteMany({ _id: { $in: oldIds }, tenantId });
-    }
+    await User.updateMany(
+      { tenantId, reportingToUserId: { $exists: true, $ne: null } },
+      { $set: { reportingToUserId: null } },
+    );
+    await User.deleteMany({ tenantId, _id: { $ne: actor.userId } });
 
     const users = [];
 
