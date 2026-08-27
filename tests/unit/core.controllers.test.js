@@ -1,16 +1,16 @@
-const tenantsController = require("../../src/modules/tenants/tenants.controller");
-const rolesController = require("../../src/modules/roles/roles.controller");
-const positionsController = require("../../src/modules/positions/positions.controller");
-const assignmentsController = require("../../src/modules/assignments/assignments.controller");
-const tenantsService = require("../../src/modules/tenants/tenants.service");
-const rolesService = require("../../src/modules/roles/roles.service");
-const positionsService = require("../../src/modules/positions/positions.service");
-const assignmentsService = require("../../src/modules/assignments/assignments.service");
+const tenantsController = require("../../services/platform-service/src/controllers/tenants.controller");
+const rolesController = require("../../services/platform-service/src/controllers/roles.controller");
+const positionsController = require("../../services/org-service/src/services/positions.controller");
+const assignmentsController = require("../../services/org-service/src/services/assignments.controller");
+const tenantsService = require("../../services/platform-service/src/services/tenants.service");
+const rolesService = require("../../services/platform-service/src/services/roles.service");
+const positionsService = require("../../services/org-service/src/services/positions.service");
+const assignmentsService = require("../../services/org-service/src/services/assignments.service");
 
-jest.mock("../../src/modules/tenants/tenants.service");
-jest.mock("../../src/modules/roles/roles.service");
-jest.mock("../../src/modules/positions/positions.service");
-jest.mock("../../src/modules/assignments/assignments.service");
+jest.mock("../../services/platform-service/src/services/tenants.service");
+jest.mock("../../services/platform-service/src/services/roles.service");
+jest.mock("../../services/org-service/src/services/positions.service");
+jest.mock("../../services/org-service/src/services/assignments.service");
 
 function resMock() {
   return { status: jest.fn().mockReturnThis(), json: jest.fn(), sendStatus: jest.fn() };

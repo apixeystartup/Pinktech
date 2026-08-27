@@ -1,22 +1,22 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const authService = require("../../src/modules/auth/auth.service");
-const ApiError = require("../../src/common/errors/ApiError");
-const User = require("../../src/models/user.model");
-const Tenant = require("../../src/models/tenant.model");
-const RefreshToken = require("../../src/models/refreshToken.model");
-const tokenService = require("../../src/services/token.service");
-const auditService = require("../../src/services/audit.service");
-const notificationAdapter = require("../../src/modules/notifications/notification.adapter");
+const authService = require("../../services/auth-service/src/services/auth.service");
+const ApiError = require("@pink/shared").ApiError;
+const User = require("../../services/auth-service/src/models/user.model");
+const Tenant = require("../../services/auth-service/src/models/tenant.model");
+const RefreshToken = require("../../services/auth-service/src/models/refreshToken.model");
+const tokenService = require("../../services/auth-service/src/services/token.service");
+const auditService = require("../../services/auth-service/src/services/audit.service");
+const notificationAdapter = require("../../services/auth-service/src/services/notification.adapter");
 
 jest.mock("bcrypt");
 jest.mock("jsonwebtoken");
-jest.mock("../../src/models/user.model");
-jest.mock("../../src/models/tenant.model");
-jest.mock("../../src/models/refreshToken.model");
-jest.mock("../../src/services/token.service");
-jest.mock("../../src/services/audit.service");
-jest.mock("../../src/modules/notifications/notification.adapter");
+jest.mock("../../services/auth-service/src/models/user.model");
+jest.mock("../../services/auth-service/src/models/tenant.model");
+jest.mock("../../services/auth-service/src/models/refreshToken.model");
+jest.mock("../../services/auth-service/src/services/token.service");
+jest.mock("../../services/auth-service/src/services/audit.service");
+jest.mock("../../services/auth-service/src/services/notification.adapter");
 
 describe("auth.service", () => {
   beforeEach(() => {
@@ -43,7 +43,7 @@ describe("auth.service", () => {
       bcrypt.compare.mockResolvedValue(true);
       tokenService.signAccessToken.mockReturnValue("access-token");
       tokenService.signRefreshToken.mockReturnValue("refresh-token");
-      Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE" });
+      Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE", name: "Acme Co", code: "ACME" });
       RefreshToken.create.mockResolvedValue({ _id: "rt-1" });
 
       const result = await authService.login({
@@ -54,6 +54,9 @@ describe("auth.service", () => {
       expect(result.accessToken).toBe("access-token");
       expect(result.refreshToken).toBe("refresh-token");
       expect(result.user.email).toBe("john@test.com");
+      expect(result.tenant).toEqual(
+        expect.objectContaining({ _id: "tenant-1", name: "Acme Co", code: "ACME", status: "ACTIVE" }),
+      );
       expect(save).toHaveBeenCalledTimes(1);
       expect(auditService.writeAudit).toHaveBeenCalledWith(
         expect.objectContaining({ action: "AUTH_LOGIN" })
@@ -105,8 +108,16 @@ describe("auth.service", () => {
 
   describe("inviteUser", () => {
     it("creates/upserts user in OTP_PENDING and returns invite payload", async () => {
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: "tenant-1", status: "ACTIVE", name: "Acme" }),
+      });
+      User.findOne.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null),
+      });
       User.findOneAndUpdate.mockResolvedValue({
         _id: "user-123",
+        email: "alice@test.com",
+        orgContactEmail: null,
       });
       notificationAdapter.sendEmail.mockResolvedValue(undefined);
 
@@ -123,28 +134,132 @@ describe("auth.service", () => {
       expect(auditService.writeAudit).toHaveBeenCalledWith(
         expect.objectContaining({ action: "USER_INVITED" })
       );
+      expect(notificationAdapter.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "alice@test.com" })
+      );
+    });
+
+    it("matches org roster by official email, promotes synthetic login, and mails the official address", async () => {
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: "tenant-1", status: "ACTIVE", name: "Acme" }),
+      });
+      const rosterUser = {
+        _id: "roster-1",
+        email: "le.r5.tabcd@org-sheet.pink",
+        orgContactEmail: "official@test.com",
+        empCode: "LE1",
+      };
+      User.findOne.mockImplementation((filter) => {
+        if (filter.$or) {
+          return { select: jest.fn().mockResolvedValue(rosterUser) };
+        }
+        if (filter.email && filter._id && filter.tenantId) {
+          return {
+            select: jest.fn().mockReturnValue({
+              lean: jest.fn().mockResolvedValue(null),
+            }),
+          };
+        }
+        return { select: jest.fn().mockResolvedValue(null) };
+      });
+      User.findByIdAndUpdate.mockResolvedValue({
+        _id: "roster-1",
+        email: "official@test.com",
+        orgContactEmail: "official@test.com",
+      });
+      notificationAdapter.sendEmail.mockResolvedValue(undefined);
+
+      await authService.inviteUser({
+        tenantId: "tenant-1",
+        name: "Pat",
+        email: "official@test.com",
+        roleIds: ["role-1"],
+      });
+
+      expect(User.findByIdAndUpdate).toHaveBeenCalled();
+      expect(notificationAdapter.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "official@test.com",
+        })
+      );
+    });
+
+    it("puts org roster email in invite HTML when login email is still an older real address", async () => {
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: "tenant-1", status: "ACTIVE", name: "Pinktech" }),
+      });
+      const rosterUser = {
+        _id: "u-1",
+        email: "apixeymagic@gmail.com",
+        orgContactEmail: "updated-from-sheet@company.com",
+        empCode: "E1",
+      };
+      User.findOne.mockImplementation((filter) => {
+        if (filter.$or) {
+          return { select: jest.fn().mockResolvedValue(rosterUser) };
+        }
+        if (filter.email && filter._id && filter.tenantId) {
+          return {
+            select: jest.fn().mockReturnValue({
+              lean: jest.fn().mockResolvedValue(null),
+            }),
+          };
+        }
+        return { select: jest.fn().mockResolvedValue(null) };
+      });
+      User.findByIdAndUpdate.mockResolvedValue({
+        _id: "u-1",
+        email: "apixeymagic@gmail.com",
+        orgContactEmail: "updated-from-sheet@company.com",
+      });
+      notificationAdapter.sendEmail.mockResolvedValue(undefined);
+
+      await authService.inviteUser({
+        tenantId: "tenant-1",
+        name: "Pat",
+        email: "updated-from-sheet@company.com",
+        roleIds: ["role-1"],
+      });
+
+      expect(notificationAdapter.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "updated-from-sheet@company.com",
+          html: expect.stringContaining("updated-from-sheet@company.com"),
+        }),
+      );
+      expect(notificationAdapter.sendEmail.mock.calls[0][0].html).not.toContain("apixeymagic@gmail.com");
     });
   });
 
   describe("verifyOtp", () => {
     it("verifies OTP and persists user", async () => {
       const save = jest.fn().mockResolvedValue(undefined);
-      User.findOne.mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          inviteExpiry: new Date(Date.now() + 60_000),
-          otpExpiry: new Date(Date.now() + 60_000),
-          otpCode: "123456",
-          otpVerified: false,
-          save,
-        }),
+      const userDoc = {
+        tenantId: "tenant-1",
+        email: "a@test.com",
+        inviteExpiry: new Date(Date.now() + 60_000),
+        otpExpiry: new Date(Date.now() + 60_000),
+        otpCode: "123456",
+        otpVerified: false,
+        save,
+      };
+      User.findOne.mockImplementation((q) => {
+        if (q.inviteToken) {
+          return { select: jest.fn().mockResolvedValue(userDoc) };
+        }
+        return { select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) }) };
       });
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ name: "Acme" }),
+      });
+      notificationAdapter.sendEmail.mockResolvedValue(undefined);
 
       const result = await authService.verifyOtp({
         inviteToken: "invite-token",
         otpCode: "123456",
       });
 
-      expect(result).toEqual({ message: "OTP verified" });
+      expect(result.message).toContain("OTP verified");
       expect(save).toHaveBeenCalledTimes(1);
     });
 
@@ -182,6 +297,7 @@ describe("auth.service", () => {
           _id: "user-1",
           tenantId: "tenant-1",
           otpVerified: true,
+          inviteExpiry: new Date(Date.now() + 60_000),
           save,
         }),
       });
@@ -199,10 +315,33 @@ describe("auth.service", () => {
       );
     });
 
+    it("sets password using email and invitation code", async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      User.findOne.mockReturnValue({
+        select: jest.fn().mockResolvedValue({
+          _id: "user-1",
+          tenantId: "tenant-1",
+          otpVerified: true,
+          save,
+        }),
+      });
+      bcrypt.hash.mockResolvedValue("new-hash");
+
+      const result = await authService.setPassword({
+        email: "a@test.com",
+        invitationCode: "ABCD1234",
+        password: "StrongPass123!",
+      });
+
+      expect(result.message).toContain("Password set");
+      expect(save).toHaveBeenCalled();
+    });
+
     it("throws when OTP is not verified", async () => {
       User.findOne.mockReturnValue({
         select: jest.fn().mockResolvedValue({
           otpVerified: false,
+          inviteExpiry: new Date(Date.now() + 60_000),
         }),
       });
 
@@ -247,14 +386,31 @@ describe("auth.service", () => {
 
   describe("resend/forgot/reset", () => {
     it("resends invite for existing user", async () => {
-      User.findOne.mockResolvedValue({
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: "t1", status: "ACTIVE", name: "Acme" }),
+      });
+      const invitedUser = {
         _id: "u1",
         name: "A",
         email: "a@b.com",
+        orgContactEmail: null,
         roleIds: ["r1"],
         currentPositionId: "p1",
+      };
+      User.findOne.mockImplementation((filter) => {
+        if (filter.$or) {
+          return { select: jest.fn().mockResolvedValue(invitedUser) };
+        }
+        if (filter.email && filter._id && filter._id.$ne) {
+          return {
+            select: jest.fn().mockReturnValue({
+              lean: jest.fn().mockResolvedValue(null),
+            }),
+          };
+        }
+        return { select: jest.fn().mockResolvedValue(null) };
       });
-      User.findOneAndUpdate.mockResolvedValue({ _id: "u1" });
+      User.findByIdAndUpdate.mockResolvedValue({ ...invitedUser, email: "a@b.com" });
       notificationAdapter.sendEmail.mockResolvedValue(undefined);
 
       const result = await authService.resendInvite({ tenantId: "t1", email: "a@b.com" });

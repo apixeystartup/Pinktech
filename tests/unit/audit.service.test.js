@@ -1,7 +1,7 @@
-const auditService = require("../../src/services/audit.service");
-const AuditLog = require("../../src/models/auditLog.model");
+const auditService = require("../../services/platform-service/src/services/audit.service");
+const AuditLog = require("../../services/platform-service/src/models/auditLog.model");
 
-jest.mock("../../src/models/auditLog.model");
+jest.mock("../../services/platform-service/src/models/auditLog.model");
 
 describe("audit.service", () => {
   beforeEach(() => {

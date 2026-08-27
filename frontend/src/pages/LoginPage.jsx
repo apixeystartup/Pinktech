@@ -64,7 +64,6 @@ function LoginPage() {
         <div className="auth-links">
           <Link to="/forgot-password">Forgot password?</Link>
           <Link to="/verify-otp">Verify invite OTP</Link>
-          <Link to="/set-password">Set invited password</Link>
         </div>
       </form>
     </div>

@@ -10,6 +10,12 @@ module.exports = [
       globals: {
         process: "readonly",
         console: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        Buffer: "readonly",
+        URL: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
       },
     },
     rules: {
@@ -30,6 +36,11 @@ module.exports = [
     },
   },
   {
-    ignores: ["node_modules/**"],
+    ignores: [
+      "node_modules/**",
+      "frontend/**",
+      "coverage/**",
+      "frontend/public/org-embed/**",
+    ],
   },
 ];

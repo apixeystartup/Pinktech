@@ -5,14 +5,12 @@ const steps = [
   { title: "Login as super admin", route: "/login" },
   { title: "Create tenant", route: "/tenants" },
   { title: "Create roles and map permissions", route: "/roles" },
-  { title: "Build hierarchy tree (HBAC)", route: "/positions" },
-  { title: "People: employee IDs, roles, invites", route: "/people" },
+  { title: "Org directory: workbook, roles, reporting tree", route: "/org-employees" },
   { title: "Assign users to positions", route: "/assignments" },
   { title: "Invite and OTP activate users", route: "/verify-otp" },
   { title: "Create workflow", route: "/workflows" },
-  { title: "Create and publish form", route: "/forms" },
-  { title: "Generate public token link", route: "/public-links" },
-  { title: "Trigger KYC / signature / document", route: "/kyc" },
+  { title: "Create forms and share public links (Forms page)", route: "/forms" },
+  { title: "Trigger KYC", route: "/kyc" },
   { title: "Check notifications + audit logs", route: "/notifications" },
 ];
 

@@ -1,7 +1,5 @@
-const tenantValidator = require("../../src/modules/tenants/tenants.validator");
-const roleValidator = require("../../src/modules/roles/roles.validator");
-const positionValidator = require("../../src/modules/positions/positions.validator");
-const assignmentValidator = require("../../src/modules/assignments/assignments.validator");
+const tenantValidator = require("../../services/platform-service/src/validators/tenants.validator");
+const roleValidator = require("../../services/platform-service/src/validators/roles.validator");
 
 function nextMock() {
   return jest.fn();
@@ -9,7 +7,7 @@ function nextMock() {
 
 describe("module validators", () => {
   it("tenant validator handles valid and invalid payloads", () => {
-    const validReq = { body: { name: "Acme", code: "ACME" } };
+    const validReq = { body: { name: "Acme", code: "ACME", email: "admin@example.com" } };
     const validNext = nextMock();
     tenantValidator.validate(tenantValidator.createTenantSchema)(validReq, {}, validNext);
     expect(validNext).toHaveBeenCalledWith();
@@ -37,27 +35,15 @@ describe("module validators", () => {
     expect(badNext.mock.calls[0][0].statusCode).toBe(422);
   });
 
-  it("position validator handles valid and invalid payloads", () => {
-    const validReq = { body: { title: "Lead", levelName: "1L" } };
+  it("validates tenant updates and rejects empty updates", () => {
     const validNext = nextMock();
-    positionValidator.validate(positionValidator.createPositionSchema)(validReq, {}, validNext);
+    const validReq = { body: { email: "updated@example.com", status: "SUSPENDED" } };
+    tenantValidator.validate(tenantValidator.updateTenantSchema)(validReq, {}, validNext);
     expect(validNext).toHaveBeenCalledWith();
 
-    const badReq = { body: { title: "" } };
     const badNext = nextMock();
-    positionValidator.validate(positionValidator.createPositionSchema)(badReq, {}, badNext);
+    tenantValidator.validate(tenantValidator.updateTenantSchema)({ body: {} }, {}, badNext);
     expect(badNext.mock.calls[0][0].statusCode).toBe(422);
   });
 
-  it("assignment validator handles valid and invalid payloads", () => {
-    const validReq = { body: { userId: "u1", positionId: "p1" } };
-    const validNext = nextMock();
-    assignmentValidator.validate(assignmentValidator.assignSeatSchema)(validReq, {}, validNext);
-    expect(validNext).toHaveBeenCalledWith();
-
-    const badReq = { body: { userId: "u1" } };
-    const badNext = nextMock();
-    assignmentValidator.validate(assignmentValidator.assignSeatSchema)(badReq, {}, badNext);
-    expect(badNext.mock.calls[0][0].statusCode).toBe(422);
-  });
 });

@@ -1,9 +1,9 @@
-const sanitizeMiddleware = require("../../src/middlewares/sanitize.middleware");
-const hierarchyMiddleware = require("../../src/middlewares/hierarchy.middleware");
-const upload = require("../../src/middlewares/upload.middleware");
-const hierarchyService = require("../../src/modules/positions/hierarchy.service");
+const sanitizeMiddleware = require("../../shared/src/middlewares/sanitize");
+const hierarchyMiddleware = require("../../services/org-service/src/middlewares/hierarchy.middleware");
+const upload = require("../../shared/src/middlewares/upload");
+const hierarchyService = require("../../services/org-service/src/services/hierarchy.service");
 
-jest.mock("../../src/modules/positions/hierarchy.service");
+jest.mock("../../services/org-service/src/services/hierarchy.service");
 
 describe("extra middlewares", () => {
   it("sanitizes body params and query values", () => {

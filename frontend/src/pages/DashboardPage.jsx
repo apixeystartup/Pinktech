@@ -4,16 +4,12 @@ function DashboardPage() {
   const modules = [
     "Tenants",
     "Roles",
+    "ORG employee",
     "Permissions",
-    "Positions",
     "Assignments",
     "Workflows",
     "Forms",
-    "Public Links",
     "KYC",
-    "Signatures",
-    "Documents",
-    "Imports",
     "Notifications",
     "Audit",
   ];

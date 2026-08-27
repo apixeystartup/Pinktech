@@ -1,23 +1,26 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../../../lib/api";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 
 function VerifyOtpPage() {
   const { showToast } = useToast();
-  const [form, setForm] = useState({ inviteToken: "", otpCode: "" });
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState("");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
-    setResult("");
     try {
-      const res = await api.post("/auth/verify-otp", form);
-      setResult(res.data.message);
+      await api.post("/auth/verify-otp", {
+        email: email.trim().toLowerCase(),
+        otpCode: otpCode.trim(),
+      });
       showToast("OTP verified", "success");
+      navigate(`/set-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (error) {
       showToast(getErrorMessage(error), "error");
     } finally {
@@ -29,22 +32,27 @@ function VerifyOtpPage() {
     <div className="auth-container">
       <form className="auth-card" onSubmit={handleSubmit}>
         <h2>Verify Invite OTP</h2>
+        <p className="small-note">
+          Enter the <strong>email</strong> and <strong>OTP</strong> from your invite message.
+        </p>
         <input
-          placeholder="Invite token"
-          value={form.inviteToken}
-          onChange={(e) => setForm((prev) => ({ ...prev, inviteToken: e.target.value }))}
+          type="email"
+          placeholder="Work email (from invite)"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
+          autoComplete="email"
         />
         <input
           placeholder="6-digit OTP"
-          value={form.otpCode}
-          onChange={(e) => setForm((prev) => ({ ...prev, otpCode: e.target.value }))}
+          value={otpCode}
+          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           required
+          inputMode="numeric"
         />
         <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? "Verifying..." : "Verify"}
+          {loading ? "Verifying..." : "Verify & Set Password"}
         </button>
-        {result ? <p>{result}</p> : null}
         <Link to="/login">Back to login</Link>
       </form>
     </div>

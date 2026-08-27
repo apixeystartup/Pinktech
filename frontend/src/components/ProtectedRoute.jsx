@@ -9,7 +9,7 @@ function ProtectedRoute({ children, requiredPermissions = [] }) {
   }
 
   if (requiredPermissions.length > 0) {
-    const allowed = requiredPermissions.some((code) => permissionCodes.includes(code));
+    const allowed = permissionCodes.includes("*") || requiredPermissions.some((code) => permissionCodes.includes(code));
     if (!allowed) {
       return <Navigate to="/access-denied" replace />;
     }

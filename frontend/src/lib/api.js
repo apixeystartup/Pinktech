@@ -8,6 +8,7 @@ const api = axios.create({
 let authContextBridge = {
   getRefreshToken: () => null,
   getTenantContext: () => null,
+  clearTenantContext: () => {},
   setTokens: () => {},
   logout: () => {},
 };
@@ -31,7 +32,22 @@ api.interceptors.request.use((config) => {
 let refreshPromise = null;
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    try {
+      const url = response.config?.url || "";
+      const method = (response.config?.method || "").toLowerCase();
+      if (
+        (method === "patch" || method === "put") &&
+        /\/users\/[^/]+$/i.test(url.split("?")[0]) &&
+        !/\/users\/invite/i.test(url)
+      ) {
+        window.dispatchEvent(new Event("pink:auth-refresh"));
+      }
+    } catch {
+      /* ignore */
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config || {};
     const status = error.response?.status;
@@ -67,6 +83,15 @@ api.interceptors.response.use(
       const nextAccessToken = await refreshPromise;
       originalRequest.headers = originalRequest.headers || {};
       originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
+      return api(originalRequest);
+    }
+
+    const message = error.response?.data?.message || "";
+    if (status === 403 && message.includes("Target tenant is inactive") && !originalRequest._tenantContextCleared) {
+      originalRequest._tenantContextCleared = true;
+      authContextBridge.clearTenantContext();
+      originalRequest.headers = originalRequest.headers || {};
+      delete originalRequest.headers["X-Tenant-Id"];
       return api(originalRequest);
     }
 

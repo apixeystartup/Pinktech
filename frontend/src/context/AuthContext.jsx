@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { registerAuthBridge } from "../lib/api";
 import AuthContext from "./auth-context";
@@ -15,7 +15,69 @@ export function AuthProvider({ children }) {
       ? JSON.parse(localStorage.getItem("permissionCodes"))
       : [],
   );
+  const [currentTenant, setCurrentTenant] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const applySessionPayload = useCallback((data) => {
+    const baseUser = data?.user ?? null;
+    const codes = data?.permissionCodes ?? [];
+    if (baseUser) {
+      const nextUser = { ...baseUser, tenantId: baseUser.tenantId };
+      localStorage.setItem("authUser", JSON.stringify(nextUser));
+      setUser(nextUser);
+    }
+    localStorage.setItem("permissionCodes", JSON.stringify(codes));
+    setPermissionCodes(codes);
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+    try {
+      const res = await api.get("/auth/me");
+      applySessionPayload(res.data);
+    } catch {
+      /* ignore — offline or transient */
+    }
+  }, [applySessionPayload]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setCurrentTenant(null);
+      return undefined;
+    }
+    let active = true;
+    api
+      .get("/tenants/current")
+      .then((res) => {
+        if (active) setCurrentTenant(res.data || null);
+      })
+      .catch(() => {
+        if (active) setCurrentTenant(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [accessToken, tenantContextId]);
+
+  useEffect(() => {
+    if (!accessToken) return undefined;
+    refreshSession();
+    let debounceTimer;
+    const scheduleRefresh = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => refreshSession(), 280);
+    };
+    window.addEventListener("pink:auth-refresh", refreshSession);
+    window.addEventListener("focus", scheduleRefresh);
+    document.addEventListener("visibilitychange", scheduleRefresh);
+    return () => {
+      clearTimeout(debounceTimer);
+      window.removeEventListener("pink:auth-refresh", refreshSession);
+      window.removeEventListener("focus", scheduleRefresh);
+      document.removeEventListener("visibilitychange", scheduleRefresh);
+    };
+  }, [accessToken, refreshSession]);
 
   const login = async (email, password) => {
     setIsLoading(true);
@@ -23,7 +85,10 @@ export function AuthProvider({ children }) {
       const response = await api.post("/auth/login", { email, password });
       const token = response.data?.accessToken;
       const nextRefreshToken = response.data?.refreshToken;
-      const nextUser = response.data?.user || null;
+      const baseUser = response.data?.user || null;
+      const org = response.data?.tenant;
+      const nextUser =
+        baseUser && org ? { ...baseUser, tenantId: baseUser.tenantId || org._id } : baseUser;
       const nextPermissionCodes = response.data?.permissionCodes || [];
 
       if (!token || !nextRefreshToken) {
@@ -40,6 +105,8 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
       setPermissionCodes(nextPermissionCodes);
       setTenantContextId("");
+      if (org) setCurrentTenant(org);
+      await refreshSession();
     } finally {
       setIsLoading(false);
     }
@@ -73,11 +140,13 @@ export function AuthProvider({ children }) {
     setUser(null);
     setPermissionCodes([]);
     setTenantContextId("");
+    setCurrentTenant(null);
   };
 
   registerAuthBridge({
     getRefreshToken: () => refreshToken,
     getTenantContext: () => tenantContextId || null,
+    clearTenantContext: () => setTenantContext(""),
     setTokens,
     logout,
   });
@@ -88,6 +157,7 @@ export function AuthProvider({ children }) {
       refreshToken,
       user,
       tenantContextId,
+      currentTenant,
       permissionCodes,
       isAuthenticated: Boolean(accessToken),
       isLoading,
@@ -95,8 +165,9 @@ export function AuthProvider({ children }) {
       setTenantContext,
       setTokens,
       logout,
+      refreshSession,
     }),
-    [accessToken, refreshToken, user, tenantContextId, permissionCodes, isLoading],
+    [accessToken, refreshToken, user, tenantContextId, currentTenant, permissionCodes, isLoading, refreshSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

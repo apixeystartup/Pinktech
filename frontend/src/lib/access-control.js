@@ -1,20 +1,14 @@
 export const ROUTE_PERMISSIONS = {
-  "/setup-checklist": [],
-  "/permission-matrix": ["role.view"],
   "/tenants": ["tenant.manage"],
   "/roles": ["role.view"],
   "/permissions": ["role.view"],
-  "/positions": ["employee.view"],
-  "/people": ["user.view"],
-  "/assignments": ["employee.view"],
-  "/workflows": ["workflow.submit"],
+  "/org-employees": ["user.view"],
+  "/employee-management": ["employee.manage"],
+  "/workflows": ["kyc.manage", "workflow.submit"],
+  "/form-dispatch-approvals": ["kyc.manage", "workflow.submit", "tenant.manage"],
   "/forms": ["form.view"],
-  "/public-links": ["form.publish"],
-  "/kyc": ["workflow.submit"],
-  "/signatures": ["workflow.submit"],
-  "/documents": ["report.view"],
-  "/imports": ["employee.assign"],
-  "/notifications": ["report.view"],
+  "/kyc": ["kyc.manage", "workflow.submit"],
+  "/notifications": [],
   "/audit": ["audit.view"],
 };
 
@@ -23,31 +17,25 @@ const NAV_SECTIONS = [
     title: "Core",
     items: [
       { to: "/", label: "Dashboard", permissions: [] },
-      { to: "/setup-checklist", label: "Setup Checklist", permissions: ROUTE_PERMISSIONS["/setup-checklist"] },
-      { to: "/permission-matrix", label: "Permission Matrix", permissions: ROUTE_PERMISSIONS["/permission-matrix"] },
+      { to: "/permissions", label: "Access catalog", permissions: ROUTE_PERMISSIONS["/permissions"] },
       { to: "/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"] },
       { to: "/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"] },
-      { to: "/permissions", label: "Permissions", permissions: ROUTE_PERMISSIONS["/permissions"] },
-      { to: "/positions", label: "Positions", permissions: ROUTE_PERMISSIONS["/positions"] },
-      { to: "/people", label: "People", permissions: ROUTE_PERMISSIONS["/people"] },
-      { to: "/assignments", label: "Assignments", permissions: ROUTE_PERMISSIONS["/assignments"] },
+      { to: "/org-employees", label: "ORG employee", permissions: ROUTE_PERMISSIONS["/org-employees"] },
+      { to: "/employee-management", label: "Employee Management", permissions: ROUTE_PERMISSIONS["/employee-management"] },
     ],
   },
   {
     title: "Workflow",
     items: [
       { to: "/workflows", label: "Workflows", permissions: ROUTE_PERMISSIONS["/workflows"] },
+      { to: "/form-dispatch-approvals", label: "Form approvals", permissions: ROUTE_PERMISSIONS["/form-dispatch-approvals"] },
       { to: "/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"] },
-      { to: "/public-links", label: "Public Links", permissions: ROUTE_PERMISSIONS["/public-links"] },
     ],
   },
   {
     title: "Compliance",
     items: [
       { to: "/kyc", label: "KYC", permissions: ROUTE_PERMISSIONS["/kyc"] },
-      { to: "/signatures", label: "Signatures", permissions: ROUTE_PERMISSIONS["/signatures"] },
-      { to: "/documents", label: "Documents", permissions: ROUTE_PERMISSIONS["/documents"] },
-      { to: "/imports", label: "Imports", permissions: ROUTE_PERMISSIONS["/imports"] },
       { to: "/notifications", label: "Notifications", permissions: ROUTE_PERMISSIONS["/notifications"] },
       { to: "/audit", label: "Audit Logs", permissions: ROUTE_PERMISSIONS["/audit"] },
     ],
@@ -55,6 +43,7 @@ const NAV_SECTIONS = [
 ];
 
 export function canAccessRoute(path, permissionCodes = []) {
+  if (permissionCodes.includes("*")) return true;
   const required = ROUTE_PERMISSIONS[path] || [];
   if (!required.length) return true;
   return required.some((code) => permissionCodes.includes(code));
@@ -69,8 +58,10 @@ export function getNavSections(permissionCodes = []) {
 
 export function getRbacHbacGuidance() {
   return [
-    "RBAC: route and action access is controlled by permission codes.",
-    "HBAC: position and assignment modules enforce hierarchy-aware operations.",
-    "Approval workflows should map approver position IDs to your hierarchy tree.",
+    "Access is grant-based: each route checks one or more permission codes (you need any match).",
+    "Use Access catalog for plain-language definitions; assign codes to custom roles on the Roles page.",
+    "KYC uses kyc.manage (or workflow.submit for older roles). External forms and Form approvals share that gate so IC-only users without those codes see a simpler nav. Notifications use notification.compose (or report.view).",
+    "ORG employee uses user.view (or tenant.manage) for the org embed directory and tree.",
+    "Employee Management uses employee.manage to list employees and manage credentials.",
   ];
 }

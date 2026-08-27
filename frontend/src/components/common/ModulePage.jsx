@@ -6,14 +6,19 @@ function ModulePage({ title, description, actions, children }) {
   return (
     <section className="module-page">
       <div className="module-header">
-        <div>
+        <div className="module-header-text">
           <h2>{title}</h2>
-          {description ? <p>{description}</p> : null}
+          {description ? <p className="module-page-desc">{description}</p> : null}
         </div>
         <div className="module-header-actions">
           {actions}
-          <button type="button" className="btn-secondary" onClick={() => setCollapsed((prev) => !prev)}>
-            {collapsed ? "Expand" : "Collapse"}
+          <button
+            type="button"
+            className="module-header-collapse"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((prev) => !prev)}
+          >
+            {collapsed ? "Show" : "Hide"}
           </button>
         </div>
       </div>

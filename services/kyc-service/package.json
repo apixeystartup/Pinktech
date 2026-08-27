@@ -1,0 +1,27 @@
+{
+  "name": "@pink/kyc-service",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@pink/shared": "*",
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "hpp": "^0.2.3",
+    "joi": "^18.1.2",
+    "mongoose": "^9.5.0",
+    "crypto": "^1.0.1",
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

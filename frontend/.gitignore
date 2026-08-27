@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Generated from test/client (`npm run build:org-embed`); rebuilt on predev/prebuild
+public/org-embed
 *.local
 
 # Editor directories and files
