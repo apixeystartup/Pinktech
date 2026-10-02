@@ -28,3 +28,6 @@ QC-REPORT.*
 Thumbs.db
 .idea/
 .vscode/
+
+# Production env (contains secrets - copy from .env.production.example)
+deploy/.env.production
