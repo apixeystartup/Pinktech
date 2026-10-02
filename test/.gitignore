@@ -1,0 +1,28 @@
+# Node + Vite build artifacts
+node_modules/
+server/dist/
+client/dist/
+*.log
+.npm/
+.eslintcache
+
+# Vite cache
+.vite/
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Atomic-write temp files
+*.tmp
+*.json.tmp
+
+# Env
+.env
+server/.env
+client/.env*
+!*/.env.example
+
+# OS junk
+Thumbs.db
+.DS_Store

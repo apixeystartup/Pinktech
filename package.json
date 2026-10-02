@@ -1,0 +1,64 @@
+{
+  "name": "pink",
+  "version": "2.0.0",
+  "description": "Pink SaaS - Microservices-based multi-tenant platform",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "shared",
+    "gateway",
+    "services/*",
+    "frontend"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/prepare-workspace.cjs",
+    "predev": "node scripts/check-dev-prerequisites.cjs",
+    "dev": "concurrently --kill-others-on-fail \"npm run dev:gateway\" \"npm run dev:services\" \"npm run dev:frontend\"",
+    "dev:gateway": "npm run dev --prefix gateway",
+    "dev:services": "concurrently \"npm run dev:auth\" \"npm run dev:platform\" \"npm run dev:org\" \"npm run dev:forms\" \"npm run dev:workflow\" \"npm run dev:kyc\" \"npm run dev:documents\" \"npm run dev:notifications\"",
+    "dev:auth": "npm run dev --prefix services/auth-service",
+    "dev:platform": "npm run dev --prefix services/platform-service",
+    "dev:org": "npm run dev --prefix services/org-service",
+    "dev:forms": "npm run dev --prefix services/forms-service",
+    "dev:workflow": "npm run dev --prefix services/workflow-service",
+    "dev:kyc": "npm run dev --prefix services/kyc-service",
+    "dev:documents": "npm run dev --prefix services/documents-service",
+    "dev:notifications": "npm run dev --prefix services/notifications-service",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "start": "concurrently \"npm run start:gateway\" \"npm run start:services\"",
+    "start:gateway": "npm start --prefix gateway",
+    "start:services": "concurrently \"npm start --prefix services/auth-service\" \"npm start --prefix services/platform-service\" \"npm start --prefix services/org-service\" \"npm start --prefix services/forms-service\" \"npm start --prefix services/workflow-service\" \"npm start --prefix services/kyc-service\" \"npm start --prefix services/documents-service\" \"npm start --prefix services/notifications-service\"",
+    "setup": "node scripts/bootstrap.cjs",
+    "seed:super-admin": "node scripts/seed-super-admin.cjs",
+    "lint": "eslint .",
+    "lint:frontend": "npm run lint --prefix frontend",
+    "test": "jest --runInBand --coverage",
+    "test:detect-handles": "jest --runInBand --detectOpenHandles",
+    "build:frontend": "npm run build --prefix frontend",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "release:check": "npm run lint && npm run lint:frontend && npm test && npm run build:frontend && npm run audit:production"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "eslint": "^10.2.1",
+    "@eslint/js": "^10.0.1",
+    "jest": "^30.3.0",
+    "mongodb-memory-server": "^11.0.1",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "exceljs@4.4.0": {
+      "uuid": "^11.1.1"
+    },
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  }
+}
