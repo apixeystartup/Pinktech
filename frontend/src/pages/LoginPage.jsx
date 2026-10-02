@@ -23,7 +23,7 @@ function LoginPage() {
     try {
       await login(form.email, form.password);
       showToast("Login successful", "success");
-      navigate("/", { replace: true });
+      navigate("/app", { replace: true });
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);

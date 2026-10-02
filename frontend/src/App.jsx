@@ -4,6 +4,7 @@ import { ToastProvider } from "./components/common/ToastProvider";
 import AppLayout from "./layouts/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardPage from "./pages/DashboardPage";
+import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import VerifyOtpPage from "./modules/auth/pages/VerifyOtpPage";
@@ -33,6 +34,7 @@ function App() {
       <ToastProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/verify-otp" element={<VerifyOtpPage />} />
             <Route path="/set-password" element={<SetPasswordPage />} />
@@ -43,7 +45,7 @@ function App() {
             <Route path="/public/schema-forms/:moduleId" element={<PublicSchemaFormPage />} />
             <Route path="/people" element={<Navigate to="/org-employees" replace />} />
             <Route
-              path="/"
+              path="/app"
               element={
                 <ProtectedRoute>
                   <AppLayout />
