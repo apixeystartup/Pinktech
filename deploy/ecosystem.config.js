@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "gateway",
       script: "npm",
-      args: "run dev:gateway",
+      args: "run start:gateway",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -16,7 +16,7 @@ module.exports = {
     {
       name: "auth",
       script: "npm",
-      args: "run dev:auth",
+      args: "start --prefix services/auth-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -29,7 +29,7 @@ module.exports = {
     {
       name: "platform",
       script: "npm",
-      args: "run dev:platform",
+      args: "start --prefix services/platform-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -42,7 +42,7 @@ module.exports = {
     {
       name: "org",
       script: "npm",
-      args: "run dev:org",
+      args: "start --prefix services/org-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -55,7 +55,7 @@ module.exports = {
     {
       name: "forms",
       script: "npm",
-      args: "run dev:forms",
+      args: "start --prefix services/forms-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -68,7 +68,7 @@ module.exports = {
     {
       name: "workflow",
       script: "npm",
-      args: "run dev:workflow",
+      args: "start --prefix services/workflow-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -81,7 +81,7 @@ module.exports = {
     {
       name: "kyc",
       script: "npm",
-      args: "run dev:kyc",
+      args: "start --prefix services/kyc-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -94,7 +94,7 @@ module.exports = {
     {
       name: "documents",
       script: "npm",
-      args: "run dev:documents",
+      args: "start --prefix services/documents-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
@@ -107,7 +107,7 @@ module.exports = {
     {
       name: "notifications",
       script: "npm",
-      args: "run dev:notifications",
+      args: "start --prefix services/notifications-service",
       cwd: "/home/ubuntu/Pinktech",
       autorestart: true,
       max_restarts: 10,
