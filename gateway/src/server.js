@@ -78,26 +78,26 @@ const ROUTE_SERVICE_MAP = [
   { prefix: "/api/submissions", service: "forms", servicePath: "/submissions" },
   { prefix: "/api/v1/public/forms", service: "forms", servicePath: "/public" },
   { prefix: "/api/v1/public/form", service: "forms", servicePath: "/public" },
-  { prefix: "/api/v1/public/schema-dispatch", service: "kyc", servicePath: "/public/schema-dispatch" },
-  { prefix: "/api/v1/public/kyc", service: "kyc", servicePath: "/public/kyc" },
 ];
 
-function resolveRoute(reqPath) {
+function resolveRoute(path) {
   for (const route of ROUTE_SERVICE_MAP) {
-    if (reqPath.startsWith(route.prefix)) {
+    if (path.startsWith(route.prefix)) {
       return route;
     }
   }
   return null;
 }
 
+const agent = new http.Agent({ keepAlive: false, maxSockets: 10 });
+
 function proxyRequest(targetUrl, path, req, res) {
   const url = new URL(path, targetUrl);
-  const proto = url.protocol === "https:" ? require("https") : http;
 
   const headers = { ...req.headers };
   delete headers.host;
   delete headers.connection;
+  delete headers["keep-alive"];
 
   if (req.headers["x-auth-user-id"]) {
     headers["x-auth-user-id"] = req.headers["x-auth-user-id"];
@@ -121,9 +121,10 @@ function proxyRequest(targetUrl, path, req, res) {
     path: url.pathname + url.search,
     method: req.method,
     headers,
+    agent,
   };
 
-  const proxyReq = proto.request(options, (proxyRes) => {
+  const proxyReq = http.request(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
     proxyRes.pipe(res);
   });
@@ -135,7 +136,7 @@ function proxyRequest(targetUrl, path, req, res) {
     }
   });
 
-  proxyReq.setTimeout(30000, () => {
+  proxyReq.setTimeout(15000, () => {
     proxyReq.destroy();
     if (!res.headersSent) {
       res.status(504).json({ message: "Service timeout" });
@@ -145,8 +146,8 @@ function proxyRequest(targetUrl, path, req, res) {
   if (["POST", "PUT", "PATCH"].includes(req.method)) {
     const ct = req.headers["content-type"] || "";
     if (ct.includes("application/json")) {
-      const body = JSON.stringify(req.body);
-      headers["content-length"] = Buffer.byteLength(body);
+      const body = JSON.stringify(req.body || {});
+      proxyReq.setHeader("content-length", Buffer.byteLength(body));
       proxyReq.write(body);
       proxyReq.end();
     } else {
@@ -159,28 +160,26 @@ function proxyRequest(targetUrl, path, req, res) {
 }
 
 async function authMiddleware(req, res, next) {
-  if (req.path === "/api/v1/health" || req.path === "/api/docs" || req.path.startsWith("/api/docs")) {
-    return next();
-  }
+  const publicPaths = [
+    "/api/v1/auth/login",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/verify-otp",
+    "/api/v1/auth/set-password",
+    "/api/v1/public/",
+  ];
 
-  const isPublicRoute = ROUTE_SERVICE_MAP.some(
-    (r) => r.prefix.includes("/public") && req.path.startsWith(r.prefix)
-  );
-  if (isPublicRoute) {
-    return next();
+  for (const p of publicPaths) {
+    if (req.path.startsWith(p)) {
+      return next();
+    }
   }
 
   const isPublicSubmissionPdf = ["/api/submissions/", "/api/v1/submissions/"].some(
     (p) => req.path.startsWith(p) && req.path.endsWith("/pdf")
   );
   if (isPublicSubmissionPdf) {
-    return next();
-  }
-
-  const isAuthRoute = ["/api/v1/auth/login", "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/auth/refresh", "/api/v1/auth/verify-otp", "/api/v1/auth/set-password"].some(
-    (p) => req.path.startsWith(p)
-  );
-  if (isAuthRoute) {
     return next();
   }
 
@@ -245,16 +244,6 @@ app.use(authMiddleware);
 
 app.get("/api/v1/health", (req, res) => {
   res.json({ status: "ok", service: "gateway" });
-});
-
-const dashboardHandler = require("./routes/dashboard");
-
-app.get("/api/v1/dashboard/stats", async (req, res, next) => {
-  try {
-    await dashboardHandler.handle(req, res);
-  } catch (err) {
-    next(err);
-  }
 });
 
 app.all("/api/v1/{*path}", (req, res) => {
