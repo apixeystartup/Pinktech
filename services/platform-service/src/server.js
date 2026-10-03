@@ -10,6 +10,7 @@ const tenantsRoutes = require("./routes/tenants.route");
 const rolesRoutes = require("./routes/roles.route");
 const permissionsRoutes = require("./routes/permissions.route");
 const auditRoutes = require("./routes/audit.route");
+const dashboardRoutes = require("./routes/dashboard.route");
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/tenants", serviceAuth, tenantsRoutes);
 app.use("/roles", serviceAuth, rolesRoutes);
 app.use("/permissions", serviceAuth, permissionsRoutes);
 app.use("/audit", serviceAuth, auditRoutes);
+app.use("/dashboard", serviceAuth, dashboardRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 app.use(errorMiddleware);

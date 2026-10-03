@@ -25,7 +25,12 @@ const createWorkflowSchema = Joi.object({
 
 function checkPermission(permissionCode) {
   return (req, res, next) => {
-    if (!req.auth || !req.auth.permissionCodes.includes(permissionCode)) {
+    const permissionCodes = req.auth?.permissionCodes || [];
+    const allowed =
+      permissionCodes.includes("*") ||
+      permissionCodes.includes(permissionCode) ||
+      permissionCodes.includes("tenant.manage");
+    if (!req.auth || !allowed) {
       return next(new ApiError(403, "Insufficient permissions"));
     }
     next();

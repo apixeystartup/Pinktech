@@ -64,6 +64,7 @@ const ROUTE_SERVICE_MAP = [
   { prefix: "/api/v1/roles", service: "platform", servicePath: "/roles" },
   { prefix: "/api/v1/permissions", service: "platform", servicePath: "/permissions" },
   { prefix: "/api/v1/audit", service: "platform", servicePath: "/audit" },
+  { prefix: "/api/v1/dashboard", service: "platform", servicePath: "/dashboard" },
   { prefix: "/api/v1/assignments", service: "org", servicePath: "/assignments" },
   { prefix: "/api/v1/positions", service: "org", servicePath: "/positions" },
   { prefix: "/api/v1/org", service: "org", servicePath: "/" },
