@@ -75,18 +75,20 @@ function Reveal({ children, delay = 0 }) {
 }
 
 /* ---- Particles ---- */
-function Particles() {
-  const particles = Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    left: Math.random() * 100,
-    delay: Math.random() * 15,
-    duration: 12 + Math.random() * 10,
-    size: 2 + Math.random() * 3,
-  }));
+// Generated once at module scope: the values are decorative, so recomputing
+// them on each render would be both impure and wasted work.
+const PARTICLES = Array.from({ length: 30 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  delay: Math.random() * 15,
+  duration: 12 + Math.random() * 10,
+  size: 2 + Math.random() * 3,
+}));
 
+function Particles() {
   return (
     <div className="particles-container">
-      {particles.map((p) => (
+      {PARTICLES.map((p) => (
         <div
           key={p.id}
           className="particle"

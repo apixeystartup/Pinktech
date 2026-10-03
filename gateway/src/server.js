@@ -3,6 +3,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const compression = require("compression");
 const hpp = require("hpp");
+const rateLimit = require("express-rate-limit");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const http = require("http");
@@ -11,11 +12,52 @@ const { logger } = require("@pink/shared");
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
 app.use(express.json({ limit: "2mb" }));
 app.use(hpp());
+
+/**
+ * Rate limiting.
+ *
+ * The origin runs a single 1 GB / 1-vCPU Oracle shape against a MongoDB Atlas
+ * Free cluster capped at ~100 operations per second, so a single burst from one
+ * client can exhaust the database budget for every other tenant. Limiting here
+ * protects the shared bottleneck before any work reaches a service.
+ *
+ * Authentication endpoints get a much tighter budget because they are the brute
+ * force and credential-stuffing surface.
+ */
+const apiLimiter = rateLimit({
+  windowMs: Number(env.RATE_LIMIT_WINDOW_MS || 60 * 1000),
+  limit: Number(env.RATE_LIMIT_MAX || 300),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many requests, please retry shortly" },
+});
+
+const authLimiter = rateLimit({
+  windowMs: Number(env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  limit: Number(env.AUTH_RATE_LIMIT_MAX || 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { message: "Too many attempts, please retry later" },
+});
+
+app.use("/api/v1/auth/login", authLimiter);
+app.use("/api/v1/auth/forgot-password", authLimiter);
+app.use("/api/v1/auth/reset-password", authLimiter);
+app.use("/api/v1/auth/verify-otp", authLimiter);
+app.use("/api/v1/auth/set-password", authLimiter);
+app.use("/api/v1/auth/resend-invite", authLimiter);
+app.use("/api/v1/auth/invite", authLimiter);
+app.use("/api/v1/auth", authLimiter);
+
+app.use(apiLimiter);
 
 const userSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true },
@@ -297,7 +339,7 @@ app.use((err, req, res, _next) => {
 });
 
 async function bootstrap() {
-  await mongoose.connect(env.MONGO_URI);
+  await mongoose.connect(env.MONGO_URI, { maxPoolSize: Number(env.MONGO_MAX_POOL_SIZE || 20) });
   logger.info("MongoDB connected (gateway)");
 
   const server = app.listen(env.PORT, () => {

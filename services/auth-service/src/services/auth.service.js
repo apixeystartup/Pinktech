@@ -11,7 +11,7 @@ const ApiError = require("@pink/shared").ApiError;
 const env = require("../config/env");
 const { signAccessToken, signRefreshToken } = require("./token.service");
 const { writeAudit } = require("../services/audit.service");
-const notificationAdapter = require("./notification.adapter");
+const { notificationAdapter } = require("@pink/shared");
 
 function generateOtpCode() {
   if (env.NODE_ENV !== "production" && env.DEV_OTP) {

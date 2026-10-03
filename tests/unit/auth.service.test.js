@@ -7,7 +7,7 @@ const Tenant = require("../../services/auth-service/src/models/tenant.model");
 const RefreshToken = require("../../services/auth-service/src/models/refreshToken.model");
 const tokenService = require("../../services/auth-service/src/services/token.service");
 const auditService = require("../../services/auth-service/src/services/audit.service");
-const notificationAdapter = require("../../services/auth-service/src/services/notification.adapter");
+const notificationAdapter = require("@pink/shared").notificationAdapter;
 
 jest.mock("bcrypt");
 jest.mock("jsonwebtoken");
@@ -16,7 +16,10 @@ jest.mock("../../services/auth-service/src/models/tenant.model");
 jest.mock("../../services/auth-service/src/models/refreshToken.model");
 jest.mock("../../services/auth-service/src/services/token.service");
 jest.mock("../../services/auth-service/src/services/audit.service");
-jest.mock("../../services/auth-service/src/services/notification.adapter");
+jest.mock("@pink/shared", () => ({
+  ...jest.requireActual("@pink/shared"),
+  notificationAdapter: { sendEmail: jest.fn().mockResolvedValue({ ok: true }) },
+}));
 
 describe("auth.service", () => {
   beforeEach(() => {

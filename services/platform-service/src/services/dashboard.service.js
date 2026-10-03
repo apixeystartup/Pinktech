@@ -5,10 +5,7 @@ const Role = require("../models/role.model");
 const ApiError = require("@pink/shared").ApiError;
 
 function isSuperAdmin(auth) {
-  return (
-    (auth.permissionCodes || []).includes("*") ||
-    (auth.permissionCodes || []).includes("tenant.manage")
-  );
+  return (auth.permissionCodes || []).includes("*");
 }
 
 async function getDashboardStats(auth) {
@@ -135,7 +132,7 @@ async function getDashboardStats(auth) {
 
     const managerIds = [...new Set(employeeDocs.map((u) => u.reportingToUserId).filter(Boolean))];
     const managers = managerIds.length
-      ? await User.find({ _id: { $in: managerIds } }).select("name").lean()
+      ? await User.find({ _id: { $in: managerIds }, tenantId }).select("name").lean()
       : [];
     const managerMap = new Map(managers.map((m) => [String(m._id), m.name]));
 

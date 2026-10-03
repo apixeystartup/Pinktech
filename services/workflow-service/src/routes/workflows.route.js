@@ -27,9 +27,7 @@ function checkPermission(permissionCode) {
   return (req, res, next) => {
     const permissionCodes = req.auth?.permissionCodes || [];
     const allowed =
-      permissionCodes.includes("*") ||
-      permissionCodes.includes(permissionCode) ||
-      permissionCodes.includes("tenant.manage");
+      permissionCodes.includes("*") || permissionCodes.includes(permissionCode);
     if (!req.auth || !allowed) {
       return next(new ApiError(403, "Insufficient permissions"));
     }

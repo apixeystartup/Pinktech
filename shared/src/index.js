@@ -6,6 +6,7 @@ const errorMiddleware = require("./middlewares/error");
 const sanitizeMiddleware = require("./middlewares/sanitize");
 const requestLogger = require("./middlewares/requestLogger");
 const upload = require("./middlewares/upload");
+const notificationAdapter = require("./mailer");
 
 module.exports = {
   ApiError,
@@ -16,4 +17,5 @@ module.exports = {
   sanitizeMiddleware,
   requestLogger,
   upload,
+  notificationAdapter,
 };

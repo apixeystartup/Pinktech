@@ -2,7 +2,7 @@ const express = require("express");
 const Joi = require("joi");
 const mongoose = require("mongoose");
 const Notification = require("../models/notification.model");
-const adapter = require("../services/notification.adapter");
+const { notificationAdapter } = require("@pink/shared");
 const serviceAuth = require("../middlewares/serviceAuth");
 const ApiError = require("@pink/shared").ApiError;
 const {
@@ -127,7 +127,7 @@ router.post("/", serviceAuth, async (req, res, next) => {
       });
 
       if (value.channel === "EMAIL" && value.to) {
-        await adapter.sendEmail({
+        await notificationAdapter.sendEmail({
           to: value.to,
           subject: value.subject || "Notification",
           html: value.message,

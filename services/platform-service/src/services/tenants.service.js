@@ -5,7 +5,7 @@ const Tenant = require("../models/tenant.model");
 const Role = require("../models/role.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("./audit.service");
-const notificationAdapter = require("./notification.adapter");
+const { notificationAdapter } = require("@pink/shared");
 
 async function createTenant(payload, actor) {
   const existing = await Tenant.findOne({ code: payload.code.toUpperCase() });

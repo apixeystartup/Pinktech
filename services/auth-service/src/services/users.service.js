@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const User = require("../models/user.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("../services/audit.service");
-const notificationAdapter = require("./notification.adapter");
+const { notificationAdapter } = require("@pink/shared");
 
 async function listUsers(tenantId, options = {}) {
   const roleId = options.roleId ? String(options.roleId).trim() : "";

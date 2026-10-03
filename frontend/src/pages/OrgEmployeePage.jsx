@@ -904,10 +904,7 @@ function LeaveModal({ dialog, close }) {
         <button type="button" className="org-btn-secondary" onClick={close}>Cancel</button>
         <button type="button" className="org-btn-primary danger" disabled={markLeftMut.isPending}
           onClick={() => {
-            let target = null;
-            if (reassignTo === "orphan") target = null;
-            else if (reassignTo === "default") target = emp.manager_id || null;
-            else target = reassignTo;
+            const target = reassignTo === "default" ? emp.manager_id || null : reassignTo === "orphan" ? null : reassignTo;
             markLeftMut.mutate({ id: emp.id, reassign_to: target }, { onSuccess: close });
           }}>
           {markLeftMut.isPending ? "Working…" : "Confirm leave"}

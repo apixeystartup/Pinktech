@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const env = require("../config/env");
-const notificationAdapter = require("./notification.adapter");
+const { notificationAdapter } = require("@pink/shared");
 const Notification = require("../models/notification.model");
 const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
