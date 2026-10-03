@@ -16,28 +16,28 @@ const NAV_SECTIONS = [
   {
     title: "Core",
     items: [
-      { to: "/", label: "Dashboard", permissions: [] },
-      { to: "/permissions", label: "Access catalog", permissions: ROUTE_PERMISSIONS["/permissions"] },
-      { to: "/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"] },
-      { to: "/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"] },
-      { to: "/org-employees", label: "ORG employee", permissions: ROUTE_PERMISSIONS["/org-employees"] },
-      { to: "/employee-management", label: "Employee Management", permissions: ROUTE_PERMISSIONS["/employee-management"] },
+      { to: "/app", label: "Dashboard", permissions: [] },
+      { to: "/app/permissions", label: "Access catalog", permissions: ROUTE_PERMISSIONS["/permissions"] },
+      { to: "/app/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"] },
+      { to: "/app/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"] },
+      { to: "/app/org-employees", label: "ORG employee", permissions: ROUTE_PERMISSIONS["/org-employees"] },
+      { to: "/app/employee-management", label: "Employee Management", permissions: ROUTE_PERMISSIONS["/employee-management"] },
     ],
   },
   {
     title: "Workflow",
     items: [
-      { to: "/workflows", label: "Workflows", permissions: ROUTE_PERMISSIONS["/workflows"] },
-      { to: "/form-dispatch-approvals", label: "Form approvals", permissions: ROUTE_PERMISSIONS["/form-dispatch-approvals"] },
-      { to: "/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"] },
+      { to: "/app/workflows", label: "Workflows", permissions: ROUTE_PERMISSIONS["/workflows"] },
+      { to: "/app/form-dispatch-approvals", label: "Form approvals", permissions: ROUTE_PERMISSIONS["/form-dispatch-approvals"] },
+      { to: "/app/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"] },
     ],
   },
   {
     title: "Compliance",
     items: [
-      { to: "/kyc", label: "KYC", permissions: ROUTE_PERMISSIONS["/kyc"] },
-      { to: "/notifications", label: "Notifications", permissions: ROUTE_PERMISSIONS["/notifications"] },
-      { to: "/audit", label: "Audit Logs", permissions: ROUTE_PERMISSIONS["/audit"] },
+      { to: "/app/kyc", label: "KYC", permissions: ROUTE_PERMISSIONS["/kyc"] },
+      { to: "/app/notifications", label: "Notifications", permissions: ROUTE_PERMISSIONS["/notifications"] },
+      { to: "/app/audit", label: "Audit Logs", permissions: ROUTE_PERMISSIONS["/audit"] },
     ],
   },
 ];
@@ -49,10 +49,15 @@ export function canAccessRoute(path, permissionCodes = []) {
   return required.some((code) => permissionCodes.includes(code));
 }
 
+function canAccessNavItem(item, permissionCodes = []) {
+  if (permissionCodes.includes("*")) return true;
+  return (item.permissions || []).some((code) => permissionCodes.includes(code));
+}
+
 export function getNavSections(permissionCodes = []) {
   return NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => canAccessRoute(item.to, permissionCodes)),
+    items: section.items.filter((item) => canAccessNavItem(item, permissionCodes)),
   })).filter((section) => section.items.length > 0);
 }
 

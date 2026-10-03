@@ -97,7 +97,7 @@ function AppLayout() {
               </p>
               <div className="topbar-meta-row">
                 {catalogLink ? (
-                  <NavLink to="/permissions" className="topbar-pill" title="Open access catalog">
+                  <NavLink to="/app/permissions" className="topbar-pill" title="Open access catalog">
                     {permissionCodes.includes("*") ? `${totalPermissions} grants` : `${permissionCodes.length} grants`}
                   </NavLink>
                 ) : (
@@ -158,7 +158,7 @@ function AppLayout() {
             <div key={section.title} className="sidebar-section">
               <h3>{section.title}</h3>
               {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.to === "/"}>
+                <NavLink key={item.to} to={item.to} end>
                   {item.label}
                 </NavLink>
               ))}

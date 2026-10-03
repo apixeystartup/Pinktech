@@ -3,15 +3,15 @@ import ModulePage from "../components/common/ModulePage";
 
 const steps = [
   { title: "Login as super admin", route: "/login" },
-  { title: "Create tenant", route: "/tenants" },
-  { title: "Create roles and map permissions", route: "/roles" },
-  { title: "Org directory: workbook, roles, reporting tree", route: "/org-employees" },
-  { title: "Assign users to positions", route: "/assignments" },
+  { title: "Create tenant", route: "/app/tenants" },
+  { title: "Create roles and map permissions", route: "/app/roles" },
+  { title: "Org directory: workbook, roles, reporting tree", route: "/app/org-employees" },
+  { title: "Assign users to positions", route: "/app/roles" },
   { title: "Invite and OTP activate users", route: "/verify-otp" },
-  { title: "Create workflow", route: "/workflows" },
-  { title: "Create forms and share public links (Forms page)", route: "/forms" },
-  { title: "Trigger KYC", route: "/kyc" },
-  { title: "Check notifications + audit logs", route: "/notifications" },
+  { title: "Create workflow", route: "/app/workflows" },
+  { title: "Create forms and share public links (Forms page)", route: "/app/forms" },
+  { title: "Trigger KYC", route: "/app/kyc" },
+  { title: "Check notifications + audit logs", route: "/app/notifications" },
 ];
 
 function SetupChecklistPage() {

@@ -52,7 +52,7 @@ function FormDispatchApprovalsPage() {
     >
       <TenantScopeBanner context="Form approvals" />
       <p className="small-note">
-        <Link className="link" to="/workflows">
+        <Link className="link" to="/app/workflows">
           Workflows
         </Link>{" "}
         shows every dispatch, chain progress, and activity logs. Only items where <strong>you</strong> are the current approver appear below.

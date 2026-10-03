@@ -61,7 +61,7 @@ function AssignmentsPage() {
       title="Assignments"
       description="Assign a person to a hierarchy seat using employee directory and positions for this tenant."
       actions={
-        <Link to="/org-employees" className="small-note">
+        <Link to="/app/org-employees" className="small-note">
           Manage people & employee IDs
         </Link>
       }

@@ -321,10 +321,10 @@ function RolesPage() {
           <button type="button" className="btn-secondary" onClick={recomputeOrg}>
             Recompute org levels and scope
           </button>
-          <Link to="/org-employees" className="btn-secondary">
+          <Link to="/app/org-employees" className="btn-secondary">
             ORG employee
           </Link>
-          <Link to="/permissions" className="btn-ghost">
+          <Link to="/app/permissions" className="btn-ghost">
             Access catalog
           </Link>
         </span>

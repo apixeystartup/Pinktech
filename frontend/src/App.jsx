@@ -43,7 +43,7 @@ function App() {
             <Route path="/public/kyc-verify" element={<PublicKycVerifyPage />} />
             <Route path="/public/schema-forms/dispatch/:token" element={<PublicSchemaDispatchPage />} />
             <Route path="/public/schema-forms/:moduleId" element={<PublicSchemaFormPage />} />
-            <Route path="/people" element={<Navigate to="/org-employees" replace />} />
+            <Route path="/people" element={<Navigate to="/app/org-employees" replace />} />
             <Route
               path="/app"
               element={

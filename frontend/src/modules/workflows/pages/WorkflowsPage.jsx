@@ -53,7 +53,7 @@ function WorkflowsPage() {
       <TenantScopeBanner context="Workflows" />
       <p className="small-note" style={{ marginBottom: "0.75rem" }}>
         To approve or reject when it is your step in the chain, open{" "}
-        <Link className="link" to="/form-dispatch-approvals">
+        <Link className="link" to="/app/form-dispatch-approvals">
           Form approvals
         </Link>
         .
