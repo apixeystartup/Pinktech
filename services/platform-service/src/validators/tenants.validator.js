@@ -33,9 +33,14 @@ const assignAccountSchema = Joi.object({
   userId: Joi.string().trim().required(),
 });
 
+const unassignAccountSchema = Joi.object({
+  userId: Joi.string().trim().allow("", null).optional(),
+});
+
 module.exports = {
   validate,
   createTenantSchema,
   updateTenantSchema,
   assignAccountSchema,
+  unassignAccountSchema,
 };

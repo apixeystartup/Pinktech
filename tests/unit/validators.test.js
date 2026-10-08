@@ -60,4 +60,22 @@ describe("module validators", () => {
     expect(badNext.mock.calls[0][0].statusCode).toBe(422);
   });
 
+  it("validates tenant admin account unassignment payloads", () => {
+    const validNext = nextMock();
+    tenantValidator.validate(tenantValidator.unassignAccountSchema)(
+      { body: { userId: "507f1f77bcf86cd799439011" } },
+      {},
+      validNext,
+    );
+    expect(validNext).toHaveBeenCalledWith();
+
+    const validEmptyNext = nextMock();
+    tenantValidator.validate(tenantValidator.unassignAccountSchema)({ body: {} }, {}, validEmptyNext);
+    expect(validEmptyNext).toHaveBeenCalledWith();
+
+    const badNext = nextMock();
+    tenantValidator.validate(tenantValidator.unassignAccountSchema)({ body: { userId: 42 } }, {}, badNext);
+    expect(badNext.mock.calls[0][0].statusCode).toBe(422);
+  });
+
 });

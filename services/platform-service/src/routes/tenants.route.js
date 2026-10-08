@@ -1,7 +1,7 @@
 const express = require("express");
 const controller = require("../controllers/tenants.controller");
 const permissionMiddleware = require("../middlewares/permission.middleware");
-const { validate, createTenantSchema, updateTenantSchema, assignAccountSchema } = require("../validators/tenants.validator");
+const { validate, createTenantSchema, updateTenantSchema, assignAccountSchema, unassignAccountSchema } = require("../validators/tenants.validator");
 
 const router = express.Router();
 
@@ -20,6 +20,12 @@ router.post(
   permissionMiddleware("tenant.manage"),
   validate(assignAccountSchema),
   controller.assignAccount
+);
+router.post(
+  "/:tenantId/unassign-account",
+  permissionMiddleware("tenant.manage"),
+  validate(unassignAccountSchema),
+  controller.unassignAccount
 );
 router.post("/:tenantId/send-creds", controller.sendCreds);
 router.post("/:tenantId/reset-creds", controller.resetCreds);

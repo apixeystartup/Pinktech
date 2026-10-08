@@ -12,6 +12,7 @@ const Assignment = require("../../services/org-service/src/models/assignment.mod
 const User = require("../../services/org-service/src/models/user.model");
 const Permission = require("../../services/org-service/src/models/permission.model");
 const auditService = require("../../services/org-service/src/services/audit.service");
+const { notificationAdapter } = require("@pink/shared");
 
 jest.mock("../../services/platform-service/src/models/tenant.model");
 jest.mock("../../services/platform-service/src/models/user.model");
@@ -161,22 +162,37 @@ describe("core services", () => {
     expect(auditService.writeAudit).toHaveBeenCalled();
   });
 
-  it("assigns the tenant admin account to an employee of the same tenant", async () => {
+  it("sends credentials first, then assigns the tenant admin account", async () => {
+    const sendEmail = jest.spyOn(notificationAdapter, "sendEmail").mockResolvedValue({});
     const employeeId = "507f1f77bcf86cd799439011";
+    const employeeDoc = {
+      _id: employeeId,
+      tenantId: "t1",
+      name: "Jane",
+      email: "jane@acme.com",
+      status: "INVITED",
+      save: jest.fn().mockResolvedValue(undefined),
+    };
     const tenantDoc = {
       _id: "t1",
+      name: "Acme",
       email: "old-admin@acme.com",
       adminUserId: null,
       save: jest.fn().mockResolvedValue(undefined),
     };
     Tenant.findById.mockResolvedValue(tenantDoc);
-    PlatformUser.findOne.mockResolvedValue({ _id: employeeId, tenantId: "t1", email: "jane@acme.com" });
+    PlatformUser.findOne.mockResolvedValue(employeeDoc);
 
     const tenant = await tenantsService.assignTenantAccount("t1", employeeId, { userId: "u2" });
 
     expect(tenant.email).toBe("jane@acme.com");
     expect(String(tenant.adminUserId)).toBe(employeeId);
-    expect(tenantDoc.save).toHaveBeenCalled();
+    expect(employeeDoc.status).toBe("ACTIVE");
+    expect(employeeDoc.save).toHaveBeenCalled();
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "jane@acme.com" }));
+    expect(sendEmail.mock.invocationCallOrder[0]).toBeLessThan(
+      tenantDoc.save.mock.invocationCallOrder[0],
+    );
     expect(platformAuditService.writeAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "TENANT_ADMIN_ASSIGNED",
@@ -187,13 +203,15 @@ describe("core services", () => {
 
   it("rejects assigning a tenant admin account to an employee of another tenant", async () => {
     const employeeId = "507f1f77bcf86cd799439011";
+    const employeeDoc = { _id: employeeId, tenantId: "other", email: "jane@other.com", save: jest.fn() };
     const tenantDoc = { _id: "t1", email: "old-admin@acme.com", save: jest.fn() };
     Tenant.findById.mockResolvedValue(tenantDoc);
-    PlatformUser.findOne.mockResolvedValue({ _id: employeeId, tenantId: "other", email: "jane@other.com" });
+    PlatformUser.findOne.mockResolvedValue(employeeDoc);
 
     await expect(tenantsService.assignTenantAccount("t1", employeeId, { userId: "u2" })).rejects.toThrow(
       "Employee does not belong to this tenant",
     );
+    expect(employeeDoc.save).not.toHaveBeenCalled();
     expect(tenantDoc.save).not.toHaveBeenCalled();
   });
 
@@ -213,6 +231,57 @@ describe("core services", () => {
     await expect(
       tenantsService.assignTenantAccount("t1", "507f1f77bcf86cd799439011", { userId: "u2" }),
     ).rejects.toThrow("Employee not found");
+    expect(tenantDoc.save).not.toHaveBeenCalled();
+  });
+
+  it("unassigns the tenant admin account so the slot becomes vacant", async () => {
+    const employeeId = "507f1f77bcf86cd799439011";
+    const tenantDoc = {
+      _id: "t1",
+      email: "jane@acme.com",
+      adminUserId: employeeId,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    Tenant.findById.mockResolvedValue(tenantDoc);
+    PlatformUser.findOne.mockResolvedValue({ _id: employeeId, tenantId: "t1", email: "jane@acme.com" });
+
+    const tenant = await tenantsService.unassignTenantAccount("t1", employeeId, { userId: "u2" });
+
+    expect(tenant.email).toBe("");
+    expect(tenant.adminUserId).toBe(null);
+    expect(tenantDoc.save).toHaveBeenCalled();
+    expect(platformAuditService.writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "TENANT_ADMIN_UNASSIGNED" }),
+    );
+  });
+
+  it("rejects unassigning when the employee is not the current admin", async () => {
+    const tenantDoc = {
+      _id: "t1",
+      email: "jane@acme.com",
+      adminUserId: "507f1f77bcf86cd799439011",
+      save: jest.fn(),
+    };
+    Tenant.findById.mockResolvedValue(tenantDoc);
+    PlatformUser.findOne.mockResolvedValue({
+      _id: "607f1f77bcf86cd799439011",
+      tenantId: "t1",
+      email: "other@acme.com",
+    });
+
+    await expect(
+      tenantsService.unassignTenantAccount("t1", "607f1f77bcf86cd799439011", { userId: "u2" }),
+    ).rejects.toThrow("Selected employee is not the current tenant admin");
+    expect(tenantDoc.save).not.toHaveBeenCalled();
+  });
+
+  it("rejects unassigning when the tenant admin account is already vacant", async () => {
+    const tenantDoc = { _id: "t1", email: "", adminUserId: null, save: jest.fn() };
+    Tenant.findById.mockResolvedValue(tenantDoc);
+
+    await expect(tenantsService.unassignTenantAccount("t1", "", { userId: "u2" })).rejects.toThrow(
+      "Tenant admin account is already vacant",
+    );
     expect(tenantDoc.save).not.toHaveBeenCalled();
   });
 });

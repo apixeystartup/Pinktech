@@ -1,5 +1,4 @@
 const tenantsService = require("../services/tenants.service");
-const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
 
@@ -42,6 +41,19 @@ async function updateTenant(req, res, next) {
 async function assignAccount(req, res, next) {
   try {
     const tenant = await tenantsService.assignTenantAccount(req.params.tenantId, req.body.userId, req.auth);
+    res.status(200).json(tenant);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function unassignAccount(req, res, next) {
+  try {
+    const tenant = await tenantsService.unassignTenantAccount(
+      req.params.tenantId,
+      req.body?.userId || "",
+      req.auth
+    );
     res.status(200).json(tenant);
   } catch (error) {
     next(error);
@@ -110,6 +122,7 @@ module.exports = {
   getCurrentTenant,
   updateTenant,
   assignAccount,
+  unassignAccount,
   deleteTenant,
   sendCreds,
   resetCreds,

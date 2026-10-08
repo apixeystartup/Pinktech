@@ -85,6 +85,33 @@ async function assignTenantAccount(tenantId, userId, actor) {
     throw new ApiError(400, "Employee has no email address");
   }
 
+  // 1. Credentials reach the employee's own mailbox first, so the account is
+  //    usable before the tenant starts pointing at it.
+  const tempPassword = "Admin@" + crypto.randomBytes(3).toString("hex");
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+  employee.passwordHash = passwordHash;
+  employee.status = "ACTIVE";
+  await employee.save();
+
+  try {
+    await notificationAdapter.sendEmail({
+      to: employee.email,
+      subject: `${tenant.name} — admin account assigned`,
+      html: `Hi ${employee.name || "there"}, you are now the admin for ${tenant.name}. Email: ${employee.email}, Password: ${tempPassword}`,
+      templateParams: {
+        to_email: employee.email,
+        subject: `${tenant.name} — admin account assigned`,
+        tenantName: tenant.name,
+        name: employee.name || "",
+        email: employee.email,
+        tempPassword,
+      },
+    });
+  } catch (emailErr) {
+    console.error("Failed to send assigned admin credentials email:", emailErr.message);
+  }
+
+  // 2. Only then repoint the tenant admin email at the employee.
   const previousEmail = tenant.email || "";
   tenant.email = employee.email;
   tenant.adminUserId = employee._id;
@@ -100,6 +127,54 @@ async function assignTenantAccount(tenantId, userId, actor) {
       email: employee.email,
       previousEmail,
     },
+  });
+
+  return tenant;
+}
+
+async function unassignTenantAccount(tenantId, userId, actor) {
+  const tenant = await Tenant.findById(tenantId);
+  if (!tenant) {
+    throw new ApiError(404, "Tenant not found");
+  }
+
+  const currentAdminId = tenant.adminUserId ? String(tenant.adminUserId) : "";
+  const currentEmail = tenant.email || "";
+  if (!currentAdminId && !currentEmail) {
+    throw new ApiError(400, "Tenant admin account is already vacant");
+  }
+
+  const targetId = String(userId || "").trim();
+  if (targetId) {
+    if (!mongoose.Types.ObjectId.isValid(targetId)) {
+      throw new ApiError(400, "Invalid employee");
+    }
+    const employee = await User.findOne({ _id: targetId });
+    if (!employee) {
+      throw new ApiError(404, "Employee not found");
+    }
+    if (String(employee.tenantId) !== String(tenantId)) {
+      throw new ApiError(400, "Employee does not belong to this tenant");
+    }
+    const isCurrentAdmin = currentAdminId
+      ? targetId === currentAdminId
+      : employee.email === currentEmail;
+    if (!isCurrentAdmin) {
+      throw new ApiError(400, "Selected employee is not the current tenant admin");
+    }
+  }
+
+  const previousEmail = currentEmail;
+  const previousAdminUserId = currentAdminId || null;
+  tenant.email = "";
+  tenant.adminUserId = null;
+  await tenant.save();
+
+  await writeAudit({
+    tenantId,
+    userId: actor?.userId || null,
+    action: "TENANT_ADMIN_UNASSIGNED",
+    metadata: { tenantId, previousAdminUserId, previousEmail },
   });
 
   return tenant;
@@ -223,6 +298,7 @@ module.exports = {
   getCurrentTenant,
   updateTenant,
   assignTenantAccount,
+  unassignTenantAccount,
   deleteTenant,
   sendTenantCredentials,
   resetTenantCredentials,
