@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const http = require("http");
+const crypto = require("crypto");
 const env = require("./config/env");
 const { logger } = require("@pink/shared");
 
@@ -17,7 +18,9 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
-app.use(express.json({ limit: "2mb" }));
+// The raw body is kept so the Resend webhook can verify its Svix HMAC signature.
+// Re-serialising the parsed JSON would not reproduce the exact bytes Resend signed.
+app.use(express.json({ limit: "2mb", verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(hpp());
 
 /**
@@ -121,6 +124,8 @@ const ROUTE_SERVICE_MAP = [
   { prefix: "/api/submissions", service: "forms", servicePath: "/submissions" },
   { prefix: "/api/v1/public/forms", service: "forms", servicePath: "/public" },
   { prefix: "/api/v1/public/form", service: "forms", servicePath: "/public" },
+  { prefix: "/api/v1/public/schema-dispatch", service: "kyc", servicePath: "/public/schema-dispatch" },
+  { prefix: "/api/v1/public/kyc", service: "kyc", servicePath: "/public/kyc" },
 ];
 
 function resolveRoute(path) {
@@ -282,6 +287,73 @@ async function authMiddleware(req, res, next) {
     return res.status(401).json({ message: "Invalid or expired access token" });
   }
 }
+
+/**
+ * Resend delivery webhook (Svix-signed).
+ *
+ * Registered after the rate limiters but before authMiddleware: Resend carries no
+ * user session and must never be challenged for a token, while bursts should still
+ * be throttled. Authenticity comes from the Svix HMAC over the raw body rather than
+ * a shared secret in the URL, so an attacker cannot forge delivery events.
+ *
+ * Without this, a provider accepting a message is indistinguishable from a provider
+ * delivering it: the SMTP path only ever reports the handoff, never the verdict.
+ */
+const RESEND_WEBHOOK_SECRET = env.RESEND_WEBHOOK_SECRET || process.env.RESEND_WEBHOOK_SECRET;
+const WEBHOOK_TOLERANCE_SEC = 300;
+
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function verifySvixSignature(req) {
+  const id = req.get("svix-id");
+  const timestamp = req.get("svix-timestamp");
+  const header = req.get("svix-signature");
+  if (!id || !timestamp || !header) return "missing svix headers";
+
+  const age = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
+  if (!Number.isFinite(age) || age > WEBHOOK_TOLERANCE_SEC) return "timestamp outside tolerance";
+
+  const secret = Buffer.from(String(RESEND_WEBHOOK_SECRET).replace(/^whsec_/, ""), "base64");
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(`${id}.${timestamp}.${req.rawBody || Buffer.alloc(0)}`)
+    .digest("base64");
+
+  const matched = String(header)
+    .split(" ")
+    .some((part) => part.startsWith("v1,") && safeEqual(part.slice(3), expected));
+
+  return matched ? null : "signature mismatch";
+}
+
+app.post("/api/v1/webhooks/resend", (req, res) => {
+  if (!RESEND_WEBHOOK_SECRET) {
+    logger.warn("[EMAIL] webhook hit but RESEND_WEBHOOK_SECRET is not configured");
+    return res.status(503).json({ message: "Webhook not configured" });
+  }
+
+  const problem = verifySvixSignature(req);
+  if (problem) {
+    logger.warn("[EMAIL] rejected Resend webhook: " + problem);
+    return res.status(400).json({ message: "Invalid signature" });
+  }
+
+  const type = req.body?.type || "unknown";
+  const to = Array.isArray(req.body?.to) ? req.body.to.join(",") : req.body?.to || "";
+  const reason = req.body?.bounce?.message || req.body?.complaint?.message || "";
+
+  // Delivered/bounced/complained are the only events that prove an outcome.
+  logger.info(
+    "[EMAIL] webhook " + type + " to=" + to + (reason ? " reason=" + reason : ""),
+  );
+
+  return res.status(200).json({ received: true });
+});
 
 app.use(authMiddleware);
 
