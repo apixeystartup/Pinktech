@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./landing.css";
+
+/* The 3D demo pulls in three.js + react-three-fiber, so it is loaded on demand
+   rather than shipped in the landing page's initial bundle. */
+const DemoShowcase = lazy(() => import("../components/demo/DemoShowcase"));
 
 /* ---- Animated Counter ---- */
 function AnimatedCounter({ target, suffix = "", duration = 2000 }) {
@@ -277,6 +281,11 @@ function LandingPage() {
             </a>
           </li>
           <li>
+            <a href="#demo" onClick={() => setMobileMenu(false)}>
+              Watch Demo
+            </a>
+          </li>
+          <li>
             <a href="#how-it-works" onClick={() => setMobileMenu(false)}>
               How It Works
             </a>
@@ -332,8 +341,8 @@ function LandingPage() {
           <Link to="/login" className="btn-hero-primary">
             Start Free →
           </Link>
-          <a href="#features" className="btn-hero-secondary">
-            Explore Features
+          <a href="#demo" className="btn-hero-secondary">
+            ▶ Watch 3D Demo
           </a>
         </div>
 
@@ -400,6 +409,11 @@ function LandingPage() {
           <div className="mouse" />
         </div>
       </section>
+
+      {/* Product Demo Film */}
+      <Suspense fallback={<div style={{ minHeight: "520px" }} />}>
+        <DemoShowcase />
+      </Suspense>
 
       {/* Trusted By */}
       <section className="trusted-section">
