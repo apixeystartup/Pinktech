@@ -39,6 +39,15 @@ async function updateTenant(req, res, next) {
   }
 }
 
+async function assignAccount(req, res, next) {
+  try {
+    const tenant = await tenantsService.assignTenantAccount(req.params.tenantId, req.body.userId, req.auth);
+    res.status(200).json(tenant);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function deleteTenant(req, res, next) {
   try {
     await tenantsService.deleteTenant(req.params.tenantId, req.auth);
@@ -100,6 +109,7 @@ module.exports = {
   listTenants,
   getCurrentTenant,
   updateTenant,
+  assignAccount,
   deleteTenant,
   sendCreds,
   resetCreds,

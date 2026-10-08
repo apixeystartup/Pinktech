@@ -5,6 +5,7 @@ const tenantSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     code: { type: String, required: true, unique: true, uppercase: true },
     email: { type: String, trim: true, lowercase: true, default: "" },
+    adminUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     plan: { type: String, default: "starter" },
     status: {
       type: String,

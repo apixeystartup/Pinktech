@@ -46,4 +46,18 @@ describe("module validators", () => {
     expect(badNext.mock.calls[0][0].statusCode).toBe(422);
   });
 
+  it("validates tenant admin account assignment payloads", () => {
+    const validNext = nextMock();
+    tenantValidator.validate(tenantValidator.assignAccountSchema)(
+      { body: { userId: "507f1f77bcf86cd799439011" } },
+      {},
+      validNext,
+    );
+    expect(validNext).toHaveBeenCalledWith();
+
+    const badNext = nextMock();
+    tenantValidator.validate(tenantValidator.assignAccountSchema)({ body: {} }, {}, badNext);
+    expect(badNext.mock.calls[0][0].statusCode).toBe(422);
+  });
+
 });

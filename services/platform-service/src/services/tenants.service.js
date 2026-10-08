@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const Tenant = require("../models/tenant.model");
 const Role = require("../models/role.model");
+const User = require("../models/user.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("./audit.service");
 const { notificationAdapter } = require("@pink/shared");
@@ -57,6 +58,48 @@ async function updateTenant(tenantId, payload, actor) {
     userId: actor?.userId || null,
     action: "TENANT_UPDATED",
     metadata: payload,
+  });
+
+  return tenant;
+}
+
+async function assignTenantAccount(tenantId, userId, actor) {
+  const targetId = String(userId || "").trim();
+  if (!mongoose.Types.ObjectId.isValid(targetId)) {
+    throw new ApiError(400, "Invalid employee");
+  }
+
+  const tenant = await Tenant.findById(tenantId);
+  if (!tenant) {
+    throw new ApiError(404, "Tenant not found");
+  }
+
+  const employee = await User.findOne({ _id: targetId });
+  if (!employee) {
+    throw new ApiError(404, "Employee not found");
+  }
+  if (String(employee.tenantId) !== String(tenantId)) {
+    throw new ApiError(400, "Employee does not belong to this tenant");
+  }
+  if (!employee.email) {
+    throw new ApiError(400, "Employee has no email address");
+  }
+
+  const previousEmail = tenant.email || "";
+  tenant.email = employee.email;
+  tenant.adminUserId = employee._id;
+  await tenant.save();
+
+  await writeAudit({
+    tenantId,
+    userId: actor?.userId || null,
+    action: "TENANT_ADMIN_ASSIGNED",
+    metadata: {
+      tenantId,
+      adminUserId: employee._id,
+      email: employee.email,
+      previousEmail,
+    },
   });
 
   return tenant;
@@ -179,6 +222,7 @@ module.exports = {
   listTenants,
   getCurrentTenant,
   updateTenant,
+  assignTenantAccount,
   deleteTenant,
   sendTenantCredentials,
   resetTenantCredentials,

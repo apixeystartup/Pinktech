@@ -29,8 +29,13 @@ const updateTenantSchema = Joi.object({
   status: Joi.string().valid("ACTIVE", "SUSPENDED"),
 }).min(1);
 
+const assignAccountSchema = Joi.object({
+  userId: Joi.string().trim().required(),
+});
+
 module.exports = {
   validate,
   createTenantSchema,
   updateTenantSchema,
+  assignAccountSchema,
 };

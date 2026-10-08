@@ -4,6 +4,8 @@ const positionsService = require("../../services/org-service/src/services/positi
 const assignmentsService = require("../../services/org-service/src/services/assignments.service");
 const hierarchyService = require("../../services/org-service/src/services/hierarchy.service");
 const Tenant = require("../../services/platform-service/src/models/tenant.model");
+const PlatformUser = require("../../services/platform-service/src/models/user.model");
+const platformAuditService = require("../../services/platform-service/src/services/audit.service");
 const Role = require("../../services/org-service/src/models/role.model");
 const Position = require("../../services/org-service/src/models/position.model");
 const Assignment = require("../../services/org-service/src/models/assignment.model");
@@ -12,6 +14,7 @@ const Permission = require("../../services/org-service/src/models/permission.mod
 const auditService = require("../../services/org-service/src/services/audit.service");
 
 jest.mock("../../services/platform-service/src/models/tenant.model");
+jest.mock("../../services/platform-service/src/models/user.model");
 jest.mock("../../services/org-service/src/models/role.model");
 jest.mock("../../services/org-service/src/models/position.model");
 jest.mock("../../services/org-service/src/models/assignment.model");
@@ -156,5 +159,60 @@ describe("core services", () => {
     expect(assignment._id).toBe("a1");
     expect(listed[0]._id).toBe("a1");
     expect(auditService.writeAudit).toHaveBeenCalled();
+  });
+
+  it("assigns the tenant admin account to an employee of the same tenant", async () => {
+    const employeeId = "507f1f77bcf86cd799439011";
+    const tenantDoc = {
+      _id: "t1",
+      email: "old-admin@acme.com",
+      adminUserId: null,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    Tenant.findById.mockResolvedValue(tenantDoc);
+    PlatformUser.findOne.mockResolvedValue({ _id: employeeId, tenantId: "t1", email: "jane@acme.com" });
+
+    const tenant = await tenantsService.assignTenantAccount("t1", employeeId, { userId: "u2" });
+
+    expect(tenant.email).toBe("jane@acme.com");
+    expect(String(tenant.adminUserId)).toBe(employeeId);
+    expect(tenantDoc.save).toHaveBeenCalled();
+    expect(platformAuditService.writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "TENANT_ADMIN_ASSIGNED",
+        metadata: expect.objectContaining({ adminUserId: employeeId, email: "jane@acme.com" }),
+      }),
+    );
+  });
+
+  it("rejects assigning a tenant admin account to an employee of another tenant", async () => {
+    const employeeId = "507f1f77bcf86cd799439011";
+    const tenantDoc = { _id: "t1", email: "old-admin@acme.com", save: jest.fn() };
+    Tenant.findById.mockResolvedValue(tenantDoc);
+    PlatformUser.findOne.mockResolvedValue({ _id: employeeId, tenantId: "other", email: "jane@other.com" });
+
+    await expect(tenantsService.assignTenantAccount("t1", employeeId, { userId: "u2" })).rejects.toThrow(
+      "Employee does not belong to this tenant",
+    );
+    expect(tenantDoc.save).not.toHaveBeenCalled();
+  });
+
+  it("rejects tenant admin assignment for missing tenant or invalid employee", async () => {
+    Tenant.findById.mockResolvedValue(null);
+    await expect(
+      tenantsService.assignTenantAccount("missing", "507f1f77bcf86cd799439011", { userId: "u2" }),
+    ).rejects.toThrow("Tenant not found");
+
+    const tenantDoc = { _id: "t1", save: jest.fn() };
+    Tenant.findById.mockResolvedValue(tenantDoc);
+    await expect(tenantsService.assignTenantAccount("t1", "not-an-id", { userId: "u2" })).rejects.toThrow(
+      "Invalid employee",
+    );
+
+    PlatformUser.findOne.mockResolvedValue(null);
+    await expect(
+      tenantsService.assignTenantAccount("t1", "507f1f77bcf86cd799439011", { userId: "u2" }),
+    ).rejects.toThrow("Employee not found");
+    expect(tenantDoc.save).not.toHaveBeenCalled();
   });
 });
