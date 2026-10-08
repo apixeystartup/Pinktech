@@ -7,6 +7,7 @@ const Submission = require("../models/pinkFormSubmission.model");
 const PinkFormAuditLog = require("../models/pinkFormAuditLog.model");
 const { validateAgainstSchema } = require("../validation/submissionValidation");
 const { generateSubmissionPdf } = require("../services/pdfService");
+const { resolveAgreementTexts } = require("../services/agreementText");
 const { completeDispatchAfterSubmission } = require("../services/schemaFormDispatch.hook");
 
 const router = express.Router();
@@ -50,19 +51,21 @@ router.post("/", submissionLimiter, async (req, res, next) => {
       return res.status(422).json({ error: "Validation failed.", fieldErrors: errors });
     }
 
+    const agreementTexts = resolveAgreementTexts(moduleDoc);
+
     const submission = await Submission.create({
       moduleId,
       data: normalized,
       agreements: {
         pre: {
           accepted: Boolean(agreements.pre.accepted),
-          text: agreements.pre.text || "",
+          text: agreementTexts.pre,
           signatureDataUrl: agreements.pre.signatureDataUrl,
           acceptedAt: agreements.pre.acceptedAt ? new Date(agreements.pre.acceptedAt) : new Date()
         },
         post: {
           accepted: Boolean(agreements.post.accepted),
-          text: agreements.post.text || "",
+          text: agreementTexts.post,
           signatureDataUrl: agreements.post.signatureDataUrl,
           acceptedAt: agreements.post.acceptedAt ? new Date(agreements.post.acceptedAt) : new Date()
         }
@@ -81,13 +84,13 @@ router.post("/", submissionLimiter, async (req, res, next) => {
       agreements: {
         pre: {
           accepted: true,
-          text: agreements.pre.text || "",
+          text: agreementTexts.pre,
           signatureDataUrl: agreements.pre.signatureDataUrl,
           acceptedAt: agreements.pre.acceptedAt || new Date().toISOString()
         },
         post: {
           accepted: true,
-          text: agreements.post.text || "",
+          text: agreementTexts.post,
           signatureDataUrl: agreements.post.signatureDataUrl,
           acceptedAt: agreements.post.acceptedAt || new Date().toISOString()
         }
