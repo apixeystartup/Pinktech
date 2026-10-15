@@ -4,7 +4,6 @@ import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import useAuth from "../../../hooks/useAuth";
 
 function formatCollected(row) {
@@ -202,7 +201,6 @@ function KycPage() {
       title="KYC"
       description="Create external users and send Aadhaar or PAN OTP links. They enter document details on the public verification page after opening the email link."
     >
-      <TenantScopeBanner context="KYC" />
 
       <div style={cardStyle}>
         <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 600 }}>Create External User</h3>

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -43,7 +42,6 @@ function AuditPage() {
 
   return (
     <ModulePage title="Audit Logs" description="Paginated immutable audit log explorer.">
-      <TenantScopeBanner context="Audit logs" />
       <div className="inline-form">
         <span>Total: {meta.total}</span>
         <button className="btn-secondary" type="button" disabled={page <= 1} onClick={() => load(page - 1)}>

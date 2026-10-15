@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -122,7 +121,6 @@ function NotificationsPage() {
           : "You can send messages only to leadership (top hierarchy levels) and tenant administrators. Incoming messages appear below."
       }
     >
-      <TenantScopeBanner context="Notifications" />
       {canCompose ? (
       <form className="stacked-form notifications-compose" onSubmit={create}>
         <h3 className="notifications-compose__title">New message</h3>

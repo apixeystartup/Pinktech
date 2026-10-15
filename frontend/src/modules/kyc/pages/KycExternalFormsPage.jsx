@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -216,7 +215,6 @@ function KycExternalFormsPage() {
       title="Workflows"
       description="Send tenant schema forms to external users you created on KYC, set approval order (default follows your reporting line L1→Ln), and track dispatches. All tenant-scoped forms from the Forms page appear in the list."
     >
-      <TenantScopeBanner context="Workflows" />
       <h3>1) Send schema form</h3>
       <p className="small-note">
         Forms are shared across the tenant (anyone who saved a form with tenant scope). Approval order defaults to your managers from immediate → top; choose <strong>Reverse</strong> or paste a comma-separated list of user IDs (tenant admins: any active users; others: same set as your chain, reordered only).

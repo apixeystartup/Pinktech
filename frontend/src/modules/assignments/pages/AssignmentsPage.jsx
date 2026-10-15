@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -66,7 +65,6 @@ function AssignmentsPage() {
         </Link>
       }
     >
-      <TenantScopeBanner context="Assignments" />
       <form className="inline-form" onSubmit={create}>
         <select
           value={form.userId}

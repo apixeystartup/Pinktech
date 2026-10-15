@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { useToast } from "../../../components/common/ToastProvider";
 import { getErrorMessage } from "../../../lib/error";
 import { isAdminRole } from "../../../lib/access-control";
@@ -241,7 +240,6 @@ function DoctorDetailsPage() {
         </>
       }
     >
-      <TenantScopeBanner context="Doctor Management" />
 
       <button type="button" className="doc-back" onClick={() => navigate("/app/doctors")}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import useAuth from "../../../hooks/useAuth";
 import { resolveSchemaFormAssetUrl } from "../../../lib/schemaFormsPublic";
 import { getSchemaFormDispatchProgress } from "../../../lib/schemaFormDispatchProgress";
@@ -50,7 +49,6 @@ function WorkflowsPage() {
       title="Workflows"
       description="Track external form dispatches: status, chain progress (approved vs rejected), activity log. Approvers use Form approvals to act. Default approval order is reporting-line L1→Ln unless changed on KYC → External forms."
     >
-      <TenantScopeBanner context="Workflows" />
       <p className="small-note" style={{ marginBottom: "0.75rem" }}>
         To approve or reject when it is your step in the chain, open{" "}
         <Link className="link" to="/app/form-dispatch-approvals">

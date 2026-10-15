@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -292,7 +291,6 @@ function RolesPage() {
       title="Roles"
       description="Manage seats and org levels. Access control is disabled — every signed-in user has all permissions, so permission selection is not required. Use Org Explore for the org directory, workbook import, and seat roles."
     >
-      <TenantScopeBanner context="Roles" />
       {isHome ? (
         <p className="notifications-empty">
           Home shows every tenant at once — pick a tenant in the switcher above to manage its roles.

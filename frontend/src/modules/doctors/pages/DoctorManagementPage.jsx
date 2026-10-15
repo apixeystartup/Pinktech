@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { useToast } from "../../../components/common/ToastProvider";
 import { getErrorMessage } from "../../../lib/error";
 import useAuth from "../../../hooks/useAuth";
@@ -236,7 +235,6 @@ function DoctorManagementPage() {
       title="Doctor Management"
       description="Search the doctor directory, open a profile for full details, and keep compliance forms, agreements and approvals in sync."
     >
-      <TenantScopeBanner context="Doctor Management" />
 
       <div className="doc-toolbar">
         <input

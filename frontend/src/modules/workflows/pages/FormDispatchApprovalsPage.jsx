@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
-import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -57,7 +56,6 @@ function FormDispatchApprovalsPage() {
       title="Form approvals"
       description="Inbox for approvers in the reporting chain: approve or reject external form submissions when it is your step. Notifications and emails follow the same rules as KYC. Employees who only send forms (operational / level-1 field staff) continue to use Workflows; this page is for chain approvers and supervisors."
     >
-      <TenantScopeBanner context="Form approvals" />
       <p className="small-note">
         <Link className="link" to="/app/workflows">
           Workflows
