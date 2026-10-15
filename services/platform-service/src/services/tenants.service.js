@@ -37,6 +37,10 @@ async function createTenant(payload, actor) {
     throw new ApiError(409, "Tenant code already exists");
   }
 
+  // The contact email becomes the admin account below, so it must not already
+  // front another tenant (checked before anything is created).
+  await assertAdminEmailAvailable(payload.email, null);
+
   const tenant = await Tenant.create({
     ...payload,
     code: payload.code.toUpperCase(),
@@ -77,6 +81,50 @@ async function createTenant(payload, actor) {
 // Pinktech (the platform tenant, code PINKTECH in new databases and PLATFORM in
 // older ones) is the platform itself, not one of the customer tenants the
 // workspace manages, so it is never listed as a tenant.
+// Admin emails are single-use across customer tenants: once an address belongs
+// to an active tenant admin, it cannot front another tenant. Reused admin
+// emails used to make logins ambiguous (Send Creds issued a password for one
+// record while sign-in matched another), surfacing as "wrong credentials".
+// The platform super admin's own addresses are exempt — they belong to the
+// platform, not to a customer tenant. Kept chain-free (no .lean()/.select())
+// so plain model mocks resolve the same way as real queries.
+async function assertAdminEmailAvailable(email, currentTenantId) {
+  const normEmail = String(email || "").toLowerCase().trim();
+  if (!normEmail) return;
+
+  const otherTenant = await Tenant.findOne({ email: normEmail });
+  if (
+    otherTenant &&
+    String(otherTenant._id) !== String(currentTenantId) &&
+    !isPlatformTenant(otherTenant)
+  ) {
+    throw new ApiError(
+      409,
+      `This email is already the admin of tenant "${otherTenant.name}" and cannot be reused for another tenant`
+    );
+  }
+
+  const holders =
+    (await User.find({
+      ...(currentTenantId ? { tenantId: { $ne: currentTenantId } } : {}),
+      $or: [{ email: normEmail }, { orgContactEmail: normEmail }],
+      status: "ACTIVE",
+    })) || [];
+  for (const h of holders) {
+    const t = await Tenant.findById(h.tenantId);
+    if (!t || isPlatformTenant(t)) continue;
+    if (
+      String(t.adminUserId || "") === String(h._id) ||
+      String(t.email || "").toLowerCase().trim() === String(h.email || "").toLowerCase().trim()
+    ) {
+      throw new ApiError(
+        409,
+        `This email is already the admin of tenant "${t.name}" and cannot be reused for another tenant`
+      );
+    }
+  }
+}
+
 async function listTenants() {
   return Tenant.find({ code: { $nin: PLATFORM_TENANT_CODES } }).sort({ createdAt: -1 });
 }
@@ -175,6 +223,7 @@ async function assignTenantAccount(tenantId, userId, actor) {
   if (!employee.email) {
     throw new ApiError(400, "Employee has no email address");
   }
+  await assertAdminEmailAvailable(employee.email, tenantId);
 
   // 1. Credentials reach the employee's own mailbox first, so the account is
   //    usable before the tenant starts pointing at it.
@@ -375,6 +424,7 @@ async function sendTenantCredentials(tenantId, actor) {
   if (!tenant.email) {
     throw new ApiError(400, "Tenant has no email address configured");
   }
+  await assertAdminEmailAvailable(tenant.email, tenantId);
 
   const User = mongoose.model("User");
   // The tenant admin carries the Admin seat, which is what puts them at the
