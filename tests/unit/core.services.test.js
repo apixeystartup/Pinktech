@@ -35,11 +35,19 @@ describe("core services", () => {
 
   it("creates and updates tenant", async () => {
     Tenant.findOne.mockResolvedValue(null);
-    Tenant.create.mockResolvedValue({ _id: "t1", code: "ACME" });
+    const createdTenantDoc = {
+      _id: "t1",
+      code: "ACME",
+      name: "Acme",
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    Tenant.create.mockResolvedValue(createdTenantDoc);
     PlatformPermission.find.mockReturnValue({
       select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
     });
-    PlatformRole.findOneAndUpdate.mockResolvedValue({ _id: "founder1", name: "Founder" });
+    PlatformRole.findOneAndUpdate.mockResolvedValue({ _id: "admin1", name: "Admin" });
+    PlatformUser.findOne.mockResolvedValue(null);
+    PlatformUser.create.mockResolvedValue({ _id: "admin9" });
     Tenant.findByIdAndUpdate.mockResolvedValue({ _id: "t1", name: "Acme" });
     Tenant.find.mockReturnValue({ sort: jest.fn().mockResolvedValue([{ _id: "t1" }]) });
     const tenantOid = "507f1f77bcf86cd799439011";
@@ -57,9 +65,12 @@ describe("core services", () => {
 
     expect(created.code).toBe("ACME");
     expect(PlatformRole.findOneAndUpdate).toHaveBeenCalledWith(
-      { tenantId: "t1", name: "Founder" },
+      { tenantId: "t1", name: "Admin" },
       expect.anything(),
       expect.anything(),
+    );
+    expect(PlatformUser.create).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "t1", status: "INVITED", roleIds: ["admin1"] }),
     );
     expect(listed).toHaveLength(1);
     expect(updated._id).toBe("t1");

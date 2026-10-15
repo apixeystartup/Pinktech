@@ -5,6 +5,7 @@ const Import = require("../models/import.model");
 const ImportError = require("../models/importError.model");
 const mongoose = require("mongoose");
 const ApiError = require("@pink/shared").ApiError;
+const { ADMIN_ROLE_NAME } = require("@pink/shared");
 const { isPlatformTenant } = require("@pink/shared");
 const { norm, stripVacantSuffix, titleCase } = require("../utils/orgNorm");
 const { parseOrgWorkbookBuffer } = require("./orgWorkbookParser.service");
@@ -312,9 +313,9 @@ function resolveManagerMappings(rows, dbIndex = null) {
 }
 
 async function discoverRolesForUsers(tenantId, users) {
-  // The Founder seat belongs to the tenant admin and anchors Org Explore — it
+  // The Admin seat belongs to the tenant admin and anchors Org Explore — it
   // is never rebuilt from sheet designations, so it survives every re-import.
-  await Role.deleteMany({ tenantId, type: "CUSTOM", name: { $ne: "Founder" } });
+  await Role.deleteMany({ tenantId, type: "CUSTOM", name: { $ne: ADMIN_ROLE_NAME } });
   console.log(`[workbook-import] Cleared all custom roles for tenant ${tenantId}`);
 
   const existing = await Role.find({ tenantId }, { aliases: 1 }).lean();

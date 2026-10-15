@@ -26,12 +26,12 @@ const RESERVED_ROLE_MESSAGE =
   "The Super Admin role belongs to Pinktech (the platform) and applies to all tenants; it cannot be created or renamed for a tenant.";
 
 // The tenant admin's seat in the org tree. Created automatically with every
-// tenant, assigned to the tenant admin, and never deleted by imports or the
+// tenant along with the admin employee, and never deleted by imports or the
 // Roles UI — without it the admin drops out of Org Explore.
-const FOUNDER_ROLE_NAME = "Founder";
+const ADMIN_ROLE_NAME = "Admin";
 
-function isFounderRoleName(name) {
-  return String(name || "").trim().toLowerCase() === "founder";
+function isAdminRoleName(name) {
+  return String(name || "").trim().toLowerCase() === "admin";
 }
 
 module.exports = {
@@ -40,6 +40,6 @@ module.exports = {
   isPlatformTenant,
   isReservedPlatformRoleName,
   RESERVED_ROLE_MESSAGE,
-  FOUNDER_ROLE_NAME,
-  isFounderRoleName,
+  ADMIN_ROLE_NAME,
+  isAdminRoleName,
 };
