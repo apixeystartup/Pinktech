@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data loading matches pink-form AdminPage */
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   createModule,
   deleteModule,
@@ -404,7 +405,11 @@ function SchemaFormsBuilder() {
         )}
       </div>
 
-      {showEditor ? (
+      {/* Portal out of .module-page: its backdrop-filter would otherwise trap
+          the fixed overlay inside the card at the card's height. On the body
+          the popup spans the viewport and grows with the editor content. */}
+      {showEditor
+        ? createPortal(
       <div className="form-editor-backdrop" onClick={() => setShowEditor(false)}>
         <div className="form-editor-modal" onClick={(e) => e.stopPropagation()}>
       <div className="adminTopBar">
@@ -691,8 +696,10 @@ function SchemaFormsBuilder() {
         <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>
       ) : null}
         </div>
-      </div>
-      ) : null}
+      </div>,
+      document.body
+          )
+        : null}
     </div>
   );
 }
