@@ -166,6 +166,17 @@ function SchemaFormsBuilder() {
     }
   }
 
+  // While the editor popup is open, lock the page behind it so there is only
+  // ever one scroller: the popup follows the form's own height exactly.
+  useEffect(() => {
+    if (!showEditor) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showEditor]);
+
   useEffect(() => {
     refreshModules().catch((err) => setStatus({ type: "error", message: err.message }));
     api
