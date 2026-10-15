@@ -3,6 +3,7 @@ const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const { norm } = require("../utils/orgNorm");
 const { primaryOrgRoleId } = require("../utils/orgPrimaryRole");
+const { isPlatformTenant } = require("@pink/shared");
 
 const PLACEHOLDER_RE = /^\s*VACANT\s+([A-Z]+)\s+REPORT\s+TO\s+([A-Z]+)\s*$/i;
 const VACANT_EMPID_RE = /^\s*VACANT\s*[-–]\s*(.+)\s*$/i;
@@ -257,17 +258,17 @@ async function withVirtualSuperAdminRoot(snap, tenantId) {
 }
 
 /**
- * Every active customer tenant, name-sorted. The platform tenant is the root of
- * the roll-up, not a child of itself, so it is deliberately excluded.
+ * Every active customer tenant, name-sorted. The platform tenant (PINKTECH in
+ * new databases, PLATFORM in older ones) is the root of the roll-up, not a
+ * child of itself, so it is deliberately excluded — otherwise the platform
+ * super admins would appear as ordinary people under the virtual root.
  */
 async function listCustomerTenants() {
   const tenants = await mongoose.connection
     .collection("tenants")
     .find({ status: "ACTIVE" })
     .toArray();
-  const customers = tenants.filter(
-    (t) => String(t.code || "").trim().toUpperCase() !== "PINKTECH",
-  );
+  const customers = tenants.filter((t) => !isPlatformTenant(t));
   customers.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
   return customers;
 }

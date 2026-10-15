@@ -42,7 +42,8 @@ function buildChipsFromUsers(users) {
 
 function RolesPage() {
   const { showToast } = useToast();
-  const { tenantContextId } = useAuth();
+  const { tenantContextId, isSuperAdmin } = useAuth();
+  const isHome = !!isSuperAdmin && !tenantContextId;
   const [items, setItems] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [form, setForm] = useState({ name: "" });
@@ -292,6 +293,12 @@ function RolesPage() {
       description="Manage seats and org levels. Access control is disabled — every signed-in user has all permissions, so permission selection is not required. Use Org Explore for the org directory, workbook import, and seat roles."
     >
       <TenantScopeBanner context="Roles" />
+      {isHome ? (
+        <p className="notifications-empty">
+          Home shows every tenant at once — pick a tenant in the switcher above to manage its roles.
+        </p>
+      ) : (
+      <>
       <form className="stacked-form" onSubmit={submitRole}>
         <div className="inline-form">
           {editingRoleId ? <span className="small-note form-editing-hint">Editing role</span> : null}
@@ -479,6 +486,8 @@ function RolesPage() {
         ]}
         rows={items}
       />
+      </>
+      )}
     </ModulePage>
   );
 }

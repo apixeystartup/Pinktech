@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { PLATFORM_TENANT_CODES } = require("@pink/shared");
 
 /** Same set People/messages use: invitees count, only disabled/locked are out. */
 const NOTIFIABLE_USER_FILTER = { status: { $nin: ["DISABLED", "LOCKED"] } };
@@ -47,7 +48,7 @@ async function getPlatformSuperAdmins() {
   const db = mongoose.connection?.db;
   if (!db) return { tenantId: null, userIds: [] };
 
-  const platformTenant = await db.collection("tenants").findOne({ code: "PINKTECH" });
+  const platformTenant = await db.collection("tenants").findOne({ code: { $in: PLATFORM_TENANT_CODES } });
   if (!platformTenant?._id) return { tenantId: null, userIds: [] };
 
   const roles = await db
