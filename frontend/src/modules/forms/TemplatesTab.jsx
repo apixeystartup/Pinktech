@@ -4,7 +4,7 @@ import api from "../../lib/api";
 import { getErrorMessage } from "../../lib/error";
 import useAuth from "../../hooks/useAuth";
 import { extractTemplateText, fileToAgreementHtml, sanitizeHtml, textToStructuredHtml } from "../../lib/agreementFormatter";
-import { PLACEHOLDER_TAGS, resolvePlaceholdersClient } from "../../lib/placeholders";
+import { resolvePlaceholdersClient } from "../../lib/placeholders";
 import "../../styles/schema-forms.css";
 import "../../styles/doctors.css";
 
@@ -18,8 +18,6 @@ const PARTY_FIELD_OPTIONS = [
   { key: "address", label: "Organization address" },
   { key: "registration_number", label: "Organization registration no." },
 ];
-
-const DOCTOR_BLANK_OPTIONS = PLACEHOLDER_TAGS;
 
 const EMPTY_EDITOR = { _id: "", name: "", partyFields: ["name"], bodyText: "" };
 
@@ -107,29 +105,6 @@ function TemplatesTab({ org }) {
         ? prev.partyFields.filter((k) => k !== key)
         : [...prev.partyFields, key],
     }));
-  };
-
-  const insertBlank = (tag) => {
-    if (!tag) return;
-    const area = bodyRef.current;
-    const current = editor.bodyText || "";
-    if (!area) {
-      setEditor((prev) => ({ ...prev, bodyText: `${current}{{${tag}}}` }));
-      return;
-    }
-    const start = area.selectionStart ?? current.length;
-    const end = area.selectionEnd ?? current.length;
-    const next = `${current.slice(0, start)}{{${tag}}}${current.slice(end)}`;
-    setEditor((prev) => ({ ...prev, bodyText: next }));
-    requestAnimationFrame(() => {
-      area.focus();
-      const pos = start + tag.length + 4;
-      try {
-        area.setSelectionRange(pos, pos);
-      } catch {
-        /* ignore */
-      }
-    });
   };
 
   const onTemplateFile = async (event) => {
@@ -385,23 +360,6 @@ function TemplatesTab({ org }) {
             onChange={(e) => setEditor((p) => ({ ...p, bodyText: e.target.value }))}
             placeholder={"Paste the agreement here, e.g. BASIC TENANCY AGREEMENT with blanks like {{AGREEMENT_DATE}}, {{tenant.name}} and {{doctor.name}}. Upload a .txt, .md, .docx or .pdf above to fill this in."}
           />
-          <div className="adminRow" style={{ gap: 8, marginTop: 8 }}>
-            <label htmlFor="template-blank" style={{ margin: 0 }}>Insert placeholder</label>
-            <select id="template-blank" value="" onChange={(e) => insertBlank(e.target.value)}>
-              <option value="">Choose placeholder…</option>
-              {DOCTOR_BLANK_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label} {`{{${o.key}}}`}
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="doc-form-note">
-            {"{{tenant.*}}"} fills from this tenant at form setup, {"{{doctor.*}}"} fills from the
-            doctor at assign time, {"{{date}}"} is today. Any other {"{{CAPITAL_WORDS}}"} stays
-            visible on the link.
-          </p>
-
           <h3>Preview</h3>
           <div className="agreementPreview">
             <div className="templateAgreement">
