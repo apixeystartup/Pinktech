@@ -238,7 +238,7 @@ function TemplatesTab({ org }) {
         {templatesLoading ? (
           <p className="doc-form-note">Loading templates…</p>
         ) : templates.length ? (
-          <div className="schema-forms-module-grid">
+          <div className="schema-forms-module-grid" style={{ marginTop: "1rem" }}>
             {templates.map((t) => {
               const fieldCount = (t.partyFields || []).length;
               const active = Boolean(editor._id) && editor._id === String(t._id);
