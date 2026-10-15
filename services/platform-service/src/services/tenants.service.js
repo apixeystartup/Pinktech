@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const Tenant = require("../models/tenant.model");
-const Role = require("../models/role.model");
 const User = require("../models/user.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("./audit.service");
@@ -234,8 +233,84 @@ async function deleteTenant(tenantId, actor) {
   if (String(actor?.baseTenantId || actor?.tenantId || "") === String(tenantId)) {
     throw new ApiError(400, "Super admin home tenant cannot be deleted");
   }
+  // The platform tenant powers super-admin auth for every tenant. Deleting it
+  // would strand every account, so it can never be removed through the API.
+  if (isPlatformTenant(tenant)) {
+    throw new ApiError(400, "The platform tenant cannot be deleted");
+  }
 
-  await Role.deleteMany({ tenantId });
+  // Deleting a tenant removes everything that belongs to it, in every tab.
+  // Previously only roles were removed, leaving orphaned users whose tenant no
+  // longer exists — their logins then failed with "Tenant is inactive" and
+  // their rows polluted cross-tenant lookups. The sweep below covers every
+  // tenant-scoped collection directly by tenantId, then follows the two
+  // indirect links (submissions via their module, import errors via their
+  // import). Audit history, the permission catalog, and mail counters are
+  // global and are intentionally kept.
+  const tidStr = String(tenantId);
+  const tid = mongoose.Types.ObjectId.isValid(tidStr)
+    ? new mongoose.Types.ObjectId(tidStr)
+    : tidStr;
+  const tenantKey = { $in: Array.from(new Set([tid, tidStr])) };
+  const db = mongoose.connection.db;
+
+  const moduleIds = await db
+    .collection("modules")
+    .find({ tenantId: tenantKey }, { projection: { _id: 1 } })
+    .toArray()
+    .then((rows) => rows.map((r) => r._id))
+    .catch(() => []);
+  const importIds = await db
+    .collection("imports")
+    .find({ tenantId: tenantKey }, { projection: { _id: 1 } })
+    .toArray()
+    .then((rows) => rows.map((r) => r._id))
+    .catch(() => []);
+
+  const directCollections = [
+    "users",
+    "roles",
+    "assignments",
+    "positions",
+    "externalusers",
+    "notifications",
+    "imports",
+    "refreshtokens",
+    "publicformtokens",
+    "documents",
+    "workflows",
+    "forms",
+    "formtemplates",
+    "formsubmissions",
+    "kycrecords",
+    "modules",
+    "signatures",
+    "approvals",
+    "schemaformdispatches",
+    "pinkform_audit_logs",
+  ];
+  for (const name of directCollections) {
+    try {
+      await db.collection(name).deleteMany({ tenantId: tenantKey });
+    } catch {
+      // Collection may not exist in this database; anything tenant-scoped
+      // that does exist is matched by the tenantId filter above.
+    }
+  }
+  if (moduleIds.length) {
+    try {
+      await db.collection("submissions").deleteMany({ moduleId: { $in: moduleIds } });
+    } catch {
+      // No submissions collection in this database; nothing linked to clean.
+    }
+  }
+  if (importIds.length) {
+    try {
+      await db.collection("importerrors").deleteMany({ importId: { $in: importIds } });
+    } catch {
+      // No importerrors collection in this database; nothing linked to clean.
+    }
+  }
   await Tenant.deleteOne({ _id: tenantId });
 
   await writeAudit({

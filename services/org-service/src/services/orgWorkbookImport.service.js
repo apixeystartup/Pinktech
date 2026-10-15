@@ -3,7 +3,9 @@ const Role = require("../models/role.model");
 const Permission = require("../models/permission.model");
 const Import = require("../models/import.model");
 const ImportError = require("../models/importError.model");
+const mongoose = require("mongoose");
 const ApiError = require("@pink/shared").ApiError;
+const { isPlatformTenant } = require("@pink/shared");
 const { norm, stripVacantSuffix, titleCase } = require("../utils/orgNorm");
 const { parseOrgWorkbookBuffer } = require("./orgWorkbookParser.service");
 const rolesService = require("./roles.service");
@@ -376,6 +378,31 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
   }
   if (!rows.length) {
     throw new ApiError(400, "Workbook has no data rows");
+  }
+
+  // Workbook rows land in the request's tenant, and the Org Explore roll-up
+  // only ever shows customer tenants — the platform tenant is deliberately
+  // excluded. Uploading while "Home" is selected used to succeed silently into
+  // the platform tenant, so the import reported success while nothing ever
+  // appeared in Explore. Fail fast with directions instead.
+  let tenantDoc = null;
+  try {
+    tenantDoc = mongoose.Types.ObjectId.isValid(String(tenantId))
+      ? await mongoose.connection.collection("tenants").findOne({
+          _id: new mongoose.Types.ObjectId(String(tenantId)),
+        })
+      : null;
+  } catch {
+    // tenantDoc stays null -> 404 below
+  }
+  if (!tenantDoc) {
+    throw new ApiError(404, "Tenant not found");
+  }
+  if (isPlatformTenant(tenantDoc)) {
+    throw new ApiError(
+      400,
+      "Uploads go to a customer tenant — pick one in the tenant switcher first. Uploading from Home targets the Pinktech platform tenant, whose people never appear in Org Explore."
+    );
   }
 
   const importRecord = await Import.create({
