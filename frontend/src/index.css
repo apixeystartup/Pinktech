@@ -239,9 +239,6 @@ a:hover {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* Keep the scrollbar gutter reserved at all times so switching tabs (or any
-     content-height change) never shifts the page width back and forth. */
-  scrollbar-gutter: stable;
 }
 
 .topbar {
@@ -2606,4 +2603,53 @@ a.btn-ghost:hover {
   display: flex;
   gap: 10px;
   margin-top: 12px;
+}
+
+/* ---- Fixed 3-part shell (desktop): fixed top header, fixed left nav, data
+   scrolls on the right with no visible scrollbars. The editor popup follows
+   the same rule: it scrolls, but shows no bars. ----
+   NOTE: .app-main-scroll uses display:contents here so the header and the
+   body become direct flex children of .app-shell; descendant selectors still
+   match through it, and the rules below come last so they win ties. */
+@media (min-width: 901px) {
+  .app-shell {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .app-main-scroll {
+    display: contents;
+  }
+  .app-shell .shell-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .app-shell .sidebar {
+    height: 100%;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-self: stretch;
+  }
+  .app-shell .content {
+    overflow-y: auto;
+  }
+}
+
+/* Barless scrolling for the shell regions and the editor popup. Content still
+   scrolls (wheel, touch, keyboard) — only the bars are hidden. */
+.app-main-scroll,
+.app-shell .content,
+.app-shell .sidebar,
+.form-editor-backdrop {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.app-main-scroll::-webkit-scrollbar,
+.app-shell .content::-webkit-scrollbar,
+.app-shell .sidebar::-webkit-scrollbar,
+.form-editor-backdrop::-webkit-scrollbar {
+  display: none;
 }
