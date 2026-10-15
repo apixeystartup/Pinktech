@@ -55,6 +55,8 @@ function TemplatesTab({ org }) {
   const [promptCopied, setPromptCopied] = useState(false);
   const bodyRef = useRef(null);
   const fileRef = useRef(null);
+  // "+ Add Template" jumps to the design card below.
+  const editorCardRef = useRef(null);
 
   // Save/delete reload the list — setState inside .then callbacks is fine.
   const loadTemplates = useCallback(async () => {
@@ -230,44 +232,66 @@ function TemplatesTab({ org }) {
     value: previewCtx[`tenant.${o.key}`] || "",
   })).filter((r) => r.value);
 
+  // "+ Add Template": reset the editor to a blank template and jump to the
+  // design card below so the user lands right in it.
+  const addTemplate = () => {
+    setEditor(EMPTY_EDITOR);
+    setBanner("");
+    requestAnimationFrame(() => {
+      editorCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   return (
     <div className="schema-forms">
       <div className="builderCard">
-        <h2>Templates</h2>
+        <div className="adminRow">
+          <h2>Templates</h2>
+          <button type="button" className="ioButton ioButton--sm" onClick={addTemplate}>
+            + Add Template
+          </button>
+        </div>
         {banner ? <div className="fieldError">{banner}</div> : null}
         {templatesLoading ? (
           <p className="doc-form-note">Loading templates…</p>
         ) : templates.length ? (
-          <ul className="doc-field-list">
-            {templates.map((t) => (
-              <li key={String(t._id)}>
-                <span className="doc-field-label">
-                  {t.name}
-                  <br />
-                  <span className="doc-form-note">
-                    {(t.partyFields || []).length} org field{(t.partyFields || []).length === 1 ? "" : "s"} · updated{" "}
+          <div className="schema-forms-module-grid">
+            {templates.map((t) => {
+              const fieldCount = (t.partyFields || []).length;
+              const active = Boolean(editor._id) && editor._id === String(t._id);
+              return (
+                <article
+                  key={String(t._id)}
+                  className={`schema-forms-module-card${active ? " schema-forms-module-card--active" : ""}`}
+                >
+                  <div className="schema-forms-module-card__head">
+                    <h3 className="schema-forms-module-card__title">{t.name || "Untitled"}</h3>
+                    <span className="schema-forms-module-card__badge">Template</span>
+                  </div>
+                  <p className="schema-forms-module-card__meta">
+                    {fieldCount} org field{fieldCount === 1 ? "" : "s"} · updated{" "}
                     {t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : "—"}
-                  </span>
-                </span>
-                <span className="doc-field-type" style={{ display: "flex", gap: 6 }}>
-                  <button
-                    type="button"
-                    className="doc-action-btn doc-action-btn--view"
-                    onClick={() => setEditor({ _id: String(t._id), name: t.name || "", partyFields: t.partyFields || [], bodyText: t.bodyText || "" })}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="doc-action-btn doc-action-btn--danger"
-                    onClick={() => deleteTemplate(t._id, t.name)}
-                  >
-                    Delete
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
+                  </p>
+                  <div className="schema-forms-module-card__actions">
+                    <button
+                      type="button"
+                      className="ioButton ioButton--sm"
+                      onClick={() => setEditor({ _id: String(t._id), name: t.name || "", partyFields: t.partyFields || [], bodyText: t.bodyText || "" })}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="dangerBtn miniBtn"
+                      onClick={() => deleteTemplate(t._id, t.name)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         ) : (
           <p className="doc-form-note">No templates yet — design the first one below.</p>
         )}
@@ -287,7 +311,7 @@ function TemplatesTab({ org }) {
         </div>
       </div>
 
-      <div className="builderCard">
+      <div className="builderCard" ref={editorCardRef}>
         <h2>{editor._id ? `Edit template — ${editor.name}` : "New template"}</h2>
         <form onSubmit={saveTemplate}>
           <label>Template name *</label>
