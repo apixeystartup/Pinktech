@@ -107,6 +107,11 @@ async function resolveAccountRole(user, tenant) {
 
 async function login({ email, password }) {
   const normalizedLogin = String(email).toLowerCase().trim();
+  // Passwords copied out of emails/clients often pick up stray surrounding
+  // whitespace, which bcrypt would then reject even though the visible text
+  // matches. System-issued passwords never contain edge spaces, and every
+  // password-setting flow below trims the same way, so trimming here is safe.
+  const cleanPassword = String(password ?? "").trim();
   // Email is unique per tenant, not globally: the same address can belong to a
   // user in several tenants, each with its own password. Resolve every
   // candidate and pick the one whose password matches, instead of binding the
@@ -127,7 +132,7 @@ async function login({ email, password }) {
     if (candidate.status !== "ACTIVE") continue;
     const candidateTenant = await Tenant.findById(candidate.tenantId);
     if (!candidateTenant || candidateTenant.status !== "ACTIVE") continue;
-    const isValid = await bcrypt.compare(password, candidate.passwordHash || "");
+    const isValid = await bcrypt.compare(cleanPassword, candidate.passwordHash || "");
     if (isValid) {
       user = candidate;
       tenant = candidateTenant;
@@ -429,7 +434,9 @@ async function setPassword({ inviteToken, email, password }) {
     throw new ApiError(400, "OTP verification required");
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  // Trimmed for the same copy-paste reason as login: what you set is what
+  // sign-in compares, so edge whitespace can never lock anyone out.
+  const passwordHash = await bcrypt.hash(String(password ?? "").trim(), 12);
   user.passwordHash = passwordHash;
   user.status = "ACTIVE";
   user.inviteToken = null;
@@ -586,7 +593,7 @@ async function resetPassword({ resetToken, password }) {
   if (!user || !user.resetExpiry || user.resetExpiry < new Date()) {
     throw new ApiError(400, "Invalid or expired reset token");
   }
-  user.passwordHash = await bcrypt.hash(password, 12);
+  user.passwordHash = await bcrypt.hash(String(password ?? "").trim(), 12);
   user.resetToken = null;
   user.resetExpiry = null;
   user.status = "ACTIVE";

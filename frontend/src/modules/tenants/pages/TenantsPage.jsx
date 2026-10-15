@@ -99,12 +99,21 @@ function TenantsPage() {
     }
   };
 
+  const [sendingCredsId, setSendingCredsId] = useState(null);
+
   const sendCreds = async (tenant) => {
+    // One click = one password. Without the guard, double clicks issued two
+    // passwords seconds apart and only the second worked, while the first
+    // email looked identical — the classic "correct password rejected" report.
+    if (sendingCredsId) return;
+    setSendingCredsId(tenant._id);
     try {
       const res = await api.post(`/tenants/${tenant._id}/send-creds`);
       showToast(`Credentials sent to ${res.data.email}`, "success");
     } catch (error) {
       showToast(getErrorMessage(error), "error");
+    } finally {
+      setSendingCredsId(null);
     }
   };
 
@@ -159,7 +168,14 @@ function TenantsPage() {
             render: (row) => (
               <span className="table-row-actions">
                 <button className="btn-secondary" type="button" onClick={() => openEdit(row)}>Edit</button>
-                <button className="btn-secondary" type="button" onClick={() => sendCreds(row)}>Send Creds</button>
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={() => sendCreds(row)}
+                  disabled={sendingCredsId === row._id}
+                >
+                  {sendingCredsId === row._id ? "Sending…" : "Send Creds"}
+                </button>
                 {isPlatformTenant(row) ? (
                   <button
                     className="btn-secondary"
