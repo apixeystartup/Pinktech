@@ -761,9 +761,16 @@ a:hover {
 }
 
 /* Compact "Organization data (Party 1)" summary shown in the module header
-   on the Templates tab, in place of the page title + description. */
+   on the Templates tab, in place of the page title + description. Sized to
+   match the Builder tab's title + description block height exactly:
+   h2 (1.42rem × 1.2) + 6px gap + desc (0.92rem × 1.55). */
+.module-page h2:has(.org-summary) {
+  margin-bottom: 0;
+}
 .org-summary {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
+  min-height: calc(1.42rem * 1.2 + 6px + 0.92rem * 1.55);
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
@@ -771,6 +778,7 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--chip-bg);
+  box-sizing: border-box;
 }
 .org-summary__label {
   font-size: 0.68rem;
