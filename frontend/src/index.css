@@ -1421,6 +1421,80 @@ a.btn-ghost:hover {
   font-size: 0.82rem;
 }
 
+/* Segmented Builder/Templates toggle (Forms tab). The buttons previously had
+   no styles at all and rendered as raw browser defaults. */
+.segmented-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--glass-elevated) 92%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+.segmented-toggle-thumb {
+  display: none;
+}
+.segmented-toggle-btn {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.segmented-toggle-btn:not(.active):hover {
+  color: var(--text);
+  background: var(--nav-hover);
+}
+.segmented-toggle-btn.active {
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, #0f172a);
+  background: linear-gradient(155deg, #6366f1 0%, var(--primary) 48%, #0e7490 160%);
+  color: #fff;
+  box-shadow: 0 4px 16px var(--primary-glow), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}
+
+/* Notifications inbox status/channel pills (same language as dash-status). */
+.dash-status--sent { background: rgba(5, 150, 105, 0.12); color: #059669; }
+.dash-status--pending { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.dash-status--failed { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+.notif-channel {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+/* Compose card + empty inbox state. */
+.notifications-compose {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.notifications-empty {
+  margin: 12px 0;
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

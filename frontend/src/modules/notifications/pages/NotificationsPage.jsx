@@ -195,6 +195,9 @@ function NotificationsPage() {
           ? "Showing all notifications in this tenant."
           : "Showing threads where you are the sender or recipient."}
       </p>
+      {items.length === 0 ? (
+        <p className="notifications-empty">No notifications yet — sent messages will appear here.</p>
+      ) : (
       <DataTable
         columns={[
           { key: "createdAt", label: "When", render: (row) => (row.createdAt ? new Date(row.createdAt).toLocaleString() : "—") },
@@ -244,11 +247,26 @@ function NotificationsPage() {
             },
           },
           { key: "message", label: "Message", render: (row) => (row.message?.length > 80 ? `${row.message.slice(0, 80)}…` : row.message) },
-          { key: "channel", label: "Channel" },
-          { key: "status", label: "Status" },
+          {
+            key: "channel",
+            label: "Channel",
+            render: (row) => (
+              <span className="notif-channel">{String(row.channel || "—").replace(/_/g, " ")}</span>
+            ),
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (row) => (
+              <span className={`dash-status dash-status--${String(row.status || "unknown").toLowerCase()}`}>
+                {row.status || "—"}
+              </span>
+            ),
+          },
         ]}
         rows={items}
       />
+      )}
     </ModulePage>
   );
 }

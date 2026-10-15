@@ -12,7 +12,6 @@ function FormsPage() {
       description="Schema-driven forms (pink-form): design questions, share the public link, and review submissions with PDF receipts."
       actions={
         <div className="segmented-toggle" role="tablist" aria-label="Forms view">
-          <span className="segmented-toggle-thumb" aria-hidden="true" />
           <button
             type="button"
             role="tab"
