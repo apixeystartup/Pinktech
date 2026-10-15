@@ -3,13 +3,10 @@ import { useEffect, useState } from "react";
 import {
   createModule,
   deleteModule,
-  getFormResponses,
   getModules,
-  seedClientForm,
   updateModule,
 } from "../../lib/schemaFormsApi";
 import api from "../../lib/api";
-import { resolveSchemaFormAssetUrl } from "../../lib/schemaFormsPublic";
 import "../../styles/schema-forms.css";
 
 const QUESTION_TYPE_OPTIONS = [
@@ -136,7 +133,6 @@ function SchemaFormsBuilder() {
   const [schemaText, setSchemaText] = useState(JSON.stringify(normalizeModuleDoc(starterSchema), null, 2));
   const [showRawJson, setShowRawJson] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
-  const [responses, setResponses] = useState([]);
   const [templates, setTemplates] = useState([]);
 
   const fields = builderState.schema?.fields || [];
@@ -167,15 +163,6 @@ function SchemaFormsBuilder() {
     }
   }
 
-  async function refreshResponses(moduleId) {
-    if (!moduleId) {
-      setResponses([]);
-      return;
-    }
-    const data = await getFormResponses(moduleId);
-    setResponses(data);
-  }
-
   useEffect(() => {
     refreshModules().catch((err) => setStatus({ type: "error", message: err.message }));
     api
@@ -187,10 +174,6 @@ function SchemaFormsBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    refreshResponses(selectedId).catch((err) => setStatus({ type: "error", message: err.message }));
-  }, [selectedId]);
-
   function onChangeModule(id) {
     setSelectedId(id);
     if (!id) {
@@ -199,7 +182,6 @@ function SchemaFormsBuilder() {
     }
     const selected = modules.find((item) => item._id === id);
     syncTextWithBuilder(normalizeModuleDoc(selected || starterSchema));
-    refreshResponses(id).catch((err) => setStatus({ type: "error", message: err.message }));
   }
 
   function updateRootField(key, value) {
@@ -307,20 +289,8 @@ function SchemaFormsBuilder() {
       }
       setStatus({ type: "success", message: "Form saved successfully." });
       await refreshModules(result._id);
-      await refreshResponses(result._id);
     } catch (err) {
       setStatus({ type: "error", message: err.message || "Failed to save form." });
-    }
-  }
-
-  async function onSeed() {
-    try {
-      const result = await seedClientForm();
-      setStatus({ type: "success", message: result.message || "Seed completed." });
-      await refreshModules(result.moduleId);
-      await refreshResponses(result.moduleId);
-    } catch (err) {
-      setStatus({ type: "error", message: err.message });
     }
   }
 
@@ -358,7 +328,7 @@ function SchemaFormsBuilder() {
           Each card is a shareable form. Copy the public link or open it in a new tab. Use <strong>Edit</strong> to load it in the builder below.
         </p>
         {!modules.length ? (
-          <p className="hint">No saved modules yet. Seed a starter form or save a new one to see cards here.</p>
+          <p className="hint">No saved modules yet. Save a new one below to see cards here.</p>
         ) : (
           <div className="schema-forms-module-grid">
             {modules.map((mod) => {
@@ -412,18 +382,11 @@ function SchemaFormsBuilder() {
             <strong>{fields.length}</strong>
           </div>
           <div className="statCard">
-            <span>Responses</span>
-            <strong>{responses.length}</strong>
-          </div>
-          <div className="statCard">
             <span>Status</span>
             <strong>{builderState.isPublished ? "Published" : "Draft"}</strong>
           </div>
         </div>
         <div className="adminActions">
-          <button type="button" className="ghostBtn" onClick={onSeed}>
-            Seed Starter Form
-          </button>
           <button type="button" className="ioButton" onClick={onSave}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
@@ -691,39 +654,6 @@ function SchemaFormsBuilder() {
 
       {status.message ? (
         <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>
-      ) : null}
-      <h2 className="schema-forms__responses-title">Responses</h2>
-      {!selectedId ? <p className="hint">Select a form to view responses.</p> : null}
-      {selectedId && !responses.length ? <p className="hint">No responses yet.</p> : null}
-      {responses.length ? (
-        <div className="tableWrap">
-          <table className="responseTable">
-            <thead>
-              <tr>
-                <th>Submitted At</th>
-                <th>Fields</th>
-                <th>PDF</th>
-              </tr>
-            </thead>
-            <tbody>
-              {responses.map((item) => (
-                <tr key={item._id}>
-                  <td>{new Date(item.createdAt).toLocaleString()}</td>
-                  <td>{Object.keys(item.data || {}).join(", ")}</td>
-                  <td>
-                    {item.pdfDownloadUrl ? (
-                      <a className="link" href={resolveSchemaFormAssetUrl(item.pdfDownloadUrl)} target="_blank" rel="noreferrer">
-                        Download PDF
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       ) : null}
     </div>
   );
