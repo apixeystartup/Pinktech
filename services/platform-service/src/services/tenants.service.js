@@ -2,10 +2,31 @@ const mongoose = require("mongoose");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const Tenant = require("../models/tenant.model");
+const Role = require("../models/role.model");
 const User = require("../models/user.model");
+const Permission = require("../models/permission.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("./audit.service");
-const { notificationAdapter, isPlatformTenant, PLATFORM_TENANT_CODES } = require("@pink/shared");
+const { notificationAdapter, isPlatformTenant, PLATFORM_TENANT_CODES, FOUNDER_ROLE_NAME } = require("@pink/shared");
+
+// Every tenant is born with its admin seat: a top-level Founder role that the
+// tenant admin carries, so the admin always appears as the org root in Explore
+// and sheet rows can map to people by the admin's employee code.
+async function ensureFounderRole(tenantId) {
+  const permissionIds = (await Permission.find({}).select("_id").lean()).map((p) => p._id);
+  return Role.findOneAndUpdate(
+    { tenantId, name: FOUNDER_ROLE_NAME },
+    {
+      $setOnInsert: {
+        type: "CUSTOM",
+        permissionIds,
+        aliases: [FOUNDER_ROLE_NAME.toUpperCase()],
+        auto: { level: 5, scope: "ALL_INDIA", detectedAt: new Date() },
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+}
 
 async function createTenant(payload, actor) {
   const existing = await Tenant.findOne({ code: payload.code.toUpperCase() });
@@ -17,6 +38,8 @@ async function createTenant(payload, actor) {
     ...payload,
     code: payload.code.toUpperCase(),
   });
+
+  await ensureFounderRole(tenant._id);
 
   await writeAudit({
     tenantId: null,
@@ -331,6 +354,9 @@ async function sendTenantCredentials(tenantId, actor) {
   }
 
   const User = mongoose.model("User");
+  // The tenant admin carries the Founder seat, which is what puts them at the
+  // root of Org Explore and lets sheet rows map to them by employee code.
+  const founder = await ensureFounderRole(tenantId);
   let adminUser = await User.findOne({ tenantId, email: tenant.email });
 
   if (!adminUser) {
@@ -342,7 +368,7 @@ async function sendTenantCredentials(tenantId, actor) {
       email: tenant.email,
       passwordHash,
       status: "ACTIVE",
-      roleIds: [],
+      roleIds: [founder._id],
     });
 
     if (tenant.email) {
@@ -378,6 +404,9 @@ async function sendTenantCredentials(tenantId, actor) {
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   adminUser.passwordHash = passwordHash;
   adminUser.status = "ACTIVE";
+  if (!adminUser.roleIds || !adminUser.roleIds.map(String).includes(String(founder._id))) {
+    adminUser.roleIds = [...(adminUser.roleIds || []), founder._id];
+  }
   await adminUser.save();
 
   if (tenant.email) {
@@ -415,6 +444,7 @@ async function resetTenantCredentials(tenantId, actor) {
 
 module.exports = {
   createTenant,
+  ensureFounderRole,
   listTenants,
   getCurrentTenant,
   updateTenant,

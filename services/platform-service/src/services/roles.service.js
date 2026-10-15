@@ -1,8 +1,11 @@
 const Role = require("../models/role.model");
 const Permission = require("../models/permission.model");
 const ApiError = require("@pink/shared").ApiError;
-const { isReservedPlatformRoleName, RESERVED_ROLE_MESSAGE } = require("@pink/shared");
+const { isReservedPlatformRoleName, RESERVED_ROLE_MESSAGE, isFounderRoleName } = require("@pink/shared");
 const { writeAudit } = require("./audit.service");
+
+const FOUNDER_PROTECTION_MESSAGE =
+  "The Founder role holds the tenant admin's seat in the org tree and cannot be deleted.";
 
 async function resolvePermissionIds(payload) {
   const ids = new Set();
@@ -142,6 +145,9 @@ async function deleteRole(tenantId, roleId, actor) {
   if (role.type === "SYSTEM") {
     throw new ApiError(403, "System roles cannot be deleted");
   }
+  if (isFounderRoleName(role.name)) {
+    throw new ApiError(400, FOUNDER_PROTECTION_MESSAGE);
+  }
   await Role.deleteOne({ _id: roleId, tenantId });
   await writeAudit({
     tenantId,
@@ -160,6 +166,9 @@ async function bulkDeleteRoles(tenantId, roleIds, actor) {
   const systemRole = roles.find((r) => r.type === "SYSTEM");
   if (systemRole) {
     throw new ApiError(403, "System roles cannot be deleted");
+  }
+  if (roles.some((r) => isFounderRoleName(r.name))) {
+    throw new ApiError(400, FOUNDER_PROTECTION_MESSAGE);
   }
   await Role.deleteMany({ tenantId, _id: { $in: uniqueRoleIds } });
   await writeAudit({

@@ -312,7 +312,9 @@ function resolveManagerMappings(rows, dbIndex = null) {
 }
 
 async function discoverRolesForUsers(tenantId, users) {
-  await Role.deleteMany({ tenantId, type: "CUSTOM" });
+  // The Founder seat belongs to the tenant admin and anchors Org Explore — it
+  // is never rebuilt from sheet designations, so it survives every re-import.
+  await Role.deleteMany({ tenantId, type: "CUSTOM", name: { $ne: "Founder" } });
   console.log(`[workbook-import] Cleared all custom roles for tenant ${tenantId}`);
 
   const existing = await Role.find({ tenantId }, { aliases: 1 }).lean();
