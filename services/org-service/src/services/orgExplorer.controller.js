@@ -35,10 +35,12 @@ async function resolveOrgSnapshot(req) {
     return orgDirectory.filterSnapshotToDescendants(rooted, actor);
   }
   let full = await orgDirectory.loadSnapshot(req.tenantId);
-  // Pinktech (the platform) is the super admin for every tenant, so a platform
-  // super admin exploring any tenant — including their own — gets the virtual
-  // root above that tenant's admin(s): Pinktech -> Admin -> team.
-  if (req.auth?.isSuperAdmin && full.byId.size > 0) {
+  // Pinktech (the platform) is the super admin for every tenant, so the
+  // read-only Pinktech root sits above the org for the platform super admin
+  // and for a tenant admin viewing their own organization alike. Plain
+  // employees keep their personal scoped view with no platform root.
+  const seesPlatformRoot = req.auth?.isSuperAdmin || req.auth?.accountRole === "tenant_admin";
+  if (seesPlatformRoot && full.byId.size > 0) {
     full = await orgDirectory.withVirtualSuperAdminRoot(full, req.tenantId);
   }
   if (orgDirectoryFullAccess(req)) return full;

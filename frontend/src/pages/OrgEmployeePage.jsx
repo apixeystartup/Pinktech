@@ -73,12 +73,20 @@ function tenantHeader(tenantId) {
   return tenantId ? { headers: { "X-Tenant-Id": String(tenantId) } } : {};
 }
 
-// Admins (Pinktech's super admin, or a tenant's own admin) manage the whole
+// Admins (Pinktech's super admin, or a tenant's own admin) see the whole
 // organization. Everyone else gets a read-only view of their own team: the
 // backend already scopes their snapshot to themselves + their reports.
 function useIsOrgAdmin() {
   const { isSuperAdmin, accountRole } = useAuth();
   return Boolean(isSuperAdmin) || accountRole === "tenant_admin";
+}
+
+// Full management powers (every button, upload, reload, roles) belong to the
+// platform super admin alone. A tenant admin sees their whole org read-only
+// under the Pinktech root; everyone else sees only their own team.
+function useCanManageOrg() {
+  const { isSuperAdmin } = useAuth();
+  return Boolean(isSuperAdmin);
 }
 
 function useOrgStats() {
@@ -271,6 +279,7 @@ function OrgExplorerPage() {
   const setSelectedId = useOrgStore((s) => s.setSelectedId);
   const { tenantContextId } = useAuth();
   const isAdmin = useIsOrgAdmin();
+  const canManage = useCanManageOrg();
   const { data: stats, isLoading: statsLoading } = useOrgStats();
   // Reset the focused person when the super admin switches tenant context so the
   // tree never keeps a stale selection from another tenant.
@@ -281,10 +290,10 @@ function OrgExplorerPage() {
       setSelectedId(null);
     }
   }, [tenantContextId, setSelectedId]);
-  // The Roles sub-tab is an admin surface; never leave an employee sitting on it.
+  // The Roles sub-tab is a management surface; never leave a non-super user on it.
   useEffect(() => {
-    if (!isAdmin && tab === "roles") setTab("org-tree");
-  }, [isAdmin, tab, setTab]);
+    if (!canManage && tab === "roles") setTab("org-tree");
+  }, [canManage, tab, setTab]);
   // Everyone else only ever sees themselves + their reports, so an employee with
   // nobody reporting to them has nothing to explore.
   const noTeam = !isAdmin && !statsLoading && Number(stats?.total ?? 0) <= 1;
@@ -304,7 +313,7 @@ function OrgExplorerPage() {
           <ExplorerView variant="tree" />
         ) : tab === "org-explorer" ? (
           <ExplorerView variant="explorer" />
-        ) : isAdmin ? (
+        ) : canManage ? (
           <RolesView />
         ) : (
           <ExplorerView variant="tree" />
@@ -324,7 +333,7 @@ function OrgTopBar() {
   const setTab = useOrgStore((s) => s.setTab);
   const openDialog = useOrgStore((s) => s.openDialog);
   const refresh = useRefreshAll();
-  const isAdmin = useIsOrgAdmin();
+  const canManage = useCanManageOrg();
   const fileInputRef = useRef(null);
 
   const uploadMut = useMutation({
@@ -360,7 +369,7 @@ function OrgTopBar() {
         <span className="stat-pill stat-vacant">{stats?.vacant ?? "—"} vacant</span>
         <span className="stat-pill stat-roles">{stats?.roles ?? "—"} roles</span>
         <span className="stat-pill stat-levels">L{stats?.max_level ?? "—"}</span>
-        {isAdmin && removedCount > 0 && (
+        {canManage && removedCount > 0 && (
           <button type="button" className="stat-pill stat-removed" onClick={() => openDialog({ kind: "removed-list" })} title="People marked as left — click to restore">
             {removedCount} removed
           </button>
@@ -368,14 +377,14 @@ function OrgTopBar() {
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 flex-wrap">
-          {(isAdmin
+          {(canManage
             ? [["org-tree", "Org tree"], ["org-explorer", "Org explorer"], ["roles", "Roles"]]
             : [["org-tree", "Org tree"], ["org-explorer", "Org explorer"]]
           ).map(([k, label]) => (
             <button key={k} type="button" className={`tab-btn${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{label}</button>
           ))}
         </div>
-        {isAdmin && (
+        {canManage && (
           <>
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ""; }} />
@@ -608,7 +617,7 @@ function DetailPanel() {
   const ancQ = useOrgAncestry(selectedId);
   const setManagerMut = useSetManager();
   const reassignMut = useReassignReports();
-  const isAdmin = useIsOrgAdmin();
+  const canManage = useCanManageOrg();
 
   if (!selectedId) return <div className="px-5 py-8 text-sm text-slate-500 leading-relaxed">Pick someone from the directory or the org tree to see their full record here.</div>;
   if (empQ.isLoading || !empQ.data) return <div className="px-5 py-8 text-sm text-slate-500">Loading…</div>;
@@ -644,7 +653,7 @@ function DetailPanel() {
           <div className="field col-span-2 min-w-0">
             <div className="flex items-center justify-between gap-3 mb-1">
               <div className="label">Official email (from sheet)</div>
-              {!emp.is_virtual_root && isAdmin && (
+              {!emp.is_virtual_root && canManage && (
                 <button type="button" className="text-xs text-blue-600 hover:underline"
                   onClick={() => openDialog({ kind: "edit-employee-email", subjectId: emp.id, tenantId: emp.tenant_id, initialEmail: emp.official_email || "" })}>Edit</button>
               )}
@@ -683,7 +692,7 @@ function DetailPanel() {
             super admin, so this read-only root always sits above the tenant&apos;s admin. Pick a person below to view or
             edit their record.
           </p>
-        ) : isAdmin ? (
+        ) : canManage ? (
           <>
         <button type="button" className="action-btn"
           onClick={() => openDialog({ kind: "picker", title: `Choose new manager for ${emp.name}`, subtitle: "The cycle detection will block self-loops automatically.", excludeIds: [emp.id], tenantId: emp.tenant_id,
