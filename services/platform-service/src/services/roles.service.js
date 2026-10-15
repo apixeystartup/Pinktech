@@ -69,7 +69,10 @@ async function createRole(tenantId, payload, actor) {
 }
 
 async function listRoles(tenantId) {
-  return Role.find({ tenantId }).populate("permissionIds");
+  // The platform's Super Admin seat is not a manageable row: it is the single
+  // ALL_INDIA super admin for every tenant, so it never appears in role lists
+  // (it also can't be assigned through the edit dialogs that read this list).
+  return Role.find({ tenantId, type: { $ne: "SYSTEM" } }).populate("permissionIds");
 }
 
 async function updateRole(tenantId, roleId, payload, actor) {

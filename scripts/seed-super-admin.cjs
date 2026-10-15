@@ -46,9 +46,18 @@ async function seed() {
     ),
   );
 
+  // The one platform Super Admin: top of every scale, ALL_INDIA scope. Kept in
+  // $set (not $setOnInsert) so re-running the seed repairs older rows that
+  // were created with the schema defaults (L1/HQ).
   const role = await Role.findOneAndUpdate(
     { tenantId: tenant._id, name: "Super Admin" },
-    { $set: { type: "SYSTEM", permissionIds: permissionDocs.map((permission) => permission._id) } },
+    {
+      $set: {
+        type: "SYSTEM",
+        permissionIds: permissionDocs.map((permission) => permission._id),
+        auto: { level: 5, scope: "ALL_INDIA", detectedAt: new Date() },
+      },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 
