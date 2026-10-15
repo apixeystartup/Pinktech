@@ -45,15 +45,18 @@ export function getSchemaFormDispatchProgress(row) {
     };
   }
 
-  if (status === "REJECTED") {
+  if (status === "REJECTED" || status === "CORRECTION_REQUIRED") {
     const advances = (row.eventLog || []).filter((e) => e.kind === "APPROVAL_ADVANCED").length;
+    const correction = status === "CORRECTION_REQUIRED";
     return {
       total,
       completedSteps: advances,
       pendingStepNumber: null,
       progressFraction: advances / total,
-      summary: "Rejected",
-      statusLine: `${advances} approved · 1 rejected`,
+      summary: correction ? "Correction" : "Rejected",
+      statusLine: correction
+        ? `${advances} approved · correction requested`
+        : `${advances} approved · 1 rejected`,
       rejected: true,
       approvedCount: advances,
       rejectedCount: 1,

@@ -1,22 +1,43 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
-import { canAccessRoute, getNavSections } from "../lib/access-control";
+import { getNavSections, isAdminRole } from "../lib/access-control";
 import api from "../lib/api";
 import { displayAccountEmail } from "../lib/userDisplay";
 
-function toggleTheme() {
-  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("theme", next);
-}
-
 function AppLayout() {
-  const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant } = useAuth();
+  const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole } = useAuth();
   const [tenants, setTenants] = useState([]);
-  const [totalPermissions, setTotalPermissions] = useState(0);
-  const navSections = getNavSections(permissionCodes);
-  const canManageTenants = permissionCodes.includes("*") || permissionCodes.includes("tenant.manage");
+  // A regular employee only ever sees themselves + their own reports in Org
+  // Explore, so an employee with no reports gets no Org Explore entry at all.
+  // Admins always keep it. `null` means "not known yet" — keep the entry until
+  // we can tell, rather than hiding a page they may need.
+  const [employeeHasTeam, setEmployeeHasTeam] = useState(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const orgAdmin = isAdminRole(accountRole, isSuperAdmin);
+
+  useEffect(() => {
+    if (orgAdmin) return undefined;
+    let active = true;
+    api
+      .get("/org/stats")
+      .then((res) => {
+        if (active) setEmployeeHasTeam(Number(res.data?.total ?? 0) > 1);
+      })
+      .catch(() => {
+        if (active) setEmployeeHasTeam(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [orgAdmin]);
+
+  const hasTeam = orgAdmin || employeeHasTeam !== false;
+
+  const navSections = getNavSections(permissionCodes, isSuperAdmin, accountRole, {
+    hideRoutes: hasTeam ? [] : ["/app/org-employees"],
+  });
+  const canManageTenants = accountRole ? accountRole === "super_admin" : isSuperAdmin;
 
   useEffect(() => {
     let active = true;
@@ -42,26 +63,27 @@ function AppLayout() {
     };
   }, [canManageTenants]);
 
+  // Pinktech's own tenant is the platform: the backend never lists it as a
+  // tenant, so the header only offers Home (all tenants) plus customer tenants.
+  // A selection left over from an earlier visit would point at a tenant the
+  // header no longer offers — and picking your own tenant is the same as Home —
+  // so fall back to Home.
   useEffect(() => {
-    let active = true;
-    if (!permissionCodes.includes("*")) {
-      return () => { active = false; };
+    if (!tenantContextId) return;
+    const ownTenantId = user?.tenantId ? String(user.tenantId) : "";
+    if (ownTenantId && String(tenantContextId) === ownTenantId) {
+      setTenantContext("");
     }
-    api
-      .get("/permissions")
-      .then((res) => {
-        if (active) {
-          const data = res.data;
-          setTotalPermissions(Array.isArray(data) ? data.length : (data.total || 0));
-        }
-      })
-      .catch(() => {
-        if (active) setTotalPermissions(0);
-      });
-    return () => { active = false; };
-  }, [permissionCodes]);
+  }, [tenantContextId, setTenantContext, user?.tenantId]);
 
-  const catalogLink = canAccessRoute("/permissions", permissionCodes);
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const onKey = (event) => {
+      if (event.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
   const displayName = (user?.name || "").trim();
   const empCode = (user?.empCode || "").trim();
   const accountEmail = displayAccountEmail(user);
@@ -77,42 +99,33 @@ function AppLayout() {
           </div>
           <div className="topbar-titles">
             <h1 className="topbar-title">
-              <span className="topbar-title-word">Pink</span>
+              <span className="topbar-title-word">Pink Tech</span>
               <span className="topbar-title-tag">Workspace</span>
             </h1>
             <div className="topbar-meta-block">
-              {displayName || empCode ? (
-                <p className="topbar-subtitle topbar-employee-summary" title={topbarSummaryTitle || undefined}>
-                  {displayName ? <span className="topbar-employee-name">{displayName}</span> : null}
-                  {displayName && empCode ? <span aria-hidden> · </span> : null}
-                  {empCode ? (
-                    <span className="topbar-employee-id" title="Employee ID">
-                      Employee ID: <strong>{empCode}</strong>
-                    </span>
-                  ) : null}
-                </p>
-              ) : null}
-              <p className="topbar-subtitle topbar-email" title={topbarSummaryTitle || accountEmail || undefined}>
-                {accountEmail || "Signed in"}
-              </p>
-              <div className="topbar-meta-row">
-                {catalogLink ? (
-                  <NavLink to="/app/permissions" className="topbar-pill" title="Open access catalog">
-                    {permissionCodes.includes("*") ? `${totalPermissions} grants` : `${permissionCodes.length} grants`}
-                  </NavLink>
-                ) : (
-                  <span className="topbar-pill topbar-pill--muted">{permissionCodes.includes("*") ? `${totalPermissions} grants` : `${permissionCodes.length} grants`}</span>
-                )}
+              <p className="topbar-subtitle topbar-identity" title={topbarSummaryTitle || undefined}>
+                {displayName ? <span className="topbar-employee-name">{displayName}</span> : null}
+                {displayName && empCode ? <span aria-hidden> · </span> : null}
+                {empCode ? (
+                  <span className="topbar-employee-id" title="Employee ID">
+                    Employee ID: <strong>{empCode}</strong>
+                  </span>
+                ) : null}
                 {canManageTenants ? (
-                  <span className="topbar-tenant-hint" title="X-Tenant-Id override">
-                    Tenant · {tenantContextId || user?.tenantId || "home"}
+                  <span className="topbar-tenant-chip" title="X-Tenant-Id override">
+                    {tenantContextId
+                      ? `Tenant · ${tenants.find((t) => t._id === tenantContextId)?.name || tenantContextId}`
+                      : "Home · all tenants"}
                   </span>
                 ) : currentTenant ? (
-                  <span className="topbar-tenant-hint">
+                  <span className="topbar-tenant-chip">
                     {currentTenant.name} · {currentTenant.code}
                   </span>
                 ) : null}
-              </div>
+              </p>
+              <p className="topbar-subtitle topbar-email" title={topbarSummaryTitle || accountEmail || undefined}>
+                {accountEmail || "Signed in"}
+              </p>
             </div>
           </div>
         </div>
@@ -125,7 +138,7 @@ function AppLayout() {
               value={tenantContextId}
               onChange={(e) => setTenantContext(e.target.value)}
             >
-              <option value="">Home tenant only (no override)</option>
+              <option value="">Home</option>
               {tenants.map((tenant) => (
                 <option key={tenant._id} value={tenant._id}>
                   {tenant.name} ({tenant.code})
@@ -133,32 +146,30 @@ function AppLayout() {
               ))}
             </select>
           ) : null}
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={toggleTheme}
-            title="Toggle theme"
-            aria-label="Toggle light or dark theme"
-          >
-            <span className="btn-icon__sun" aria-hidden>
-              ☀
-            </span>
-            <span className="btn-icon__moon" aria-hidden>
-              ☾
-            </span>
-          </button>
           <button type="button" onClick={logout} className="btn-secondary">
             Log out
+          </button>
+          <button
+            type="button"
+            className="hamburger"
+            aria-label={navOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen((prev) => !prev)}
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
           </button>
         </div>
       </header>
       <div className="shell-body">
-        <aside className="sidebar">
+        {navOpen ? <div className="sidebar-scrim" onClick={() => setNavOpen(false)} aria-hidden="true" /> : null}
+        <aside className={`sidebar${navOpen ? " sidebar--open" : ""}`}>
           {navSections.map((section) => (
             <div key={section.title} className="sidebar-section">
               <h3>{section.title}</h3>
               {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end>
+                <NavLink key={item.to} to={item.to} end onClick={() => setNavOpen(false)}>
                   {item.label}
                 </NavLink>
               ))}

@@ -3,11 +3,13 @@ const crypto = require("crypto");
 const mongoose = require("mongoose");
 const Joi = require("joi");
 const KycRecord = require("../models/kycRecord.model");
+const FormTemplate = require("../models/formTemplate.model");
 const ExternalUser = require("../models/externalUser.model");
 const User = require("../models/user.model");
 const Notification = require("../models/notification.model");
 const { notificationAdapter } = require("@pink/shared");
 const ApiError = require("@pink/shared").ApiError;
+const { placeholderContext, resolvePlaceholders } = require("@pink/shared");
 const env = require("../config/env");
 const { getUserIdsWithTenantManage } = require("../services/notifications.service");
 const SchemaFormDispatch = require("../models/schemaFormDispatch.model");
@@ -369,13 +371,47 @@ router.get("/schema-dispatch/:token", async (req, res, next) => {
     }
     const moduleDoc = await PinkFormModule.findById(dispatch.moduleId).lean();
     if (!moduleDoc || moduleDoc.moduleType !== "FORM") throw new ApiError(404, "Form not found.");
-    const tenant = await Tenant.findById(dispatch.tenantId).select("name").lean();
+    const tenant = await Tenant.findById(dispatch.tenantId).lean();
+    const tenantName = tenant?.name || "Organization";
+    // Per-doctor placeholders ({{doctor.name}} ...) resolve against this
+    // dispatch's own recipient, so one form personalizes per link.
+    // {{tenant.*}} resolves against the dispatch's tenant profile.
+    const doctor = await ExternalUser.findById(dispatch.externalUserId).lean();
+    const phContext = placeholderContext({ doctor: doctor || {}, tenant: tenant || { name: tenantName } });
+    const apiModule = toApiModule(moduleDoc);
+    if (apiModule?.schema?.settings) {
+      const settings = { ...apiModule.schema.settings };
+      for (const key of ["description", "preAgreementText", "postAgreementText"]) {
+        if (typeof settings[key] === "string") settings[key] = resolvePlaceholders(settings[key], phContext);
+      }
+      apiModule.schema = { ...apiModule.schema, settings };
+    }
+    // A form with templates uses the agreements frozen at assign time (Party 1
+    // + this doctor's blanks resolved) instead of the opening/closing texts.
+    let templateAgreement = null;
+    const openingHtml = dispatch.openingAgreementHtml || dispatch.agreementHtml || "";
+    const closingHtml = dispatch.closingAgreementHtml || "";
+    if (openingHtml || closingHtml) {
+      const openingId = dispatch.openingTemplateId || dispatch.templateId || null;
+      const templateName = openingId
+        ? (await FormTemplate.findById(openingId).select("name").lean())?.name || null
+        : null;
+      templateAgreement = {
+        name: templateName,
+        html: openingHtml,
+        openingHtml,
+        closingHtml,
+        openingTemplateId: dispatch.openingTemplateId || dispatch.templateId || null,
+        closingTemplateId: dispatch.closingTemplateId || null,
+      };
+    }
     res.status(200).json({
       token: dispatch.token,
       moduleId: dispatch.moduleId,
-      module: toApiModule(moduleDoc),
-      tenantName: tenant?.name || "Organization",
-      instructions: dispatch.instructions || "",
+      module: apiModule,
+      tenantName,
+      templateAgreement,
+      instructions: resolvePlaceholders(dispatch.instructions || "", phContext),
       dueDate: dispatch.dueDate || null,
       status: dispatch.status,
     });

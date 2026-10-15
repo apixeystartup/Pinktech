@@ -58,6 +58,12 @@ const moduleSchema = new mongoose.Schema(
         },
         preAgreementText: { type: String, default: "" },
         postAgreementText: { type: String, default: "" },
+        // Agreement template picked while creating the form (see
+        // /forms/templates). A form with a template uses the template
+        // document instead of the opening/closing agreements.
+        templateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
+        openingTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
+        closingTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
         allowDraft: { type: Boolean, default: false }
       }
     }

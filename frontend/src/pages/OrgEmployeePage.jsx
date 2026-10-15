@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import toast from "react-hot-toast";
 import ModulePage from "../components/common/ModulePage";
-import TenantScopeBanner from "../components/common/TenantScopeBanner";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
 
@@ -60,38 +59,82 @@ function useRefreshAll() {
 
 // ─── API hooks ─────────────────────────────────────────────
 
+// Home (a super admin with no tenant override) is a platform-wide roll-up across
+// every customer tenant; any other selection is a plain single-tenant snapshot.
+function useOrgScope() {
+  const { tenantContextId, isSuperAdmin } = useAuth();
+  const allTenants = !!isSuperAdmin && !tenantContextId;
+  return { tenantContextId, allTenants };
+}
+
+// Explicit tenant for a call that targets one row of the Home roll-up, whose
+// tenant differs from the ambient one. Merges cleanly into a request config.
+function tenantHeader(tenantId) {
+  return tenantId ? { headers: { "X-Tenant-Id": String(tenantId) } } : {};
+}
+
+// Admins (Pinktech's super admin, or a tenant's own admin) manage the whole
+// organization. Everyone else gets a read-only view of their own team: the
+// backend already scopes their snapshot to themselves + their reports.
+function useIsOrgAdmin() {
+  const { isSuperAdmin, accountRole } = useAuth();
+  return Boolean(isSuperAdmin) || accountRole === "tenant_admin";
+}
+
 function useOrgStats() {
-  return useQuery({ queryKey: ["org-stats"], queryFn: async () => (await api.get("/org/stats")).data, staleTime: 5000 });
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({ queryKey: ["org-stats", tenantContextId, allTenants], queryFn: async () => (await api.get("/org/stats", { params: allTenants ? { all_tenants: 1 } : undefined })).data, staleTime: 5000, refetchOnWindowFocus: true });
 }
 function useOrgFilters(criteria) {
-  return useQuery({ queryKey: ["org-filters", criteria], queryFn: async () => (await api.get("/org/filters", { params: criteria })).data, staleTime: 5000 });
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({ queryKey: ["org-filters", tenantContextId, allTenants, criteria], queryFn: async () => (await api.get("/org/filters", { params: allTenants ? { ...criteria, all_tenants: 1 } : criteria })).data, staleTime: 5000, refetchOnWindowFocus: true });
 }
-function useOrgEmployees(criteria) {
-  return useQuery({ queryKey: ["org-employees", criteria], queryFn: async () => (await api.get("/org/employees", { params: { ...criteria, limit: criteria.limit || 1000 } })).data, staleTime: 5000 });
+function useOrgEmployees(criteria, tenantId) {
+  const { tenantContextId, allTenants } = useOrgScope();
+  const aggregate = allTenants && !tenantId;
+  return useQuery({
+    queryKey: ["org-employees", tenantContextId, aggregate, tenantId || null, criteria],
+    queryFn: async () => (await api.get("/org/employees", { ...tenantHeader(tenantId), params: { ...criteria, limit: criteria.limit || 1000, ...(aggregate ? { all_tenants: 1 } : {}) } })).data,
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+  });
 }
-function useOrgEmployee(key) {
-  return useQuery({ queryKey: ["org-employee", key], queryFn: async () => (await api.get(`/org/employees/${key}`)).data, enabled: !!key, staleTime: 5000 });
+function useOrgEmployee(key, tenantId) {
+  const { tenantContextId, allTenants } = useOrgScope();
+  const aggregate = allTenants && !tenantId;
+  return useQuery({
+    queryKey: ["org-employee", tenantContextId, aggregate, tenantId || null, key],
+    queryFn: async () => (await api.get(`/org/employees/${key}`, { ...tenantHeader(tenantId), params: aggregate ? { all_tenants: 1 } : undefined })).data,
+    enabled: !!key,
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+  });
 }
 function useOrgSubtree(key) {
-  return useQuery({ queryKey: ["org-subtree", key], queryFn: async () => (await api.get(`/org/employees/${key}/subtree`)).data, enabled: !!key, staleTime: 5000 });
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({ queryKey: ["org-subtree", tenantContextId, allTenants, key], queryFn: async () => (await api.get(`/org/employees/${key}/subtree`, { params: allTenants ? { all_tenants: 1 } : undefined })).data, enabled: !!key, staleTime: 5000, refetchOnWindowFocus: true });
 }
 function useOrgAncestry(key) {
-  return useQuery({ queryKey: ["org-ancestry", key], queryFn: async () => (await api.get(`/org/employees/${key}/ancestry`)).data, enabled: !!key, staleTime: 5000 });
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({ queryKey: ["org-ancestry", tenantContextId, allTenants, key], queryFn: async () => (await api.get(`/org/employees/${key}/ancestry`, { params: allTenants ? { all_tenants: 1 } : undefined })).data, enabled: !!key, staleTime: 5000, refetchOnWindowFocus: true });
 }
 function useOrgRoots() {
-  return useQuery({ queryKey: ["org-roots"], queryFn: async () => (await api.get("/org/roots")).data, staleTime: 5000 });
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({ queryKey: ["org-roots", tenantContextId, allTenants], queryFn: async () => (await api.get("/org/roots", { params: allTenants ? { all_tenants: 1 } : undefined })).data, staleTime: 5000, refetchOnWindowFocus: true });
 }
-function useOrgRoles() {
-  return useQuery({ queryKey: ["org-roles"], queryFn: async () => (await api.get("/org/roles")).data, staleTime: 5000 });
+function useOrgRoles(tenantId) {
+  const { tenantContextId } = useAuth();
+  return useQuery({ queryKey: ["org-roles", tenantContextId, tenantId || null], queryFn: async () => (await api.get("/org/roles", tenantHeader(tenantId))).data, staleTime: 5000, refetchOnWindowFocus: true });
 }
 function useOrgRemoved() {
-  return useQuery({ queryKey: ["org-removed"], queryFn: async () => (await api.get("/org/hierarchy/removed")).data, staleTime: 1000 });
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({ queryKey: ["org-removed", tenantContextId, allTenants], queryFn: async () => (await api.get("/org/hierarchy/removed", { params: allTenants ? { all_tenants: 1 } : undefined })).data, staleTime: 1000, refetchOnWindowFocus: true });
 }
 
 function useSetManager() {
   const refresh = useRefreshAll();
   return useMutation({
-    mutationFn: ({ id, manager_id }) => api.put(`/org/employees/${id}`, { manager_id }),
+    mutationFn: ({ id, manager_id, tenantId }) => api.put(`/org/employees/${id}`, { manager_id }, tenantHeader(tenantId)),
     onSuccess: () => { refresh(); toast.success("Manager updated"); },
     onError: (e) => toast.error(e?.response?.data?.message || "Update failed"),
   });
@@ -99,7 +142,7 @@ function useSetManager() {
 function useSetRole() {
   const refresh = useRefreshAll();
   return useMutation({
-    mutationFn: ({ id, role_id }) => api.put(`/org/employees/${id}`, { role_id }),
+    mutationFn: ({ id, role_id, tenantId }) => api.put(`/org/employees/${id}`, { role_id }, tenantHeader(tenantId)),
     onSuccess: () => { refresh(); toast.success("Role updated"); },
     onError: (e) => toast.error(e?.response?.data?.message || "Update failed"),
   });
@@ -107,7 +150,7 @@ function useSetRole() {
 function useSetContactEmail() {
   const refresh = useRefreshAll();
   return useMutation({
-    mutationFn: ({ id, contact_email }) => api.put(`/org/employees/${id}`, { contact_email }),
+    mutationFn: ({ id, contact_email, tenantId }) => api.put(`/org/employees/${id}`, { contact_email }, tenantHeader(tenantId)),
     onSuccess: () => { refresh(); },
     onError: (e) => toast.error(e?.response?.data?.message || "Update failed"),
   });
@@ -115,7 +158,7 @@ function useSetContactEmail() {
 function useReassignReports() {
   const refresh = useRefreshAll();
   return useMutation({
-    mutationFn: ({ from_id, to_id, report_ids }) => api.post(`/org/employees/${from_id}/reassign-reports`, { to_id, report_ids }),
+    mutationFn: ({ from_id, to_id, report_ids, tenantId }) => api.post(`/org/employees/${from_id}/reassign-reports`, { to_id, report_ids }, tenantHeader(tenantId)),
     onSuccess: () => { refresh(); toast.success("Reports reassigned"); },
     onError: (e) => toast.error(e?.response?.data?.message || "Reassign failed"),
   });
@@ -123,7 +166,7 @@ function useReassignReports() {
 function useMarkLeft() {
   const refresh = useRefreshAll();
   return useMutation({
-    mutationFn: ({ id, reassign_to }) => api.post(`/org/employees/${id}/leave`, { reassign_to }),
+    mutationFn: ({ id, reassign_to, tenantId }) => api.post(`/org/employees/${id}/leave`, { reassign_to }, tenantHeader(tenantId)),
     onSuccess: () => { refresh(); toast.success("Marked as left"); },
     onError: (e) => toast.error(e?.response?.data?.message || "Leave failed"),
   });
@@ -145,7 +188,7 @@ function useAddEmployee() {
 function useReplacePerson() {
   const refresh = useRefreshAll();
   return useMutation({
-    mutationFn: ({ id, payload }) => api.post(`/org/employees/${id}/replace`, payload),
+    mutationFn: ({ id, payload, tenantId }) => api.post(`/org/employees/${id}/replace`, payload, tenantHeader(tenantId)),
     onSuccess: () => { refresh(); },
     onError: (e) => toast.error(e?.response?.data?.message || "Replace failed"),
   });
@@ -194,19 +237,27 @@ function useAutoDetectRoles() {
 // ─── Page entry ────────────────────────────────────────────
 
 export default function OrgEmployeePage() {
-  const { permissionCodes = [] } = useAuth();
+  const { permissionCodes = [], currentTenant } = useAuth();
+  const tenantLabel = currentTenant ? `${currentTenant.name} (${currentTenant.code})` : null;
+  const title = (
+    <>
+      Org Explore
+      {tenantLabel ? <span className="module-title-tenant">{tenantLabel}</span> : null}
+    </>
+  );
   const hasAccess = permissionCodes.includes("*") || permissionCodes.includes("employee.view");
   if (!hasAccess) {
     return (
-      <ModulePage title="ORG employee" description="You don't have access to this section.">
-        <TenantScopeBanner context="ORG employee" />
+      <ModulePage title={title} description="You don't have access to this section.">
         <p style={{ padding: 16, color: "#666" }}>You don't have the required permissions to view this page.</p>
       </ModulePage>
     );
   }
   return (
-    <ModulePage title="ORG employee" description="Org directory, assignments, and role management.">
-      <TenantScopeBanner context="ORG employee" />
+    <ModulePage
+      title={title}
+      description="Org directory, assignments, and role management."
+    >
       <div className="org-page"><OrgExplorerPage /></div>
     </ModulePage>
   );
@@ -216,11 +267,48 @@ export default function OrgEmployeePage() {
 
 function OrgExplorerPage() {
   const tab = useOrgStore((s) => s.tab);
+  const setTab = useOrgStore((s) => s.setTab);
+  const setSelectedId = useOrgStore((s) => s.setSelectedId);
+  const { tenantContextId } = useAuth();
+  const isAdmin = useIsOrgAdmin();
+  const { data: stats, isLoading: statsLoading } = useOrgStats();
+  // Reset the focused person when the super admin switches tenant context so the
+  // tree never keeps a stale selection from another tenant.
+  const prevTenantRef = useRef(tenantContextId);
+  useEffect(() => {
+    if (prevTenantRef.current !== tenantContextId) {
+      prevTenantRef.current = tenantContextId;
+      setSelectedId(null);
+    }
+  }, [tenantContextId, setSelectedId]);
+  // The Roles sub-tab is an admin surface; never leave an employee sitting on it.
+  useEffect(() => {
+    if (!isAdmin && tab === "roles") setTab("org-tree");
+  }, [isAdmin, tab, setTab]);
+  // Everyone else only ever sees themselves + their reports, so an employee with
+  // nobody reporting to them has nothing to explore.
+  const noTeam = !isAdmin && !statsLoading && Number(stats?.total ?? 0) <= 1;
   return (
     <div className="flex flex-col" style={{ minHeight: "calc(100vh - 160px)" }}>
       <OrgTopBar />
       <main className="px-6 py-6 max-w-[1920px] mx-auto w-full">
-        {tab === "org-tree" ? <ExplorerView variant="tree" /> : tab === "org-explorer" ? <ExplorerView variant="explorer" /> : <RolesView />}
+        {noTeam ? (
+          <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
+            <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Nothing to explore yet</h2>
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">
+              Nobody reports to you right now, so there is no team to show here. Your own profile still lives on the
+              Employee Management page.
+            </p>
+          </section>
+        ) : tab === "org-tree" ? (
+          <ExplorerView variant="tree" />
+        ) : tab === "org-explorer" ? (
+          <ExplorerView variant="explorer" />
+        ) : isAdmin ? (
+          <RolesView />
+        ) : (
+          <ExplorerView variant="tree" />
+        )}
       </main>
       <ModalRoot />
     </div>
@@ -236,6 +324,7 @@ function OrgTopBar() {
   const setTab = useOrgStore((s) => s.setTab);
   const openDialog = useOrgStore((s) => s.openDialog);
   const refresh = useRefreshAll();
+  const isAdmin = useIsOrgAdmin();
   const fileInputRef = useRef(null);
 
   const uploadMut = useMutation({
@@ -271,7 +360,7 @@ function OrgTopBar() {
         <span className="stat-pill stat-vacant">{stats?.vacant ?? "—"} vacant</span>
         <span className="stat-pill stat-roles">{stats?.roles ?? "—"} roles</span>
         <span className="stat-pill stat-levels">L{stats?.max_level ?? "—"}</span>
-        {removedCount > 0 && (
+        {isAdmin && removedCount > 0 && (
           <button type="button" className="stat-pill stat-removed" onClick={() => openDialog({ kind: "removed-list" })} title="People marked as left — click to restore">
             {removedCount} removed
           </button>
@@ -279,18 +368,25 @@ function OrgTopBar() {
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 flex-wrap">
-          {[["org-tree", "Org tree"], ["org-explorer", "Org explorer"], ["roles", "Roles"]].map(([k, label]) => (
+          {(isAdmin
+            ? [["org-tree", "Org tree"], ["org-explorer", "Org explorer"], ["roles", "Roles"]]
+            : [["org-tree", "Org tree"], ["org-explorer", "Org explorer"]]
+          ).map(([k, label]) => (
             <button key={k} type="button" className={`tab-btn${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{label}</button>
           ))}
         </div>
-        <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ""; }} />
-        <button type="button" className="org-btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={uploadMut.isPending}>
-          {uploadMut.isPending ? "Uploading…" : "Upload xlsx"}
-        </button>
-        <button type="button" className="org-btn-primary" onClick={() => reloadMut.mutate()} disabled={reloadMut.isPending}>
-          {reloadMut.isPending ? "Reloading…" : "Reload"}
-        </button>
+        {isAdmin && (
+          <>
+            <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ""; }} />
+            <button type="button" className="org-btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={uploadMut.isPending}>
+              {uploadMut.isPending ? "Uploading…" : "Upload xlsx"}
+            </button>
+            <button type="button" className="org-btn-primary" onClick={() => reloadMut.mutate()} disabled={reloadMut.isPending}>
+              {reloadMut.isPending ? "Reloading…" : "Reload"}
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
@@ -399,6 +495,7 @@ function DirectoryColumn() {
                 <div className="dir-tags">
                   <span className="tag level">L{emp.level}</span>
                   {emp.role_name && <span className={scopeClass(emp.scope)}>{scopeLabel(emp.scope)}</span>}
+                  {emp.pinktech_code && <span className="tag tenant">{emp.pinktech_code}</span>}
                   {emp.zone && <span className="tag zone">{emp.zone}</span>}
                   {emp.is_vacant && <span className="tag vacant">Vacant</span>}
                   {emp.added_manually && <span className="tag reports">Added</span>}
@@ -419,18 +516,33 @@ function DirectoryColumn() {
 function OrgTreePanel() {
   const selectedId = useOrgStore((s) => s.selectedId);
   const setSelectedId = useOrgStore((s) => s.setSelectedId);
-  const subQ = useOrgSubtree(selectedId);
   const rootsQ = useOrgRoots();
+  const isAdmin = useIsOrgAdmin();
+  const roots = rootsQ.data?.roots || [];
+  // When a super admin explores a tenant, the only root is the injected
+  // Pinktech platform node — focus it so the whole team tree renders at once.
+  const virtualRootId = roots.length === 1 && roots[0].is_virtual_root ? roots[0].id : null;
+  // An employee only ever sees themselves + their reports, so their own node is
+  // the single root of their snapshot (their manager is outside their scope).
+  // Focus it too, so the tree opens on their own team instead of staying empty.
+  const selfRootId = !isAdmin && roots.length === 1 && !roots[0].is_virtual_root ? roots[0].id : null;
+  const autoFocusId = virtualRootId || selfRootId;
+
+  useEffect(() => {
+    if (!selectedId && autoFocusId) setSelectedId(autoFocusId);
+  }, [selectedId, autoFocusId, setSelectedId]);
+
+  const subQ = useOrgSubtree(selectedId);
 
   if (!selectedId) {
     return (
       <div className="text-sm text-slate-500">
         <p className="mb-2">Tip: click anyone in the directory to focus their team.</p>
-        {rootsQ.data?.roots?.length > 0 && (
+        {roots.length > 0 && (
           <>
             <p className="mb-2">Top of org:</p>
             <ul className="space-y-1">
-              {rootsQ.data.roots.map((r) => (
+              {roots.map((r) => (
                 <li key={r.id}><button type="button" className="ancestry-link" onClick={() => setSelectedId(r.id)}>{r.name} — {r.role_name}</button></li>
               ))}
             </ul>
@@ -470,6 +582,7 @@ function TreeLi({ node }) {
               <div className="tree-tags">
                 <span className="tag level">L{node.level}</span>
                 <span className={scopeClass(node.scope)}>{scopeLabel(node.scope)}</span>
+                {node.pinktech_code && <span className="tag tenant">{node.pinktech_code}</span>}
                 {node.zone && <span className="tag zone">{node.zone}</span>}
                 {node.is_vacant && <span className="tag vacant">Vacant</span>}
                 {node.added_manually && <span className="tag reports">Added</span>}
@@ -495,6 +608,7 @@ function DetailPanel() {
   const ancQ = useOrgAncestry(selectedId);
   const setManagerMut = useSetManager();
   const reassignMut = useReassignReports();
+  const isAdmin = useIsOrgAdmin();
 
   if (!selectedId) return <div className="px-5 py-8 text-sm text-slate-500 leading-relaxed">Pick someone from the directory or the org tree to see their full record here.</div>;
   if (empQ.isLoading || !empQ.data) return <div className="px-5 py-8 text-sm text-slate-500">Loading…</div>;
@@ -512,6 +626,7 @@ function DetailPanel() {
             <div className="dir-tags pt-1">
               <span className="tag level">L{emp.level}</span>
               <span className={scopeClass(emp.scope)}>{scopeLabel(emp.scope)}</span>
+              {emp.pinktech_code && <span className="tag tenant">{emp.pinktech_code}</span>}
               {emp.zone && <span className="tag zone">{emp.zone}</span>}
               {emp.is_vacant && <span className="tag vacant">Vacant</span>}
               {emp.added_manually && <span className="tag reports">Added</span>}
@@ -525,11 +640,14 @@ function DetailPanel() {
       <div className="px-6 py-6 space-y-5">
         <div className="grid grid-cols-2 gap-x-3 gap-y-3 min-w-0">
           <Field label="EMP ID" value={emp.emp_id} />
+          <Field label="Pinktech code" value={emp.pinktech_code} />
           <div className="field col-span-2 min-w-0">
             <div className="flex items-center justify-between gap-3 mb-1">
               <div className="label">Official email (from sheet)</div>
-              <button type="button" className="text-xs text-blue-600 hover:underline"
-                onClick={() => openDialog({ kind: "edit-employee-email", subjectId: emp.id, initialEmail: emp.official_email || "" })}>Edit</button>
+              {!emp.is_virtual_root && isAdmin && (
+                <button type="button" className="text-xs text-blue-600 hover:underline"
+                  onClick={() => openDialog({ kind: "edit-employee-email", subjectId: emp.id, tenantId: emp.tenant_id, initialEmail: emp.official_email || "" })}>Edit</button>
+              )}
             </div>
             <div className={`value${!emp.official_email ? " muted" : ""}`}>{emp.official_email || "—"}</div>
           </div>
@@ -559,12 +677,20 @@ function DetailPanel() {
         )}
       </div>
       <div className="px-6 py-5 border-t border-slate-100 flex flex-wrap gap-3">
+        {emp.is_virtual_root ? (
+          <p className="text-xs text-slate-500 leading-relaxed">
+            This is Pinktech — the platform super admin for every tenant. Individual tenants don&apos;t have their own
+            super admin, so this read-only root always sits above the tenant&apos;s admin. Pick a person below to view or
+            edit their record.
+          </p>
+        ) : isAdmin ? (
+          <>
         <button type="button" className="action-btn"
-          onClick={() => openDialog({ kind: "picker", title: `Choose new manager for ${emp.name}`, subtitle: "The cycle detection will block self-loops automatically.", excludeIds: [emp.id],
-            onPick: (id) => setManagerMut.mutate({ id: emp.id, manager_id: id }) })}>
+          onClick={() => openDialog({ kind: "picker", title: `Choose new manager for ${emp.name}`, subtitle: "The cycle detection will block self-loops automatically.", excludeIds: [emp.id], tenantId: emp.tenant_id,
+            onPick: (id) => setManagerMut.mutate({ id: emp.id, manager_id: id, tenantId: emp.tenant_id }) })}>
           Edit reporting line
         </button>
-        <button type="button" className="action-btn" onClick={() => openDialog({ kind: "role-change", subjectId: emp.id })}>
+        <button type="button" className="action-btn" onClick={() => openDialog({ kind: "role-change", subjectId: emp.id, tenantId: emp.tenant_id })}>
           Change role
         </button>
         <button type="button" className="action-btn"
@@ -572,21 +698,28 @@ function DetailPanel() {
             if (emp.direct_reports === 0) { toast("No direct reports to reassign."); return; }
             openDialog({ kind: "picker", title: `Reassign all reports of ${emp.name}`,
               subtitle: `${emp.direct_reports} report${emp.direct_reports === 1 ? "" : "s"} will move under the chosen person.`,
-              excludeIds: [emp.id],
-              onPick: (id) => { if (id) reassignMut.mutate({ from_id: emp.id, to_id: id }); } });
+              excludeIds: [emp.id], tenantId: emp.tenant_id,
+              onPick: (id) => { if (id) reassignMut.mutate({ from_id: emp.id, to_id: id, tenantId: emp.tenant_id }); } });
           }}>
           Reassign reports…
         </button>
         <button type="button" className="action-btn"
-          onClick={() => openDialog({ kind: "add-employee", defaults: { name: "", manager_id: emp.id, role_id: emp.role_id, hq: emp.hq, zone: emp.zone, region: emp.region, state: emp.state } })}>
+          onClick={() => openDialog({ kind: "add-employee", tenantId: emp.tenant_id, defaults: { name: "", manager_id: emp.id, role_id: emp.role_id, hq: emp.hq, zone: emp.zone, region: emp.region, state: emp.state } })}>
           + Add direct report
         </button>
-        <button type="button" className="action-btn" onClick={() => openDialog({ kind: "replace", subjectId: emp.id })}>
+        <button type="button" className="action-btn" onClick={() => openDialog({ kind: "replace", subjectId: emp.id, tenantId: emp.tenant_id })}>
           Replace
         </button>
-        <button type="button" className="action-btn danger" onClick={() => openDialog({ kind: "leave", subjectId: emp.id })}>
+        <button type="button" className="action-btn danger" onClick={() => openDialog({ kind: "leave", subjectId: emp.id, tenantId: emp.tenant_id })}>
           Mark as left
         </button>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Read-only view — your organization admin manages reporting lines, roles, and people. You can browse your own
+            team and its reporting lines here.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -753,14 +886,14 @@ function RoleMembersPanel({ role }) {
               <span className={scopeClass(m.scope)}>{scopeLabel(m.scope)}</span>
             </div>
             <div className="member-actions">
-              <button type="button" className="action-btn" onClick={() => openDialog({ kind: "replace", subjectId: m.id })}>Replace</button>
+              <button type="button" className="action-btn" onClick={() => openDialog({ kind: "replace", subjectId: m.id, tenantId: m.tenant_id })}>Replace</button>
               <button type="button" className="action-btn"
-                onClick={() => openDialog({ kind: "picker", title: `Move ${m.name} under another manager`, excludeIds: [m.id],
-                  onPick: (id) => { if (id) setManagerMut.mutate({ id: m.id, manager_id: id }); } })}>
+                onClick={() => openDialog({ kind: "picker", title: `Move ${m.name} under another manager`, excludeIds: [m.id], tenantId: m.tenant_id,
+                  onPick: (id) => { if (id) setManagerMut.mutate({ id: m.id, manager_id: id, tenantId: m.tenant_id }); } })}>
                 Move under…
               </button>
-              <button type="button" className="action-btn" onClick={() => openDialog({ kind: "add-employee", defaults: { name: "", role_id: role.id, manager_id: m.manager_id } })}>+ Add new</button>
-              <button type="button" className="action-btn danger" onClick={() => openDialog({ kind: "leave", subjectId: m.id })}>Mark as left</button>
+              <button type="button" className="action-btn" onClick={() => openDialog({ kind: "add-employee", tenantId: m.tenant_id, defaults: { name: "", role_id: role.id, manager_id: m.manager_id } })}>+ Add new</button>
+              <button type="button" className="action-btn danger" onClick={() => openDialog({ kind: "leave", subjectId: m.id, tenantId: m.tenant_id })}>Mark as left</button>
             </div>
           </div>
         ))}
@@ -817,7 +950,7 @@ function PickerModal({ dialog, close }) {
   const { data, isLoading } = useOrgEmployees({
     q: q || undefined,
     role_id: restrictToRole ? dialog.preFilterRoleId || undefined : undefined,
-  });
+  }, dialog.tenantId);
   const items = useMemo(() => {
     const list = data?.items || [];
     const exclude = new Set(dialog.excludeIds || []);
@@ -858,8 +991,8 @@ function PickerModal({ dialog, close }) {
 }
 
 function RoleChangeModal({ dialog, close }) {
-  const empQ = useOrgEmployee(dialog.subjectId);
-  const rolesQ = useOrgRoles();
+  const empQ = useOrgEmployee(dialog.subjectId, dialog.tenantId);
+  const rolesQ = useOrgRoles(dialog.tenantId);
   const setRoleMut = useSetRole();
   const [roleId, setRoleId] = useState("");
 
@@ -874,7 +1007,7 @@ function RoleChangeModal({ dialog, close }) {
       footer={<>
         <button type="button" className="org-btn-secondary" onClick={close}>Cancel</button>
         <button type="button" className="org-btn-primary" disabled={!effective || effective === currentRoleId || setRoleMut.isPending}
-          onClick={() => setRoleMut.mutate({ id: dialog.subjectId, role_id: effective }, { onSuccess: close })}>
+          onClick={() => setRoleMut.mutate({ id: dialog.subjectId, role_id: effective, tenantId: dialog.tenantId }, { onSuccess: close })}>
           {setRoleMut.isPending ? "Saving…" : "Save"}
         </button>
       </>}>
@@ -887,8 +1020,8 @@ function RoleChangeModal({ dialog, close }) {
 }
 
 function LeaveModal({ dialog, close }) {
-  const empQ = useOrgEmployee(dialog.subjectId);
-  const allQ = useOrgEmployees({});
+  const empQ = useOrgEmployee(dialog.subjectId, dialog.tenantId);
+  const allQ = useOrgEmployees({}, dialog.tenantId);
   const markLeftMut = useMarkLeft();
   const [reassignTo, setReassignTo] = useState("default");
 
@@ -905,7 +1038,7 @@ function LeaveModal({ dialog, close }) {
         <button type="button" className="org-btn-primary danger" disabled={markLeftMut.isPending}
           onClick={() => {
             const target = reassignTo === "default" ? emp.manager_id || null : reassignTo === "orphan" ? null : reassignTo;
-            markLeftMut.mutate({ id: emp.id, reassign_to: target }, { onSuccess: close });
+            markLeftMut.mutate({ id: emp.id, reassign_to: target, tenantId: dialog.tenantId }, { onSuccess: close });
           }}>
           {markLeftMut.isPending ? "Working…" : "Confirm leave"}
         </button>
@@ -926,8 +1059,8 @@ function LeaveModal({ dialog, close }) {
 }
 
 function AddEmployeeModal({ dialog, close }) {
-  const rolesQ = useOrgRoles();
-  const peopleQ = useOrgEmployees({});
+  const rolesQ = useOrgRoles(dialog.tenantId);
+  const peopleQ = useOrgEmployees({}, dialog.tenantId);
   const addEmpMut = useAddEmployee();
   const d = dialog.defaults || {};
   const [name, setName] = useState(d.name || "");
@@ -949,6 +1082,7 @@ function AddEmployeeModal({ dialog, close }) {
     const ce = email.trim().toLowerCase();
     if (ce && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ce)) { toast.error("Enter a valid email or leave blank"); return; }
     addEmpMut.mutate({
+      tenant_id: dialog.tenantId || undefined,
       name: name.trim(), emp_id: empId.trim() || undefined, contact_email: ce || undefined,
       designation: designation.trim() || undefined, role_id: roleId || undefined, manager_id: managerId || undefined,
       hq: hq || undefined, zone: zone || undefined, region: region || undefined, state: state || undefined,
@@ -1007,7 +1141,7 @@ function AddEmployeeModal({ dialog, close }) {
 }
 
 function ReplaceModal({ dialog, close }) {
-  const empQ = useOrgEmployee(dialog.subjectId);
+  const empQ = useOrgEmployee(dialog.subjectId, dialog.tenantId);
   const replaceMut = useReplacePerson();
   const [name, setName] = useState("");
   const [empId, setEmpId] = useState("");
@@ -1027,7 +1161,7 @@ function ReplaceModal({ dialog, close }) {
             if (!name.trim()) { toast.error("Name is required"); return; }
             const ce = email.trim().toLowerCase();
             if (ce && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ce)) { toast.error("Enter a valid email or leave blank"); return; }
-            replaceMut.mutate({ id: emp.id, payload: { name: name.trim(), emp_id: empId.trim() || undefined, contact_email: ce || undefined } }, { onSuccess: close });
+            replaceMut.mutate({ id: emp.id, tenantId: dialog.tenantId, payload: { name: name.trim(), emp_id: empId.trim() || undefined, contact_email: ce || undefined } }, { onSuccess: close });
           }}>
           {replaceMut.isPending ? "Working…" : "Replace"}
         </button>
@@ -1056,7 +1190,7 @@ function EditEmailModal({ dialog, close }) {
           onClick={() => {
             const trimmed = value.trim().toLowerCase();
             if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { toast.error("Enter a valid email or leave empty to clear official email"); return; }
-            api.put(`/org/employees/${dialog.subjectId}`, { contact_email: trimmed || null }).then(() => {
+            api.put(`/org/employees/${dialog.subjectId}`, { contact_email: trimmed || null }, tenantHeader(dialog.tenantId)).then(() => {
               toast.success(trimmed ? "Official email saved" : "Official email cleared");
               refresh();
               close();
@@ -1091,6 +1225,7 @@ function RemovedListModal({ close }) {
               <div className="removed-meta truncate">{p.role_name || p.designation || "Unspecified"}{p.emp_id ? ` · ${p.emp_id}` : ""}{p.zone ? ` · ${p.zone}` : ""}</div>
               {p.last_manager_name && <div className="removed-mgr truncate">Last reported to {p.last_manager_name}</div>}
               <div className="removed-tags">
+                {p.pinktech_code && <span className="tag tenant">{p.pinktech_code}</span>}
                 {p.direct_reports > 0 && <span className="tag reports">{p.direct_reports} reports were waiting</span>}
               </div>
             </div>

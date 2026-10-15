@@ -734,6 +734,11 @@
     padding: 1rem;
   }
 
+  .schema-forms .builderCard {
+    padding: 1rem;
+    margin: 0.75rem 0;
+  }
+
   .schema-forms .grid {
     grid-template-columns: 1fr;
   }
@@ -749,6 +754,14 @@
   .schema-forms .adminActions .ioButton,
   .schema-forms .adminActions .ghostBtn {
     flex: 1;
+  }
+
+  .schema-forms .responseTable { display: block; overflow-x: auto; }
+  .schema-forms .responseTable thead,
+  .schema-forms .responseTable tbody { display: table; width: 100%; min-width: 560px; }
+
+  .schema-forms__public-card {
+    padding: 1.1rem 1rem 1.5rem;
   }
 }
 
@@ -912,6 +925,66 @@
   border: none;
   border-top: 1px solid var(--border);
   margin: 0.9rem 0;
+}
+
+/* --- agreement templates (Party 1 + body) ------------------------------- */
+
+.schema-forms .templateAgreement,
+.agreementPreview .templateAgreement {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.schema-forms .templateParty,
+.agreementPreview .templateParty {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+}
+
+.schema-forms .templateParty h3,
+.agreementPreview .templateParty h3 {
+  margin-top: 0;
+}
+
+.schema-forms .templatePartyRows,
+.agreementPreview .templatePartyRows {
+  margin: 0;
+}
+
+.schema-forms .templatePartyRow,
+.agreementPreview .templatePartyRow {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  padding: 0.15rem 0;
+}
+
+.schema-forms .templatePartyRow dt,
+.agreementPreview .templatePartyRow dt {
+  flex: 0 0 42%;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.schema-forms .templatePartyRow dd,
+.agreementPreview .templatePartyRow dd {
+  margin: 0;
+  flex: 1;
+  word-break: break-word;
+}
+
+.schema-forms .templateBody p,
+.agreementPreview .templateBody p {
+  margin: 0 0 0.6rem;
+}
+
+.schema-forms .agreementField + .agreementField {
+  margin-top: 1.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px dashed var(--border);
 }
 
 .schema-forms .agreementField .agreementUploadRow {

@@ -6,7 +6,7 @@ const Role = require("../models/role.model");
 const User = require("../models/user.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("./audit.service");
-const { notificationAdapter } = require("@pink/shared");
+const { notificationAdapter, isPlatformTenant, PLATFORM_TENANT_CODES } = require("@pink/shared");
 
 async function createTenant(payload, actor) {
   const existing = await Tenant.findOne({ code: payload.code.toUpperCase() });
@@ -29,8 +29,11 @@ async function createTenant(payload, actor) {
   return tenant;
 }
 
+// Pinktech (the platform tenant, code PINKTECH in new databases and PLATFORM in
+// older ones) is the platform itself, not one of the customer tenants the
+// workspace manages, so it is never listed as a tenant.
 async function listTenants() {
-  return Tenant.find().sort({ createdAt: -1 });
+  return Tenant.find({ code: { $nin: PLATFORM_TENANT_CODES } }).sort({ createdAt: -1 });
 }
 
 async function getCurrentTenant(tenantId) {
@@ -44,9 +47,52 @@ async function getCurrentTenant(tenantId) {
   return tenant;
 }
 
+/**
+ * A tenant admin maintains their own organization's profile fields used across
+ * templates (Party 1). Only contact fields are writable here — name, code,
+ * plan and status stay with the super admin. Tenant admins always address
+ * their own tenant (the gateway forbids overrides for them); a super admin
+ * addresses whichever tenant is in context.
+ */
+async function updateOwnTenantProfile(tenantId, payload, actor) {
+  if (!actor?.isAdmin) {
+    throw new ApiError(403, "Only administrators can update the organization profile");
+  }
+  const allowed = {};
+  for (const key of ["email", "address", "phone", "registrationNumber"]) {
+    if (payload[key] !== undefined) allowed[key] = payload[key];
+  }
+  if (!Object.keys(allowed).length) {
+    throw new ApiError(422, "Nothing to update");
+  }
+  if (allowed.email === "") delete allowed.email;
+  const tenant = await Tenant.findByIdAndUpdate(tenantId, allowed, { returnDocument: "after" });
+  if (!tenant) {
+    throw new ApiError(404, "Tenant not found");
+  }
+
+  await writeAudit({
+    tenantId: tenant._id,
+    userId: actor?.userId || null,
+    action: "TENANT_PROFILE_UPDATED",
+    metadata: allowed,
+  });
+
+  return tenant;
+}
+
 async function updateTenant(tenantId, payload, actor) {
   if (payload && payload.email === "") {
     delete payload.email;
+  }
+  const current = await Tenant.findById(tenantId);
+  if (!current) {
+    throw new ApiError(404, "Tenant not found");
+  }
+  // The platform tenant powers super-admin auth for every tenant. Suspending it
+  // locks the whole workspace out, so it can never be taken down.
+  if (isPlatformTenant(current) && payload?.status && payload.status !== "ACTIVE") {
+    throw new ApiError(400, "The platform tenant cannot be suspended");
   }
   const tenant = await Tenant.findByIdAndUpdate(tenantId, payload, { returnDocument: "after" });
   if (!tenant) {
@@ -297,6 +343,7 @@ module.exports = {
   listTenants,
   getCurrentTenant,
   updateTenant,
+  updateOwnTenantProfile,
   assignTenantAccount,
   unassignTenantAccount,
   deleteTenant,

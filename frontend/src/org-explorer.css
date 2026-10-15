@@ -277,7 +277,7 @@
 .node.vacant .node-toggle { background: #fef3c7; border-right-color: #fde68a; color: #92400e; }
 .node-toggle.empty { visibility: hidden; }
 
-.node-body { padding: 8px 12px; flex: 1; cursor: pointer; }
+.node-body { padding: 8px 12px; flex: 1; min-width: 0; cursor: pointer; }
 .node-name { font-weight: 600; font-size: 0.875rem; color: #0f172a; line-height: 1.2; }
 .node-meta { font-size: 0.7rem; color: #64748b; margin-top: 2px; line-height: 1.3; }
 .node-tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
@@ -343,7 +343,7 @@ tr.role-members > td { padding: 0 !important; border-bottom: 1px solid #fbcfe8; 
 }
 .members-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 12px;
 }
 
@@ -420,3 +420,19 @@ tr.role-members > td { padding: 0 !important; border-bottom: 1px solid #fbcfe8; 
 }
 .picker-row-name { font-weight: 600; font-size: 0.85rem; color: #0f172a; }
 .picker-row-meta { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+/* Responsive: every explorer surface must survive phones */
+@media (max-width: 720px) {
+  .roles-table { display: block; overflow-x: auto; }
+  .roles-table thead,
+  .roles-table tbody { display: table; width: 100%; min-width: 600px; }
+  .role-members-body { padding: 12px 12px 14px; }
+}
+
+@media (max-width: 480px) {
+  .members-grid { grid-template-columns: 1fr; }
+  .dialog-footer { flex-wrap: wrap; }
+  .dialog-footer > * { flex: 1 1 140px; }
+  .removed-row { flex-wrap: wrap; }
+  .tab-btn { padding: 8px 10px; }
+}

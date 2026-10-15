@@ -37,4 +37,29 @@ describe('orgWorkbookImport.resolveManagerMappings', () => {
     expect(mapping[1].resolvedIdx).toBe(0);
     expect(mapping[1].resolution).toBe('empId');
   });
+
+  it('falls back to an existing tenant user by empId when the manager is absent from the workbook', () => {
+    const rows = [
+      { rowNumber: 1, empId: 'EMP02', name: 'Alice', isVacant: false, designation: 'BM', reportingManagerRaw: 'EMP01' },
+      { rowNumber: 2, empId: 'EMP03', name: 'Bob', isVacant: false, designation: 'BM', reportingManagerRaw: 'EMP02' },
+    ];
+    const dbIndex = new Map([['EMP01', { _id: 'founderUserId', empCode: 'EMP01' }]]);
+
+    const mapping = resolveManagerMappings(rows, dbIndex);
+    expect(mapping[0].resolvedDbUserId).toBe('founderUserId');
+    expect(mapping[0].resolution).toBe('dbEmpId');
+    expect(mapping[1].resolvedIdx).toBe(0);
+    expect(mapping[1].resolution).toBe('empId');
+  });
+
+  it('keeps external_root when neither workbook rows nor the db index match', () => {
+    const rows = [
+      { rowNumber: 1, empId: 'EMP02', name: 'Alice', isVacant: false, designation: 'BM', reportingManagerRaw: 'XZZ999' },
+    ];
+
+    const mapping = resolveManagerMappings(rows, new Map());
+    expect(mapping[0].resolvedIdx).toBe(-1);
+    expect(mapping[0].resolvedDbUserId).toBeNull();
+    expect(mapping[0].resolution).toBe('external_root');
+  });
 });

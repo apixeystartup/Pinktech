@@ -33,6 +33,10 @@ async function refreshOrgEngine(tenantId) {
 }
 
 async function setManager(tenantId, subjectId, managerId, actor) {
+  if (managerId) {
+    const mgr = await User.findOne({ tenantId, _id: managerId, orgLeftAt: null }).select("_id").lean();
+    if (!mgr) throw new ApiError(404, "Manager not found");
+  }
   if (await wouldCreateCycle(tenantId, subjectId, managerId)) {
     throw new ApiError(400, "Invalid reporting line (cycle)");
   }
@@ -177,6 +181,10 @@ async function restoreEmployee(tenantId, subjectId, actor) {
 }
 
 async function reassignReports(tenantId, fromId, toId, reportIds, actor) {
+  if (toId) {
+    const target = await User.findOne({ tenantId, _id: toId, orgLeftAt: null }).select("_id").lean();
+    if (!target) throw new ApiError(404, "Reassign target not found");
+  }
   const q = { tenantId, reportingToUserId: fromId, orgLeftAt: null };
   if (reportIds?.length) q._id = { $in: reportIds };
   const targets = await User.find(q).select("_id");

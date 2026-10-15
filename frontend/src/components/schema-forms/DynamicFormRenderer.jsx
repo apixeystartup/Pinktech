@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { submitSchemaForm, resolveSchemaFormAssetUrl } from "../../lib/schemaFormsPublic";
 import { sanitizeHtml } from "../../lib/agreementFormatter";
 import SignaturePad from "./SignaturePad";
@@ -26,7 +26,84 @@ function fileToDataUrl(file, onDone) {
   reader.readAsDataURL(file);
 }
 
-function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
+// Signature-position markers ({{signature.opening}} / {{signature.closing}})
+// placed anywhere in the agreement template. The signature pad renders exactly
+// there; without a marker it renders after the agreement text as before.
+function splitAtSignatureMarker(html, phase) {
+  const re = new RegExp(`{{\\s*signature\\.${phase}\\s*}}`, "i");
+  const text = String(html || "");
+  const match = text.match(re);
+  if (!match || match.index === undefined) return null;
+  return { before: text.slice(0, match.index), after: text.slice(match.index + match[0].length) };
+}
+
+function AgreementHtml({ html }) {
+  return <div className="agreementText" dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
+}
+
+function PreSignatureBlock({ mode, setMode, signatureDataUrl, setSignatureDataUrl }) {
+  return (
+    <>
+      <div className="signatureModeToggle">
+        <button type="button" className={`sigModeBtn ${mode === "upload" ? "active" : ""}`} onClick={() => setMode("upload")}>Upload Image</button>
+        <button type="button" className={`sigModeBtn ${mode === "draw" ? "active" : ""}`} onClick={() => setMode("draw")}>Draw Signature</button>
+      </div>
+      {mode === "upload" ? (
+        <>
+          <label htmlFor="pre-signature">Upload Signature Image</label>
+          <input
+            id="pre-signature"
+            className="inputElevated inputFile"
+            type="file"
+            accept="image/*"
+            onChange={(e) => fileToDataUrl(e.target.files?.[0], setSignatureDataUrl)}
+          />
+        </>
+      ) : (
+        <SignaturePad onSign={setSignatureDataUrl} />
+      )}
+      {signatureDataUrl && (
+        <div className="signaturePreview">
+          <img src={signatureDataUrl} alt="Signature preview" style={{ maxHeight: 60, border: "1px solid #ddd", borderRadius: 4, marginTop: 4 }} />
+          <button type="button" className="smallBtn" style={{ marginLeft: 8 }} onClick={() => setSignatureDataUrl("")}>Remove</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PostSignatureBlock({ mode, setMode, signatureDataUrl, setSignatureDataUrl }) {
+  return (
+    <>
+      <div className="signatureModeToggle">
+        <button type="button" className={`sigModeBtn ${mode === "upload" ? "active" : ""}`} onClick={() => setMode("upload")}>Upload Image</button>
+        <button type="button" className={`sigModeBtn ${mode === "draw" ? "active" : ""}`} onClick={() => setMode("draw")}>Draw Signature</button>
+      </div>
+      {mode === "upload" ? (
+        <>
+          <label htmlFor="post-signature">Upload Signature Image</label>
+          <input
+            id="post-signature"
+            className="inputElevated inputFile"
+            type="file"
+            accept="image/*"
+            onChange={(e) => fileToDataUrl(e.target.files?.[0], setSignatureDataUrl)}
+          />
+        </>
+      ) : (
+        <SignaturePad onSign={setSignatureDataUrl} />
+      )}
+      {signatureDataUrl && (
+        <div className="signaturePreview">
+          <img src={signatureDataUrl} alt="Signature preview" style={{ maxHeight: 60, border: "1px solid #ddd", borderRadius: 4, marginTop: 4 }} />
+          <button type="button" className="smallBtn" style={{ marginLeft: 8 }} onClick={() => setSignatureDataUrl("")}>Remove</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DynamicFormRenderer({ moduleDoc, dispatchToken = "", templateAgreement = null }) {
   const fields = moduleDoc.schema?.fields || [];
   const settings = moduleDoc.schema?.settings || {};
   const [values, setValues] = useState(() => buildInitialValues(fields));
@@ -34,6 +111,7 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
   const [statusMessage, setStatusMessage] = useState("");
   const [statusType, setStatusType] = useState("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [phase, setPhase] = useState("pre");
   const [preAccepted, setPreAccepted] = useState(false);
   const [postAccepted, setPostAccepted] = useState(false);
@@ -55,6 +133,10 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
 
   const onSubmit = async (event) => {
     event.preventDefault();
+    // The submit button only disables on the next render, so rapid clicks can
+    // fire two POSTs. The ref guard closes that gap: one submit per page view.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setFieldErrors({});
     setStatusMessage("");
 
@@ -110,6 +192,7 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
       setStatusType("error");
       setStatusMessage(error.message || "Failed to submit.");
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -120,8 +203,21 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
     <div>
       {phase === "pre" ? (
         <section className="agreementCard glassPanel">
-          <h2>Opening Agreement</h2>
-          <div className="agreementText" dangerouslySetInnerHTML={{ __html: sanitizeHtml(preAgreementText) }} />
+          <h2>{templateAgreement ? templateAgreement.name || "Agreement" : "Opening Agreement"}</h2>
+          {templateAgreement ? (
+            <AgreementHtml html={templateAgreement.html} />
+          ) : splitAtSignatureMarker(preAgreementText, "opening") ? (
+            <>
+              <AgreementHtml html={splitAtSignatureMarker(preAgreementText, "opening").before} />
+              <PreSignatureBlock mode={preSigMode} setMode={setPreSigMode} signatureDataUrl={preSignatureDataUrl} setSignatureDataUrl={setPreSignatureDataUrl} />
+              <AgreementHtml html={splitAtSignatureMarker(preAgreementText, "opening").after} />
+            </>
+          ) : (
+            <>
+              <AgreementHtml html={preAgreementText} />
+              <PreSignatureBlock mode={preSigMode} setMode={setPreSigMode} signatureDataUrl={preSignatureDataUrl} setSignatureDataUrl={setPreSignatureDataUrl} />
+            </>
+          )}
           <label className="optionLabel">
             <input
               className="inputGlossy"
@@ -131,30 +227,6 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
             />
             I agree
           </label>
-          <div className="signatureModeToggle">
-            <button type="button" className={`sigModeBtn ${preSigMode === "upload" ? "active" : ""}`} onClick={() => setPreSigMode("upload")}>Upload Image</button>
-            <button type="button" className={`sigModeBtn ${preSigMode === "draw" ? "active" : ""}`} onClick={() => setPreSigMode("draw")}>Draw Signature</button>
-          </div>
-          {preSigMode === "upload" ? (
-            <>
-              <label htmlFor="pre-signature">Upload Signature Image</label>
-              <input
-                id="pre-signature"
-                className="inputElevated inputFile"
-                type="file"
-                accept="image/*"
-                onChange={(e) => fileToDataUrl(e.target.files?.[0], setPreSignatureDataUrl)}
-              />
-            </>
-          ) : (
-            <SignaturePad onSign={setPreSignatureDataUrl} />
-          )}
-          {preSignatureDataUrl && (
-            <div className="signaturePreview">
-              <img src={preSignatureDataUrl} alt="Signature preview" style={{ maxHeight: 60, border: "1px solid #ddd", borderRadius: 4, marginTop: 4 }} />
-              <button type="button" className="smallBtn" style={{ marginLeft: 8 }} onClick={() => setPreSignatureDataUrl("")}>Remove</button>
-            </div>
-          )}
           <button
             type="button"
             className="ioButton"
@@ -192,7 +264,18 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
           <input type="text" name={honeypotName} style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
           <div className="full agreementCard glassPanel">
             <h2>Closing Agreement</h2>
-            <div className="agreementText" dangerouslySetInnerHTML={{ __html: sanitizeHtml(postAgreementText) }} />
+            {splitAtSignatureMarker(postAgreementText, "closing") ? (
+              <>
+                <AgreementHtml html={splitAtSignatureMarker(postAgreementText, "closing").before} />
+                <PostSignatureBlock mode={postSigMode} setMode={setPostSigMode} signatureDataUrl={postSignatureDataUrl} setSignatureDataUrl={setPostSignatureDataUrl} />
+                <AgreementHtml html={splitAtSignatureMarker(postAgreementText, "closing").after} />
+              </>
+            ) : (
+              <>
+                <AgreementHtml html={postAgreementText} />
+                <PostSignatureBlock mode={postSigMode} setMode={setPostSigMode} signatureDataUrl={postSignatureDataUrl} setSignatureDataUrl={setPostSignatureDataUrl} />
+              </>
+            )}
             <label className="optionLabel">
               <input
                 className="inputGlossy"
@@ -202,30 +285,6 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "" }) {
               />
               I agree
             </label>
-            <div className="signatureModeToggle">
-              <button type="button" className={`sigModeBtn ${postSigMode === "upload" ? "active" : ""}`} onClick={() => setPostSigMode("upload")}>Upload Image</button>
-              <button type="button" className={`sigModeBtn ${postSigMode === "draw" ? "active" : ""}`} onClick={() => setPostSigMode("draw")}>Draw Signature</button>
-            </div>
-            {postSigMode === "upload" ? (
-              <>
-                <label htmlFor="post-signature">Upload Signature Image</label>
-                <input
-                  id="post-signature"
-                  className="inputElevated inputFile"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => fileToDataUrl(e.target.files?.[0], setPostSignatureDataUrl)}
-                />
-              </>
-            ) : (
-              <SignaturePad onSign={setPostSignatureDataUrl} />
-            )}
-            {postSignatureDataUrl && (
-              <div className="signaturePreview">
-                <img src={postSignatureDataUrl} alt="Signature preview" style={{ maxHeight: 60, border: "1px solid #ddd", borderRadius: 4, marginTop: 4 }} />
-                <button type="button" className="smallBtn" style={{ marginLeft: 8 }} onClick={() => setPostSignatureDataUrl("")}>Remove</button>
-              </div>
-            )}
           </div>
           <button type="submit" className="ioButton full" disabled={isSubmitting}>
             {isSubmitting ? "Submitting…" : settings.submitLabel || "Submit"}

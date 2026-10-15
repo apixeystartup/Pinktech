@@ -10,7 +10,6 @@ import {
 } from "../../lib/schemaFormsApi";
 import api from "../../lib/api";
 import { resolveSchemaFormAssetUrl } from "../../lib/schemaFormsPublic";
-import { fileToAgreementHtml, sanitizeHtml } from "../../lib/agreementFormatter";
 import "../../styles/schema-forms.css";
 
 const QUESTION_TYPE_OPTIONS = [
@@ -107,77 +106,27 @@ function stripBuilderMetaForApi(doc) {
 
 function normalizeModuleDoc(moduleDoc) {
   const raw = moduleDoc || starterSchema;
+  const settings = raw.schema?.settings || {};
   return {
     ...raw,
     moduleType: "FORM",
     schema: {
       settings: {
-        description: raw.schema?.settings?.description || "",
-        submitLabel: raw.schema?.settings?.submitLabel || "Submit",
-        successMessage: raw.schema?.settings?.successMessage || "Thanks. Your response has been received.",
-        preAgreementText: raw.schema?.settings?.preAgreementText || "",
-        postAgreementText: raw.schema?.settings?.postAgreementText || "",
-        allowDraft: Boolean(raw.schema?.settings?.allowDraft),
+        description: settings.description || "",
+        submitLabel: settings.submitLabel || "Submit",
+        successMessage: settings.successMessage || "Thanks. Your response has been received.",
+        preAgreementText: settings.preAgreementText || "",
+        postAgreementText: settings.postAgreementText || "",
+        // Opening/closing agreements are template picks (Templates tab).
+        // Legacy single-template forms keep working via templateId.
+        templateId: settings.templateId || null,
+        openingTemplateId: settings.openingTemplateId || settings.templateId || null,
+        closingTemplateId: settings.closingTemplateId || null,
+        allowDraft: Boolean(settings.allowDraft),
       },
       fields: Array.isArray(raw.schema?.fields) ? raw.schema.fields.map(normalizeField) : [],
     },
   };
-}
-
-function AgreementField({ label, settingKey, builderState, updateSetting }) {
-  const value = builderState.schema?.settings?.[settingKey] || "";
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  async function onFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    setError("");
-    try {
-      const html = await fileToAgreementHtml(file);
-      if (!html.trim()) {
-        setError("Could not extract any text from this file.");
-        return;
-      }
-      updateSetting(settingKey, html);
-    } catch (err) {
-      setError(err?.message || "Failed to read the agreement file.");
-    } finally {
-      setBusy(false);
-      event.target.value = "";
-    }
-  }
-
-  return (
-    <div className="agreementField">
-      <label htmlFor={`setting-${settingKey}`}>{label}</label>
-      <div className="agreementUploadRow">
-        <input
-          id={`upload-${settingKey}`}
-          type="file"
-          accept=".txt,.md,.docx,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          onChange={onFile}
-          disabled={busy}
-        />
-        {busy ? <span className="small">Reading file…</span> : null}
-      </div>
-      <textarea
-        id={`setting-${settingKey}`}
-        rows={4}
-        value={value}
-        placeholder="Upload a .docx / .txt / .md file, or type the agreement. HTML formatting is supported."
-        onChange={(e) => updateSetting(settingKey, e.target.value)}
-      />
-      {value ? (
-        <div className="agreementPreview">
-          <div className="agreementPreview__label">Preview</div>
-          <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />
-        </div>
-      ) : null}
-      {error ? <div className="fieldError">{error}</div> : null}
-    </div>
-  );
 }
 
 function SchemaFormsBuilder() {
@@ -188,6 +137,7 @@ function SchemaFormsBuilder() {
   const [showRawJson, setShowRawJson] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [responses, setResponses] = useState([]);
+  const [templates, setTemplates] = useState([]);
 
   const fields = builderState.schema?.fields || [];
 
@@ -228,6 +178,12 @@ function SchemaFormsBuilder() {
 
   useEffect(() => {
     refreshModules().catch((err) => setStatus({ type: "error", message: err.message }));
+    api
+      .get("/forms/templates")
+      .then((res) => setTemplates(Array.isArray(res.data) ? res.data : []))
+      .catch(() => {
+        /* templates only feed the picker — the builder works without them */
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -543,18 +499,46 @@ function SchemaFormsBuilder() {
           value={builderState.schema?.settings?.successMessage || ""}
           onChange={(e) => updateSetting("successMessage", e.target.value)}
         />
-        <AgreementField
-          label="Opening Agreement"
-          settingKey="preAgreementText"
-          builderState={builderState}
-          updateSetting={updateSetting}
-        />
-        <AgreementField
-          label="Closing Agreement"
-          settingKey="postAgreementText"
-          builderState={builderState}
-          updateSetting={updateSetting}
-        />
+        <div className="grid">
+          <div className="field">
+            <label htmlFor="setting-opening-template">Opening Agreement — template</label>
+            <select
+              id="setting-opening-template"
+              value={builderState.schema?.settings?.openingTemplateId || ""}
+              onChange={(e) => {
+                const v = e.target.value || null;
+                updateSetting("openingTemplateId", v);
+                if (v) updateSetting("templateId", v);
+              }}
+            >
+              <option value="">No opening agreement</option>
+              {templates.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="setting-closing-template">Closing Agreement — template</label>
+            <select
+              id="setting-closing-template"
+              value={builderState.schema?.settings?.closingTemplateId || ""}
+              onChange={(e) => updateSetting("closingTemplateId", e.target.value || null)}
+            >
+              <option value="">No closing agreement</option>
+              {templates.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <p className="doc-form-note">
+          Pick a saved template for each side. {"{{tenant.*}}"} fills from this tenant at setup,{" "}
+          {"{{doctor.*}}"} fills from the doctor when the form is assigned. Design templates in the Templates tab.
+        </p>
       </div>
 
       <div className="builderCard">

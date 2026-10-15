@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const { norm } = require("../utils/orgNorm");
@@ -6,6 +7,12 @@ const { primaryOrgRoleId } = require("../utils/orgPrimaryRole");
 const PLACEHOLDER_RE = /^\s*VACANT\s+([A-Z]+)\s+REPORT\s+TO\s+([A-Z]+)\s*$/i;
 const VACANT_EMPID_RE = /^\s*VACANT\s*[-–]\s*(.+)\s*$/i;
 const GEO_FIELDS = ["zone", "region", "state", "hq"];
+const VIRTUAL_SUPER_ADMIN_ID = "virtual-super-admin";
+// Labels for the injected platform root: Pinktech is the super admin for all
+// tenants, so the node carries the platform brand, not a tenant's name/code.
+const PLATFORM_ROOT_NAME = "Pinktech";
+const PLATFORM_ROOT_ROLE = "Super Admin";
+const PLATFORM_ROOT_CODE = "PINKTECH";
 
 function userToPosition(u, roleById) {
   const rid = primaryOrgRoleId(u, roleById);
@@ -38,7 +45,7 @@ function userToPosition(u, roleById) {
 }
 
 async function loadSnapshot(tenantId) {
-  const [users, roles] = await Promise.all([
+  const [workbookUsers, roles] = await Promise.all([
     User.find({
       tenantId,
       orgLeftAt: null,
@@ -48,8 +55,40 @@ async function loadSnapshot(tenantId) {
       .populate("roleIds")
       .populate("reportingToUserId", "name email empCode")
       .sort({ name: 1 }),
-    Role.find({ tenantId, type: { $ne: "SYSTEM" } }),
+    // Include SYSTEM roles too so admin accounts (e.g. a tenant/super admin whose
+    // only role is a system role) resolve to a real role name instead of "Unspecified".
+    Role.find({ tenantId }),
   ]);
+
+  const managerIds = new Set();
+  for (const u of workbookUsers) {
+    const mid = u.reportingToUserId;
+    if (mid) managerIds.add(String(mid._id || mid));
+  }
+
+  const conditions = [];
+  if (managerIds.size) conditions.push({ _id: { $in: [...managerIds] } });
+  // Include admin accounts and manually-added org members even when they have no
+  // employee code — any non-workbook member with a role assigned belongs in the tree.
+  conditions.push({
+    roleIds: { $type: "array", $ne: [] },
+  });
+
+  let externalManagerUsers = [];
+  if (conditions.length) {
+    externalManagerUsers = await User.find({
+      tenantId,
+      orgLeftAt: null,
+      orgFromWorkbook: { $ne: true },
+      status: { $in: ["ACTIVE", "INVITED", "OTP_PENDING"] },
+      $or: conditions,
+    })
+      .populate("roleIds")
+      .populate("reportingToUserId", "name empCode email")
+      .sort({ name: 1 });
+  }
+
+  const users = [...workbookUsers, ...externalManagerUsers];
 
   const roleById = new Map(roles.map((r) => [String(r._id), r]));
   let maxLevel = 1;
@@ -94,6 +133,206 @@ async function loadSnapshot(tenantId) {
     roleById,
     maxLevel,
   };
+}
+
+function rebuildIndexes(snap, positions) {
+  const byId = new Map();
+  const byEmpId = new Map();
+  const childrenByParent = new Map();
+
+  for (const p of positions) {
+    const id = String(p._id);
+    byId.set(id, p);
+    if (p.empId) byEmpId.set(String(p.empId).trim().toUpperCase(), p);
+    const parentKey = p.parentPositionId ? String(p.parentPositionId) : "__root__";
+    const arr = childrenByParent.get(parentKey) || [];
+    arr.push(id);
+    childrenByParent.set(parentKey, arr);
+  }
+
+  for (const [k, ids] of childrenByParent.entries()) {
+    ids.sort((a, b) => {
+      const A = byId.get(a);
+      const B = byId.get(b);
+      const av = A?.isVacant ? 1 : 0;
+      const bv = B?.isVacant ? 1 : 0;
+      if (av !== bv) return av - bv;
+      return (A?.name || "").localeCompare(B?.name || "");
+    });
+    childrenByParent.set(k, ids);
+  }
+
+  return { ...snap, positions, byId, byEmpId, childrenByParent };
+}
+
+async function findTenantDoc(tenantId) {
+  try {
+    const col = mongoose.connection.collection("tenants");
+    const _id = mongoose.Types.ObjectId.isValid(tenantId)
+      ? new mongoose.Types.ObjectId(String(tenantId))
+      : tenantId;
+    return await col.findOne({ _id });
+  } catch {
+    return null;
+  }
+}
+
+function virtualRootPosition() {
+  return {
+    _id: VIRTUAL_SUPER_ADMIN_ID,
+    empId: null,
+    name: PLATFORM_ROOT_NAME,
+    designation: PLATFORM_ROOT_ROLE,
+    roleId: null,
+    hq: null,
+    zone: null,
+    region: null,
+    state: null,
+    doj: null,
+    dob: null,
+    gender: null,
+    isVacant: false,
+    addedManually: false,
+    parentPositionId: null,
+    managerResolution: "root",
+    reportingManagerRaw: null,
+    sno: -1,
+    email: null,
+    orgContactEmail: null,
+    pinktechCode: PLATFORM_ROOT_CODE,
+    isVirtualRoot: true,
+  };
+}
+
+// The platform root can carry children from several tenants at once (the Home
+// roll-up). Group them tenant-by-tenant using the loader's tenant order, then
+// vacant-last, then by name, so the combined tree reads one tenant at a time.
+function orderPlatformRootChildren(snap) {
+  const ids = snap.childrenByParent.get(VIRTUAL_SUPER_ADMIN_ID);
+  if (!ids || !ids.length) return snap;
+  const order = snap.tenantOrder instanceof Map ? snap.tenantOrder : null;
+  ids.sort((a, b) => {
+    const A = snap.byId.get(a) || {};
+    const B = snap.byId.get(b) || {};
+    if (order) {
+      const ao = order.has(String(A.tenantId)) ? order.get(String(A.tenantId)) : Number.MAX_SAFE_INTEGER;
+      const bo = order.has(String(B.tenantId)) ? order.get(String(B.tenantId)) : Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+    }
+    const av = A.isVacant ? 1 : 0;
+    const bv = B.isVacant ? 1 : 0;
+    if (av !== bv) return av - bv;
+    return (A.name || "").localeCompare(B.name || "");
+  });
+  return snap;
+}
+
+// Hang every top-level person of the snapshot under the read-only Pinktech root.
+function attachVirtualRoot(snap) {
+  const rootIds = new Set((snap.childrenByParent.get("__root__") || []).map(String));
+  const positions = snap.positions.map((p) =>
+    rootIds.has(String(p._id)) ? { ...p, parentPositionId: VIRTUAL_SUPER_ADMIN_ID } : p,
+  );
+  positions.push(virtualRootPosition());
+  return orderPlatformRootChildren(rebuildIndexes(snap, positions));
+}
+
+/**
+ * Pinktech (the platform) is the super admin for every tenant — there is no
+ * per-tenant super admin. When a platform super admin explores a tenant, inject
+ * a read-only "Pinktech" root above that tenant's own roots so the tree reads
+ * Pinktech -> tenant admin(s) -> employees. The node is structural: it is never
+ * counted as a person and never attached to mutations.
+ */
+async function withVirtualSuperAdminRoot(snap, tenantId) {
+  const tenant = await findTenantDoc(tenantId);
+  const pinktechCode = tenant?.code || null;
+  const tagged = rebuildIndexes(
+    snap,
+    snap.positions.map((p) => ({ ...p, pinktechCode })),
+  );
+  return attachVirtualRoot(tagged);
+}
+
+/**
+ * Every active customer tenant, name-sorted. The platform tenant is the root of
+ * the roll-up, not a child of itself, so it is deliberately excluded.
+ */
+async function listCustomerTenants() {
+  const tenants = await mongoose.connection
+    .collection("tenants")
+    .find({ status: "ACTIVE" })
+    .toArray();
+  const customers = tenants.filter(
+    (t) => String(t.code || "").trim().toUpperCase() !== "PINKTECH",
+  );
+  customers.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  return customers;
+}
+
+/**
+ * The Home view for a platform super admin rolls up every active customer tenant
+ * as one read-only tree: Pinktech -> each tenant's admin(s) -> that tenant's
+ * people. The platform tenant itself is skipped (Pinktech *is* the platform, so
+ * its own tenant is not a child of itself). Each position keeps its own tenant's
+ * code, and tenantId, so a row can be labelled and edited in place.
+ */
+async function loadPlatformSnapshot() {
+  const tenants = await listCustomerTenants();
+
+  const merged = {
+    tenantId: null,
+    positions: [],
+    byId: new Map(),
+    byEmpId: new Map(),
+    childrenByParent: new Map(),
+    roleById: new Map(),
+    maxLevel: 1,
+    tenantOrder: new Map(),
+  };
+
+  let index = 0;
+  for (const tenant of tenants) {
+    const tid = String(tenant._id);
+    merged.tenantOrder.set(tid, index);
+    index += 1;
+
+    const snap = await loadSnapshot(tid);
+    if (snap.maxLevel > merged.maxLevel) merged.maxLevel = snap.maxLevel;
+    for (const [roleId, role] of snap.roleById) merged.roleById.set(String(roleId), role);
+    for (const p of snap.positions) {
+      const tagged = { ...p, tenantId: tid, pinktechCode: tenant.code || null };
+      merged.positions.push(tagged);
+      merged.byId.set(String(tagged._id), tagged);
+    }
+  }
+
+  for (const p of merged.positions) {
+    const id = String(p._id);
+    if (p.empId) merged.byEmpId.set(String(p.empId).trim().toUpperCase(), p);
+    const parentKey = p.parentPositionId ? String(p.parentPositionId) : "__root__";
+    const arr = merged.childrenByParent.get(parentKey) || [];
+    arr.push(id);
+    merged.childrenByParent.set(parentKey, arr);
+  }
+
+  for (const [k, ids] of merged.childrenByParent.entries()) {
+    ids.sort((a, b) => {
+      const A = merged.byId.get(a);
+      const B = merged.byId.get(b);
+      const av = A?.isVacant ? 1 : 0;
+      const bv = B?.isVacant ? 1 : 0;
+      if (av !== bv) return av - bv;
+      return (A?.name || "").localeCompare(B?.name || "");
+    });
+    merged.childrenByParent.set(k, ids);
+  }
+
+  return merged;
+}
+
+function withPlatformVirtualRoot(snap) {
+  return attachVirtualRoot(snap);
 }
 
 function findInSnapshot(snap, key) {
@@ -165,8 +404,10 @@ function enrich(snap, p) {
     designation: p.designation,
     role_id: role ? String(role._id) : null,
     role_name: role ? role.name : p.designation || "Unspecified",
-    level: role ? Role.effectiveLevel(role) : 1,
-    scope: role ? Role.effectiveScope(role) : "HQ",
+    // The injected platform root sits above the tenant's own top level and
+    // spans every scope: Pinktech is super admin for all tenants.
+    level: p.isVirtualRoot ? snap.maxLevel + 1 : role ? Role.effectiveLevel(role) : 1,
+    scope: p.isVirtualRoot ? "ALL_INDIA" : role ? Role.effectiveScope(role) : "HQ",
     hq: p.hq,
     zone: p.zone,
     region: p.region,
@@ -204,6 +445,12 @@ function enrich(snap, p) {
     official_email: p.orgContactEmail || null,
     contact_email: p.orgContactEmail || p.email || null,
     login_email: p.email || null,
+    pinktech_code: p.pinktechCode || null,
+    is_virtual_root: !!p.isVirtualRoot,
+    // Which tenant this person belongs to. In a single-tenant snapshot it is the
+    // snapshot's tenant; in the Home roll-up each row carries its own tenant so
+    // the UI can label it and target edits at the right organization.
+    tenant_id: p.tenantId ? String(p.tenantId) : snap.tenantId ? String(snap.tenantId) : null,
   };
 }
 
@@ -253,6 +500,9 @@ function listEmployees(snap, params) {
     },
     { strictGeography: params.strictGeography },
   );
+
+  // The injected Super Admin root is a structural node, not a person.
+  items = items.filter((p) => !p.isVirtualRoot);
 
   if (params.manager) {
     const mgrLookup = findInSnapshot(snap, params.manager);
@@ -339,8 +589,10 @@ function roots(snap) {
 }
 
 function stats(snap) {
-  const total = snap.positions.length;
-  const vacant = snap.positions.filter((p) => p.isVacant).length;
+  // The injected Super Admin root is a structural node, not a person.
+  const people = snap.positions.filter((p) => !p.isVirtualRoot);
+  const total = people.length;
+  const vacant = people.filter((p) => p.isVacant).length;
   const filled = total - vacant;
 
   const byZone = {};
@@ -348,7 +600,7 @@ function stats(snap) {
   const byRole = {};
   const byLevel = {};
 
-  for (const p of snap.positions) {
+  for (const p of people) {
     if (p.zone) byZone[p.zone] = (byZone[p.zone] || 0) + 1;
     if (p.designation) byDesignation[p.designation] = (byDesignation[p.designation] || 0) + 1;
     const roleName = p.roleId ? snap.roleById.get(String(p.roleId))?.name : null;
@@ -363,7 +615,7 @@ function stats(snap) {
     total,
     filled,
     vacant,
-    unresolved: snap.positions.filter((p) => p.managerResolution === "orphan").length,
+    unresolved: people.filter((p) => p.managerResolution === "orphan").length,
     roots: rootIds.length,
     roles: snap.roleById.size,
     max_level: snap.maxLevel,
@@ -375,6 +627,8 @@ function stats(snap) {
 }
 
 function cascadingFilters(snap, params) {
+  // The injected Super Admin root is structural and should not appear in facets.
+  const positions = snap.positions.filter((p) => !p.isVirtualRoot);
   const criteria = {
     zone: params.zone,
     region: params.region,
@@ -386,7 +640,7 @@ function cascadingFilters(snap, params) {
   };
 
   function options(field) {
-    const scope = applyCriteria(snap, snap.positions, criteria, {
+    const scope = applyCriteria(snap, positions, criteria, {
       skip: field,
       strictGeography: params.strictGeography,
     });
@@ -402,7 +656,7 @@ function cascadingFilters(snap, params) {
   }
 
   function levelOptions() {
-    const scope = applyCriteria(snap, snap.positions, criteria, {
+    const scope = applyCriteria(snap, positions, criteria, {
       skip: "level",
       strictGeography: params.strictGeography,
     });
@@ -416,7 +670,7 @@ function cascadingFilters(snap, params) {
       .map(([value, count]) => ({ value, count }));
   }
 
-  const roleScope = applyCriteria(snap, snap.positions, criteria, {
+  const roleScope = applyCriteria(snap, positions, criteria, {
     skip: "roleId",
     strictGeography: params.strictGeography,
   });
@@ -518,6 +772,19 @@ function filterSnapshotToDescendants(snap, actorUserId) {
   };
 }
 
+/**
+ * Locate a person across every tenant by id, used by super-admin edits started
+ * from the Home roll-up. Those requests carry no tenant override, so the owning
+ * tenant has to be derived from the record itself before a mutation can run.
+ */
+async function findTenantForSubject(key) {
+  if (!key || !/^[a-f0-9]{24}$/i.test(String(key).trim())) return null;
+  const id = String(key).trim();
+  const user = await User.findOne({ _id: id }).select("tenantId").lean();
+  if (!user?.tenantId) return null;
+  return { id: String(user._id), tenantId: String(user.tenantId) };
+}
+
 async function findUserDoc(tenantId, key, { includeLeft = false } = {}) {
   const q = { tenantId };
   if (!includeLeft) q.orgLeftAt = null;
@@ -542,7 +809,13 @@ module.exports = {
   stats,
   cascadingFilters,
   findUserDoc,
+  findTenantForSubject,
   userToPosition,
   collectDescendantIds,
   filterSnapshotToDescendants,
+  withVirtualSuperAdminRoot,
+  loadPlatformSnapshot,
+  withPlatformVirtualRoot,
+  listCustomerTenants,
+  VIRTUAL_SUPER_ADMIN_ID,
 };

@@ -16,7 +16,7 @@ async function inviteUser(req, res, next) {
     if (!tenantId) {
       return next(new ApiError(400, "tenantId required"));
     }
-    const result = await authService.inviteUser({ ...req.body, tenantId });
+    const result = await authService.inviteUser({ ...req.body, tenantId, actor: req.auth });
     res.status(201).json(result);
   } catch (error) {
     next(error);
@@ -52,7 +52,7 @@ async function refresh(req, res, next) {
 
 async function resendInvite(req, res, next) {
   try {
-    const result = await authService.resendInvite(req.body);
+    const result = await authService.resendInvite({ ...req.body, actor: req.auth });
     res.status(200).json(result);
   } catch (error) {
     next(error);

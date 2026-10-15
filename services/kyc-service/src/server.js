@@ -7,6 +7,7 @@ const { connectMongo, errorMiddleware, sanitizeMiddleware, requestLogger, logger
 const env = require("./config/env");
 const serviceAuth = require("./middlewares/serviceAuth");
 const kycRoutes = require("./routes/kyc.route");
+const doctorsRoutes = require("./routes/doctors.route");
 const publicKycRoutes = require("./routes/publicKyc.routes");
 
 const app = express();
@@ -26,6 +27,7 @@ app.get("/health", (req, res) => res.json({ status: "ok", service: "kyc" }));
 app.use("/public", publicKycRoutes);
 
 // Authenticated routes
+app.use("/doctors", serviceAuth, doctorsRoutes);
 app.use("/", serviceAuth, kycRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));

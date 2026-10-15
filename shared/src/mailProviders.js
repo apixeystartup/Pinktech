@@ -13,6 +13,19 @@
  */
 
 const PROVIDERS = {
+  smtp: {
+    label: "SMTP",
+    host: "",
+    port: 587,
+    secure: false,
+    defaultUser: "",
+    dailyCap: null,
+    hourlyCap: null,
+    quotaBehavior: "reject",
+    signupUrl: "",
+    notes:
+      "Generic SMTP relay. Reads the unprefixed SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS variables so an existing relay (e.g. Gmail) works without renaming credentials.",
+  },
   resend: {
     label: "Resend",
     host: "smtp.resend.com",
@@ -87,7 +100,16 @@ const PROVIDER_NAMES = Object.keys(PROVIDERS);
  * "queue" providers come last because an accepted-but-held send is worse than a
  * visible failure: the recipient waits hours with no error anywhere.
  */
-const DEFAULT_CHAIN = ["resend", "brevo", "mailjet", "smtp2go", "sendpulse"];
+const DEFAULT_CHAIN = ["smtp", "resend", "brevo", "mailjet", "smtp2go", "sendpulse"];
+
+/**
+ * Providers that read unprefixed environment variables. The generic "smtp"
+ * provider is the historical single-relay config, so its credentials live under
+ * SMTP_* rather than EMAIL_PROVIDER_SMTP_*.
+ */
+const LEGACY_KEYS = {
+  smtp: { host: "SMTP_HOST", port: "SMTP_PORT", user: "SMTP_USER", pass: "SMTP_PASS", secure: "SMTP_SECURE" },
+};
 
 function providerDef(name) {
   return PROVIDERS[String(name || "").trim().toLowerCase()] || null;
@@ -110,20 +132,22 @@ function resolveProvider(name) {
   const def = providerDef(name);
   if (!def) return null;
 
-  const key = envKey(name, "");
-  const prefix = key;
+  const id = String(name).trim().toLowerCase();
+  const legacy = LEGACY_KEYS[id];
+  const prefix = envKey(name, "");
+  const readEnv = (suffix) => process.env[legacy ? legacy[suffix.toLowerCase()] : `${prefix}${suffix}`];
 
-  const port = envInt(process.env[`${prefix}PORT`], def.port);
-  const secureRaw = process.env[`${prefix}SECURE`];
+  const port = envInt(readEnv("PORT"), def.port);
+  const secureRaw = readEnv("SECURE");
 
   return {
     name: def.label,
-    id: String(name).trim().toLowerCase(),
-    host: process.env[`${prefix}HOST`] || def.host,
+    id,
+    host: readEnv("HOST") || def.host,
     port,
     secure: secureRaw === undefined ? def.secure || port === 465 : /^(1|true|yes)$/i.test(secureRaw),
-    user: process.env[`${prefix}USER`] || def.defaultUser,
-    pass: process.env[`${prefix}PASS`] || "",
+    user: readEnv("USER") || def.defaultUser,
+    pass: readEnv("PASS") || "",
     dailyCap: envInt(process.env[`${prefix}DAILY_CAP`], def.dailyCap),
     hourlyCap: envInt(process.env[`${prefix}HOURLY_CAP`], def.hourlyCap),
     quotaBehavior: def.quotaBehavior,

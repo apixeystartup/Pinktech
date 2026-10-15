@@ -1,6 +1,7 @@
 const tenantsService = require("../services/tenants.service");
 const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
+const { PLATFORM_TENANT_CODES } = require("@pink/shared");
 
 async function createTenant(req, res, next) {
   try {
@@ -32,6 +33,15 @@ async function getCurrentTenant(req, res, next) {
 async function updateTenant(req, res, next) {
   try {
     const tenant = await tenantsService.updateTenant(req.params.tenantId, req.body, req.auth);
+    res.status(200).json(tenant);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateCurrentTenant(req, res, next) {
+  try {
+    const tenant = await tenantsService.updateOwnTenantProfile(req.auth.tenantId, req.body, req.auth);
     res.status(200).json(tenant);
   } catch (error) {
     next(error);
@@ -89,7 +99,11 @@ async function resetCreds(req, res, next) {
 
 async function employeeSummary(req, res, next) {
   try {
-    const tenants = await Tenant.find({}).select("name code").lean();
+    // Pinktech (the platform tenant) is the platform, not a customer tenant,
+    // so its employees are not part of the per-tenant employee summary.
+    const tenants = await Tenant.find({ code: { $nin: PLATFORM_TENANT_CODES } })
+      .select("name code")
+      .lean();
     const tenantMap = new Map(tenants.map((t) => [String(t._id), t]));
 
     const pipeline = [
@@ -99,15 +113,17 @@ async function employeeSummary(req, res, next) {
     ];
     const groups = await User.aggregate(pipeline);
 
-    const result = groups.map((g) => {
-      const t = tenantMap.get(String(g._id));
-      return {
-        tenantId: g._id,
-        tenantName: t?.name || "Unknown",
-        tenantCode: t?.code || "",
-        employeeCount: g.count,
-      };
-    });
+    const result = groups
+      .filter((g) => tenantMap.has(String(g._id)))
+      .map((g) => {
+        const t = tenantMap.get(String(g._id));
+        return {
+          tenantId: g._id,
+          tenantName: t?.name || "Unknown",
+          tenantCode: t?.code || "",
+          employeeCount: g.count,
+        };
+      });
 
     const totalEmployees = result.reduce((sum, r) => sum + r.employeeCount, 0);
     res.status(200).json({ totalEmployees, tenants: result });
@@ -121,6 +137,7 @@ module.exports = {
   listTenants,
   getCurrentTenant,
   updateTenant,
+  updateCurrentTenant,
   assignAccount,
   unassignAccount,
   deleteTenant,

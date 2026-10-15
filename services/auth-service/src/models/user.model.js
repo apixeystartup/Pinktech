@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
     roleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Role" }],
     currentPositionId: { type: mongoose.Schema.Types.ObjectId, ref: "Position", default: null },
     reportingToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    invitedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     zone: { type: String, default: null, trim: true },
     region: { type: String, default: null, trim: true },
     state: { type: String, default: null, trim: true },
@@ -61,6 +62,7 @@ userSchema.index(
     partialFilterExpression: { empCode: { $exists: true, $type: "string", $gt: "" } },
   }
 );
+userSchema.index({ tenantId: 1, invitedByUserId: 1 });
 userSchema.index(
   { tenantId: 1, invitationCode: 1 },
   {

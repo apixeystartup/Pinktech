@@ -1,11 +1,9 @@
 export const ROUTE_PERMISSIONS = {
   "/tenants": ["tenant.manage"],
   "/roles": ["role.view"],
-  "/permissions": ["role.view"],
   "/org-employees": ["user.view"],
   "/employee-management": ["employee.manage"],
-  "/workflows": ["kyc.manage", "workflow.submit"],
-  "/form-dispatch-approvals": ["kyc.manage", "workflow.submit", "tenant.manage"],
+  "/doctors": ["doctor.view"],
   "/forms": ["form.view"],
   "/kyc": ["kyc.manage", "workflow.submit"],
   "/notifications": [],
@@ -17,25 +15,22 @@ const NAV_SECTIONS = [
     title: "Core",
     items: [
       { to: "/app", label: "Dashboard", permissions: [] },
-      { to: "/app/permissions", label: "Access catalog", permissions: ROUTE_PERMISSIONS["/permissions"] },
-      { to: "/app/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"] },
-      { to: "/app/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"] },
-      { to: "/app/org-employees", label: "ORG employee", permissions: ROUTE_PERMISSIONS["/org-employees"] },
-      { to: "/app/employee-management", label: "Employee Management", permissions: ROUTE_PERMISSIONS["/employee-management"] },
+      { to: "/app/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"], superAdminOnly: true },
+      { to: "/app/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"], adminOnly: true },
+      { to: "/app/org-employees", label: "Org Explore", permissions: ROUTE_PERMISSIONS["/org-employees"] },
+      { to: "/app/employee-management", label: "Employee Management", permissions: ROUTE_PERMISSIONS["/employee-management"], adminOnly: true },
+      { to: "/app/doctors", label: "Doctor Management", permissions: ROUTE_PERMISSIONS["/doctors"] },
     ],
   },
   {
     title: "Workflow",
     items: [
-      { to: "/app/workflows", label: "Workflows", permissions: ROUTE_PERMISSIONS["/workflows"] },
-      { to: "/app/form-dispatch-approvals", label: "Form approvals", permissions: ROUTE_PERMISSIONS["/form-dispatch-approvals"] },
-      { to: "/app/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"] },
+      { to: "/app/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"], adminOnly: true },
     ],
   },
   {
     title: "Compliance",
     items: [
-      { to: "/app/kyc", label: "KYC", permissions: ROUTE_PERMISSIONS["/kyc"] },
       { to: "/app/notifications", label: "Notifications", permissions: ROUTE_PERMISSIONS["/notifications"] },
       { to: "/app/audit", label: "Audit Logs", permissions: ROUTE_PERMISSIONS["/audit"] },
     ],
@@ -49,24 +44,35 @@ export function canAccessRoute(path, permissionCodes = []) {
   return required.some((code) => permissionCodes.includes(code));
 }
 
-function canAccessNavItem(item, permissionCodes = []) {
+export function isAdminRole(accountRole, isSuperAdmin = false) {
+  return Boolean(isSuperAdmin) || accountRole === "super_admin" || accountRole === "tenant_admin";
+}
+
+function canAccessNavItem(item, permissionCodes = [], isSuperAdmin = false, accountRole = null) {
+  if (item.superAdminOnly && !isSuperAdmin) return false;
+  if (item.adminOnly && !isAdminRole(accountRole, isSuperAdmin)) return false;
   if (permissionCodes.includes("*")) return true;
   return (item.permissions || []).some((code) => permissionCodes.includes(code));
 }
 
-export function getNavSections(permissionCodes = []) {
+export function getNavSections(permissionCodes = [], isSuperAdmin = false, accountRole = null, options = {}) {
+  const hidden = new Set((options.hideRoutes || []).map((route) => String(route)));
   return NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => canAccessNavItem(item, permissionCodes)),
+    items: section.items
+      .filter((item) => !hidden.has(item.to))
+      .filter((item) => canAccessNavItem(item, permissionCodes, isSuperAdmin, accountRole)),
   })).filter((section) => section.items.length > 0);
 }
 
 export function getRbacHbacGuidance() {
   return [
-    "Access is grant-based: each route checks one or more permission codes (you need any match).",
-    "Use Access catalog for plain-language definitions; assign codes to custom roles on the Roles page.",
-    "KYC uses kyc.manage (or workflow.submit for older roles). External forms and Form approvals share that gate so IC-only users without those codes see a simpler nav. Notifications use notification.compose (or report.view).",
-    "ORG employee uses user.view (or tenant.manage) for the org embed directory and tree.",
+    "Access control is disabled: every signed-in user has all permissions, so all pages and actions are available.",
+    "KYC uses kyc.manage (or workflow.submit for older roles). Doctor form cards carry their own approve / send-back actions, so no separate approvals page is needed. Notifications use notification.compose (or report.view).",
+    "Org Explore uses user.view (or tenant.manage) for the org embed directory and tree.",
     "Employee Management uses employee.manage to list employees and manage credentials.",
+    "Doctor Management uses doctor.view to browse the directory and doctor.manage to create or edit doctor profiles and assign compliance forms.",
+    "Forms (the form builder) is admin-only: only a super admin or tenant admin creates, edits, or deletes a form definition — employees fill forms out but never build them.",
+    "Assigning a doctor's compliance form is admin-only too: the admin picks a managing employee, then copies the link from the form card and sends it to the doctor over any channel. No email is needed or sent.",
   ];
 }

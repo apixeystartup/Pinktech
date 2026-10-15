@@ -34,6 +34,10 @@ describe("core services", () => {
     Tenant.create.mockResolvedValue({ _id: "t1", code: "ACME" });
     Tenant.findByIdAndUpdate.mockResolvedValue({ _id: "t1", name: "Acme" });
     Tenant.find.mockReturnValue({ sort: jest.fn().mockResolvedValue([{ _id: "t1" }]) });
+    const tenantOid = "507f1f77bcf86cd799439011";
+    Tenant.findById.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ _id: tenantOid, name: "Acme", code: "ACME" }),
+    });
 
     const created = await tenantsService.createTenant(
       { name: "Acme", code: "acme", email: "admin@example.com" },
@@ -41,10 +45,6 @@ describe("core services", () => {
     );
     const listed = await tenantsService.listTenants();
     const updated = await tenantsService.updateTenant("t1", { plan: "pro" }, { userId: "u1" });
-    const tenantOid = "507f1f77bcf86cd799439011";
-    Tenant.findById.mockReturnValue({
-      lean: jest.fn().mockResolvedValue({ _id: tenantOid, name: "Acme", code: "ACME" }),
-    });
     const current = await tenantsService.getCurrentTenant(tenantOid);
 
     expect(created.code).toBe("ACME");

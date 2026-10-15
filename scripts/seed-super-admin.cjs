@@ -11,6 +11,10 @@ const User = require(path.join(root, "services/auth-service/src/models/user.mode
 const Role = require(path.join(root, "services/auth-service/src/models/role.model"));
 const Permission = require(path.join(root, "services/platform-service/src/models/permission.model"));
 const permissions = require(path.join(root, "services/platform-service/src/services/permissionCatalog"));
+// Canonical platform code for new databases. Older databases use "PLATFORM"
+// for the same tenant — never create a second platform tenant next to it.
+const PLATFORM_TENANT_CODES = ["PINKTECH", "PLATFORM"];
+const CANONICAL_PLATFORM_CODE = "PINKTECH";
 
 async function seed() {
   const email = String(process.env.SUPER_ADMIN_EMAIL || "").trim().toLowerCase();
@@ -23,11 +27,11 @@ async function seed() {
 
   await mongoose.connect(process.env.MONGO_URI);
 
-  let tenant = await Tenant.findOne({ code: "PLATFORM" });
+  let tenant = await Tenant.findOne({ code: { $in: PLATFORM_TENANT_CODES } });
   if (!tenant) {
     tenant = await Tenant.findOneAndUpdate(
-      { code: "PLATFORM" },
-      { $setOnInsert: { name: "Platform", code: "PLATFORM", email, plan: "enterprise", status: "ACTIVE" } },
+      { code: CANONICAL_PLATFORM_CODE },
+      { $setOnInsert: { name: "PinkTech", code: CANONICAL_PLATFORM_CODE, email, plan: "enterprise", status: "ACTIVE" } },
       { upsert: true, new: true },
     );
   }

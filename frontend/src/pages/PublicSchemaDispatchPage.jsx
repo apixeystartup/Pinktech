@@ -4,7 +4,6 @@ import { useParams } from "react-router-dom";
 import DynamicFormRenderer from "../components/schema-forms/DynamicFormRenderer";
 import { getPublicSchemaDispatch } from "../lib/schemaFormsPublic";
 import "../styles/schema-forms.css";
-
 function PublicSchemaDispatchPage() {
   const { token } = useParams();
   const [payload, setPayload] = useState(null);
@@ -67,7 +66,7 @@ function PublicSchemaDispatchPage() {
             </p>
           ) : null}
         </header>
-        <DynamicFormRenderer moduleDoc={payload.module} dispatchToken={payload.token || token} />
+        <DynamicFormRenderer moduleDoc={payload.module} dispatchToken={payload.token || token} templateAgreement={payload.templateAgreement || null} />
       </div>
     </div>
   );

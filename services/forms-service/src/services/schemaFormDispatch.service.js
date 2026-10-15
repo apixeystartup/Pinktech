@@ -9,6 +9,7 @@ const ExternalUser = require("../models/externalUser.model");
 const SchemaFormDispatch = require("../models/schemaFormDispatch.model");
 const logger = require("@pink/shared").logger;
 const { listManagersUpChain } = require("./reportingChain.service");
+const { getTenantAdminUserIds, getPlatformSuperAdmins } = require("./adminNotify.service");
 
 function apiOrigin() {
   const base = (env.API_PUBLIC_URL || "").replace(/\/$/, "");
@@ -299,6 +300,62 @@ async function afterSubmissionNotify({ dispatch, moduleName }) {
       }
     }
   }
+
+  // In-app update for whoever owns this dispatch: the tenant's admins, the
+  // employee who shared the link, and Pinktech's super admins. This is how a
+  // doctor's submission reaches the people who assigned the form — the
+  // per-form status itself lives on that doctor's own View page.
+  const recipientLabel = ext?.name || ext?.email || "The recipient";
+  const statusLabel = dispatch.status === "APPROVED" ? "Completed" : "Awaiting approval";
+  const adminSubject = `${tenantName}: form submitted — ${moduleName}`;
+  const adminMessage = `${recipientLabel} submitted "${moduleName}". Status: ${statusLabel}. See this form's status on their Doctor Management → View page.`;
+  const adminMeta = {
+    type: "DOCTOR_FORM_SUBMITTED",
+    dispatchId: String(dispatch._id),
+    moduleId: String(dispatch.moduleId),
+    externalUserId: String(dispatch.externalUserId),
+    publicPath: dispatchPublicPath(dispatch.token),
+    moduleName,
+    status: dispatch.status,
+  };
+  const fromOid = dispatch.dispatchedByUserId
+    ? new mongoose.Types.ObjectId(String(dispatch.dispatchedByUserId))
+    : null;
+
+  const adminRecipients = await getTenantAdminUserIds(dispatch.tenantId);
+  if (dispatch.handlerUserId) adminRecipients.add(String(dispatch.handlerUserId));
+  if (dispatch.dispatchedByUserId) adminRecipients.add(String(dispatch.dispatchedByUserId));
+
+  for (const adminId of adminRecipients) {
+    if (!mongoose.Types.ObjectId.isValid(adminId)) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await createInAppNotification({
+      tenantId: dispatch.tenantId,
+      recipientUserId: adminId,
+      fromUserId: fromOid,
+      subject: adminSubject,
+      message: adminMessage,
+      eventType: "DOCTOR_FORM_SUBMITTED",
+      metadata: adminMeta,
+    });
+  }
+
+  // Pinktech's shared super admin lives in the PLATFORM tenant, so its
+  // notification is filed there to land in their inbox.
+  const platform = await getPlatformSuperAdmins();
+  for (const adminId of platform.userIds) {
+    if (!platform.tenantId || !mongoose.Types.ObjectId.isValid(adminId)) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await createInAppNotification({
+      tenantId: platform.tenantId,
+      recipientUserId: adminId,
+      fromUserId: fromOid,
+      subject: `${tenantName}: ${adminSubject}`,
+      message: adminMessage,
+      eventType: "DOCTOR_FORM_SUBMITTED",
+      metadata: adminMeta,
+    });
+  }
 }
 
 async function afterApprovalStepNotify({ dispatch, moduleName, stepIndex, actorUserId }) {
@@ -389,29 +446,88 @@ async function afterFullyApprovedNotify({ dispatch, moduleName }) {
   }
 }
 
-async function afterRejectedNotify({ dispatch, moduleName, actorUserId }) {
+/**
+ * Rejection is in-app only (no email). Notifies the responsible employee who
+ * dispatched the form plus every higher official in the approval chain.
+ */
+async function afterRejectedNotify({ dispatch, moduleName, actorUserId, reason }) {
   const tenant = await Tenant.findById(dispatch.tenantId).select("name").lean();
   const tenantName = tenant?.name || "Organization";
   const pdfAbs = absolutePdfUrl(dispatch.pdfRelativeUrl);
   const ext = await ExternalUser.findById(dispatch.externalUserId).lean();
-  const creator = await User.findById(dispatch.dispatchedByUserId).select("name email empCode").lean();
   const actor = await User.findById(actorUserId).select("name email empCode").lean();
   const actorLabel = actor?.empCode || actor?.name || actor?.email || "Approver";
-  const chainIds = (dispatch.approvalChainUserIds || []).map((id) => String(id));
-  const userMap = await loadUsersMap([...chainIds, String(dispatch.dispatchedByUserId)]);
+  const reasonText = String(reason || "").trim();
+  const recipientLabel = ext?.name || ext?.email || "the recipient";
+  const fromOid = actorUserId ? new mongoose.Types.ObjectId(actorUserId) : null;
 
-  const html = `
-    <p><strong>${safe(moduleName)}</strong> was <strong>rejected</strong> by ${safe(actorLabel)} (${safe(tenantName)}).</p>
-    ${pdfAbs ? `<p><a href="${safe(pdfAbs)}">Download PDF</a></p>` : ""}
-  `;
-  const subj = `${tenantName}: form rejected — ${moduleName}`;
-  const seen = new Set();
-  await emailUserDedup(seen, { email: ext?.email, name: ext?.name }, `${tenantName}: form update`, html);
-  await emailUserDedup(seen, creator, subj, html);
-  for (const id of chainIds) {
-    const u = userMap.get(id);
-    await emailUserDedup(seen, u, subj, html);
+  const recipients = new Set();
+  if (dispatch.dispatchedByUserId) recipients.add(String(dispatch.dispatchedByUserId));
+  for (const id of dispatch.approvalChainUserIds || []) recipients.add(String(id));
+
+  for (const rid of recipients) {
+    if (!mongoose.Types.ObjectId.isValid(rid)) continue;
+    await createInAppNotification({
+      tenantId: dispatch.tenantId,
+      recipientUserId: new mongoose.Types.ObjectId(rid),
+      fromUserId: fromOid,
+      subject: `${tenantName}: correction required — ${moduleName}`,
+      message: `${actorLabel} rejected "${moduleName}" for ${recipientLabel}. Reason: ${reasonText || "(not provided)"}. PDF: ${pdfAbs || "n/a"}`,
+      eventType: "SCHEMA_FORM_DISPATCH_REJECTED",
+      metadata: {
+        type: "SCHEMA_FORM_DISPATCH_REJECTED",
+        dispatchId: String(dispatch._id),
+        moduleName,
+        reason: reasonText,
+        pdfUrl: pdfAbs,
+      },
+    });
   }
+}
+
+/**
+ * Issue a fresh public link after a correction was requested. The previous token
+ * is revoked (moved to linkHistory) so the old link stops working; the approval
+ * chain restarts from step 1 on resubmission.
+ */
+async function regenerateDispatchLink({ dispatch, actorUserId, linkOrigin }) {
+  dispatch.linkHistory.push({
+    token: dispatch.token,
+    version: dispatch.linkVersion || 1,
+    createdAt: dispatch.createdAt || new Date(),
+    revokedAt: new Date(),
+    usedAt: null,
+  });
+  const newToken = crypto.randomBytes(24).toString("hex");
+  dispatch.token = newToken;
+  dispatch.linkVersion = (dispatch.linkVersion || 1) + 1;
+  dispatch.revision = (dispatch.revision || 1) + 1;
+  dispatch.status = "SENT";
+  dispatch.currentApprovalIndex = -1;
+  await dispatch.save();
+  await pushDispatchEvent(
+    dispatch._id,
+    "LINK_REGENERATED",
+    `Correction link v${dispatch.linkVersion} issued by ${actorUserId}; approval chain restarted from step 1.`,
+  );
+  return { token: newToken, version: dispatch.linkVersion, url: dispatchPublicUrl(newToken, linkOrigin) };
+}
+
+/** Email the (external) recipient the regenerated link — their only delivery channel. */
+async function notifyRecipientRegeneratedLink({ dispatch, moduleName, linkOrigin }) {
+  const ext = await ExternalUser.findById(dispatch.externalUserId).lean();
+  if (!ext?.email) return;
+  const tenant = await Tenant.findById(dispatch.tenantId).select("name").lean();
+  const tenantName = tenant?.name || "Your organization";
+  const link = dispatchPublicUrl(dispatch.token, linkOrigin);
+  const subject = `${tenantName}: corrected link for ${moduleName}`;
+  const html = `
+    <p><strong>${safe(tenantName)}</strong> has requested a correction on <strong>${safe(moduleName)}</strong>.</p>
+    <p><a href="${safe(link)}"><strong>Open the corrected form</strong></a></p>
+    <p style="word-break:break-all;font-family:monospace;font-size:13px;background:#f5f5f5;padding:10px;border-radius:6px;border:1px solid #ddd;">${safe(link)}</p>
+    <p>Your previous link is no longer valid.</p>
+  `;
+  await emailUser({ email: ext.email, name: ext.name }, subject, html);
 }
 
 module.exports = {
@@ -426,5 +542,7 @@ module.exports = {
   afterApprovalStepNotify,
   afterFullyApprovedNotify,
   afterRejectedNotify,
+  regenerateDispatchLink,
+  notifyRecipientRegeneratedLink,
   loadUsersMap,
 };

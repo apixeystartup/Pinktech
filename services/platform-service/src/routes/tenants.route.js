@@ -1,11 +1,14 @@
 const express = require("express");
 const controller = require("../controllers/tenants.controller");
 const permissionMiddleware = require("../middlewares/permission.middleware");
-const { validate, createTenantSchema, updateTenantSchema, assignAccountSchema, unassignAccountSchema } = require("../validators/tenants.validator");
+const { validate, createTenantSchema, updateTenantSchema, updateOwnTenantSchema, assignAccountSchema, unassignAccountSchema } = require("../validators/tenants.validator");
 
 const router = express.Router();
 
 router.get("/current", controller.getCurrentTenant);
+// Tenant admins maintain their own org profile here (templates Party 1).
+// Registered before "/:tenantId" so "current" is never treated as an id.
+router.patch("/current", validate(updateOwnTenantSchema), controller.updateCurrentTenant);
 router.get("/employee-summary", controller.employeeSummary);
 router.get("/", controller.listTenants);
 router.post("/", validate(createTenantSchema), controller.createTenant);

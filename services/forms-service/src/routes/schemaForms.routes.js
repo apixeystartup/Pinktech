@@ -24,8 +24,22 @@ function normalizeIncomingModulePayload(payload) {
   return normalized;
 }
 
+/**
+ * Only super admins and tenant admins build or change form definitions;
+ * employees can fill a form out but never create one. The gateway forwards its
+ * role classification on every request, which is what separates the roles
+ * (permission codes are "*" for everyone while access control is disabled).
+ */
+function denyUnlessAdmin(req, res, action) {
+  if (req.auth?.isAdmin) return null;
+  return res.status(403).json({ error: `Only administrators can ${action}.` });
+}
+
 router.post("/", async (req, res, next) => {
   try {
+    const denied = denyUnlessAdmin(req, res, "create compliance forms");
+    if (denied) return denied;
+
     const errors = validateModulePayload(req.body);
     if (errors.length) {
       return res.status(400).json({ errors });
@@ -42,7 +56,11 @@ router.post("/", async (req, res, next) => {
       }
     }
 
-    const moduleDoc = await Module.create(normalizeIncomingModulePayload(req.body));
+    const moduleDoc = await Module.create({
+      ...normalizeIncomingModulePayload(req.body),
+      tenantId: tenantId && mongoose.Types.ObjectId.isValid(String(tenantId)) ? tenantId : null,
+      createdByUserId: req.auth?.userId || null,
+    });
     return res.status(201).json(toApiModule(moduleDoc));
   } catch (error) {
     return next(error);
@@ -75,6 +93,9 @@ router.get("/modules/:id", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
+    const denied = denyUnlessAdmin(req, res, "edit compliance forms");
+    if (denied) return denied;
+
     const errors = validateModulePayload(req.body);
     if (errors.length) {
       return res.status(400).json({ errors });
@@ -96,6 +117,9 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
+    const denied = denyUnlessAdmin(req, res, "delete compliance forms");
+    if (denied) return denied;
+
     const deleted = await Module.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ error: "Module not found." });

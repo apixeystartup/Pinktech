@@ -3,6 +3,7 @@ const User = require("../models/user.model");
 const Position = require("../models/position.model");
 const Permission = require("../models/permission.model");
 const ApiError = require("@pink/shared").ApiError;
+const { isReservedPlatformRoleName, RESERVED_ROLE_MESSAGE } = require("@pink/shared");
 const rolesService = require("./roles.service");
 const { runOrgRoleEngine } = require("./orgRoleEngine.service");
 const { syncPositionLevelsFromOrg } = require("./positions.service");
@@ -75,6 +76,8 @@ async function resetOrgRole(tenantId, id, actor) {
 async function createOrgRole(tenantId, body, actor) {
   const name = String(body.name || "").trim();
   if (!name) throw new ApiError(400, "Role name required");
+  // Super Admin is Pinktech's role for all tenants — never a tenant's own role.
+  if (isReservedPlatformRoleName(name)) throw new ApiError(400, RESERVED_ROLE_MESSAGE);
   const all = await Permission.find({}, { _id: 1 });
   const permissionIds = pickRandomPermissions(all.map((p) => p._id));
   const aliases = body.aliases?.length

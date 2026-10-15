@@ -194,7 +194,7 @@ function pickBest(candidates, empRow) {
   })[0];
 }
 
-function resolveManagerMappings(rows) {
+function resolveManagerMappings(rows, dbIndex = null) {
   // Normalize any "VACANT - <empId>" reporting strings to just the empId token
   rows = rows.map((r) => {
     if (!r || !r.reportingManagerRaw) return r;
@@ -247,6 +247,7 @@ function resolveManagerMappings(rows) {
     const row = rows[i];
     const raw = row.reportingManagerRaw;
     let resolvedRow = null;
+    let resolvedDbUserId = null;
     let resolution = "root";
     
     if (!raw) {
@@ -277,18 +278,33 @@ function resolveManagerMappings(rows) {
             }
           }
         }
-        if (!resolvedRow && raw.trim().toUpperCase().startsWith("VACANT")) {
+        if (!resolvedRow) {
+          const tokens = new Set();
+          if (rawUpper) {
+            tokens.add(rawUpper);
+            for (const t of rawUpper.match(/[A-Z0-9]+/g) || []) tokens.add(t);
+          }
+          for (const t of tokens) {
+            const dbUser = dbIndex ? dbIndex.get(t) : null;
+            if (dbUser) {
+              resolvedDbUserId = String(dbUser._id);
+              resolution = "dbEmpId";
+              break;
+            }
+          }
+        }
+        if (!resolvedRow && !resolvedDbUserId && raw.trim().toUpperCase().startsWith("VACANT")) {
           resolvedRow = pickBest(roleIndexLocal.get("GM") || [], row);
           resolution = resolvedRow ? "placeholder->GM" : "external_root";
         }
-        if (!resolvedRow && resolution !== "placeholder->GM") {
+        if (!resolvedRow && !resolvedDbUserId && resolution !== "placeholder->GM") {
           resolution = "external_root";
         }
       }
     }
 
     const resolvedIdx = resolvedRow ? rows.indexOf(resolvedRow) : -1;
-    results.push({ resolvedIdx, resolution, raw });
+    results.push({ resolvedIdx, resolvedDbUserId, resolution, raw });
   }
   return results;
 }
@@ -513,7 +529,7 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
       }
     });
 
-    function resolveManagerMappings(rows) {
+    function resolveManagerMappings(rows, dbIndex = null) {
       const nameIndexLocal = new Map();
       const empIdIndexLocal = new Map();
       const roleIndexLocal = new Map();
@@ -559,6 +575,7 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
         const row = rows[i];
         const raw = row.reportingManagerRaw;
         let resolvedRow = null;
+        let resolvedDbUserId = null;
         let resolution = "root";
 
         if (!raw) {
@@ -609,18 +626,33 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
                 }
               }
             }
-            if (!resolvedRow && raw.trim().toUpperCase().startsWith("VACANT")) {
+            if (!resolvedRow) {
+              const tokens = new Set();
+              if (rawUpper) {
+                tokens.add(rawUpper);
+                for (const t of rawUpper.match(/[A-Z0-9]+/g) || []) tokens.add(t);
+              }
+              for (const t of tokens) {
+                const dbUser = dbIndex ? dbIndex.get(t) : null;
+                if (dbUser) {
+                  resolvedDbUserId = String(dbUser._id);
+                  resolution = "dbEmpId";
+                  break;
+                }
+              }
+            }
+            if (!resolvedRow && !resolvedDbUserId && raw.trim().toUpperCase().startsWith("VACANT")) {
               resolvedRow = pickBest(roleIndexLocal.get("GM") || [], row);
               resolution = resolvedRow ? "placeholder->GM" : "external_root";
             }
-            if (!resolvedRow && resolution !== "placeholder->GM") {
+            if (!resolvedRow && !resolvedDbUserId && resolution !== "placeholder->GM") {
               resolution = "external_root";
             }
           }
         }
 
         const resolvedIdx = resolvedRow ? rows.indexOf(resolvedRow) : -1;
-        results.push({ resolvedIdx, resolution, raw });
+        results.push({ resolvedIdx, resolvedDbUserId, resolution, raw });
       }
       return results;
     }
@@ -636,12 +668,32 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
       }
       return { ...r };
     });
-    const mapping = resolveManagerMappings(rowsForResolve);
+    const referencedTokens = new Set();
+    for (const r of rowsForResolve) {
+      const raw = r && r.reportingManagerRaw;
+      if (!raw) continue;
+      const rawUpper = String(raw).trim().toUpperCase();
+      if (rawUpper) referencedTokens.add(rawUpper);
+      for (const t of (rawUpper ? rawUpper.match(/[A-Z0-9]+/g) : []) || []) {
+        if (t.length >= 2) referencedTokens.add(t);
+      }
+    }
+    const dbEmpMatches = referencedTokens.size
+      ? await User.find({ tenantId, empCode: { $in: [...referencedTokens] }, orgLeftAt: null })
+          .select("_id empCode")
+          .lean()
+      : [];
+    const dbEmpIdIndex = new Map();
+    for (const du of dbEmpMatches) {
+      const code = String(du.empCode).trim().toUpperCase();
+      if (code && !dbEmpIdIndex.has(code)) dbEmpIdIndex.set(code, du);
+    }
+    const mapping = resolveManagerMappings(rowsForResolve, dbEmpIdIndex);
     for (let i = 0; i < rows.length; i += 1) {
       const row = rows[i];
       const u = users[i];
-      const { resolvedIdx, resolution, raw } = mapping[i];
-      const parentId = resolvedIdx >= 0 ? users[resolvedIdx]._id : null;
+      const { resolvedIdx, resolvedDbUserId, resolution, raw } = mapping[i];
+      const parentId = resolvedDbUserId || (resolvedIdx >= 0 ? users[resolvedIdx]._id : null);
       if (parentId && String(parentId) === String(u._id)) {
         u.reportingToUserId = null;
         u.managerResolution = "orphan";

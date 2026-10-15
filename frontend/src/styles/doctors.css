@@ -1,0 +1,940 @@
+/* ---------------------------------------------------------------------------
+ * Doctor Management
+ * White cards, thin borders, subtle black shadows, orange pending badges and
+ * green completed indicators — matching the reference design.
+ * ------------------------------------------------------------------------ */
+
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.doc-toolbar .dash-search {
+  max-width: 340px;
+}
+
+.doc-toolbar-spacer {
+  flex: 1;
+}
+
+.doc-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+
+.btn-icon-only {
+  padding: 10px 12px;
+}
+
+.doc-card {
+  background: var(--bg-elevated, #ffffff);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 20px -18px rgba(0, 0, 0, 0.55);
+  padding: 18px 20px;
+}
+
+.doc-card + .doc-card {
+  margin-top: 16px;
+}
+
+.doc-card-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.doc-card-sub {
+  margin: 0 0 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* --- badges ------------------------------------------------------------- */
+
+.doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.doc-badge--pending {
+  background: rgba(249, 115, 22, 0.12);
+  color: #d97706;
+  border-color: rgba(249, 115, 22, 0.25);
+}
+
+.doc-badge--complete {
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+  border-color: rgba(5, 150, 105, 0.25);
+}
+
+.doc-badge--rejected {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.22);
+}
+
+.doc-badge--muted {
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
+  border-color: rgba(100, 116, 139, 0.2);
+}
+
+/* --- directory cells ---------------------------------------------------- */
+
+.doc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.doc-cell-name {
+  font-weight: 620;
+  color: var(--text);
+}
+
+.doc-cell-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.doc-linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--link);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+}
+
+.doc-linkish:hover {
+  text-decoration: underline;
+}
+
+.doc-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.doc-row-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* --- progress ----------------------------------------------------------- */
+
+.doc-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.doc-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.18);
+  overflow: hidden;
+  min-width: 70px;
+}
+
+.doc-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #f59e0b;
+  transition: width 0.25s ease;
+}
+
+.doc-progress-fill--complete {
+  background: #10b981;
+}
+
+.doc-progress-text {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- details page ------------------------------------------------------- */
+
+.doc-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.doc-back:hover {
+  color: var(--text);
+  border-color: var(--border-strong, rgba(15, 23, 42, 0.14));
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+}
+
+.doc-back svg {
+  flex-shrink: 0;
+}
+
+.doc-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.doc-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+  background: linear-gradient(135deg, #f97316, #db2777);
+  flex-shrink: 0;
+}
+
+.doc-hero-main {
+  flex: 1;
+  min-width: min(220px, 100%);
+}
+
+.doc-hero-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.doc-hero-meta {
+  margin: 4px 0 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.doc-id-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px dashed var(--input-border, rgba(15, 23, 42, 0.16));
+  border-radius: 8px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.doc-hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.doc-grid .doc-card + .doc-card {
+  margin-top: 0;
+}
+
+.doc-grid-wide {
+  grid-column: 1 / -1;
+}
+
+/* Personal Details holds a two-column definition list, so it gets a little
+   more room than a single track. Falls back to one track on narrow screens. */
+.doc-card--personal {
+  grid-column: span 2;
+}
+
+@media (max-width: 980px) {
+  .doc-card--personal {
+    grid-column: auto;
+  }
+}
+
+/* --- compliance form cards -------------------------------------------- *
+ * One card per form assigned to a doctor: template, workflow /
+ * approval chain, who manages it and where it stands.
+ */
+
+.doc-forms-head {
+  grid-column: 1 / -1;
+  margin-top: 18px;
+}
+
+.doc-form-cards {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* The cards live in their own grid, so the global card spacing does not apply. */
+.doc-form-cards .doc-card + .doc-card {
+  margin-top: 0;
+}
+
+.doc-form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.doc-form-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.doc-form-title-wrap {
+  min-width: 0;
+}
+
+.doc-form-meta {
+  margin: 3px 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.doc-form-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.doc-form-actions {
+  justify-content: flex-start;
+  margin-top: auto;
+  padding-top: 4px;
+  border-top: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+}
+
+/* Approval chain, one step per line; the pending step is the one the
+   form is currently sitting at. */
+.doc-chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.doc-chain-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.doc-chain-step--active {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.doc-chain-role {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.doc-chain-name {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Template preview. */
+.doc-field-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.doc-field-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+}
+
+.doc-field-label {
+  color: var(--text);
+}
+
+.doc-field-type {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  text-transform: capitalize;
+  color: var(--text-muted);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 6px;
+  padding: 1px 7px;
+  background: var(--bg-subtle, #f8fafc);
+}
+
+/* Bulk-assign doctor picker */
+.doc-doctor-pick {
+  margin: 4px 0 12px;
+}
+.doc-doctor-pick-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.doc-doctor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 8px;
+  padding: 8px;
+}
+.doc-doctor-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.doc-doctor-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
+.doc-doctor-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Row action buttons (View / Edit / Delete family) */
+.doc-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
+}
+.doc-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  background: var(--bg-elevated, #fff);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.doc-action-btn svg {
+  flex-shrink: 0;
+}
+.doc-action-btn--icon {
+  padding: 7px;
+}
+.doc-action-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong, rgba(15, 23, 42, 0.14));
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+}
+.doc-action-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.doc-action-btn--view {
+  color: var(--primary, #4f46e5);
+  border-color: color-mix(in srgb, var(--primary, #4f46e5) 30%, transparent);
+  background: var(--primary-muted, rgba(99, 102, 241, 0.12));
+}
+.doc-action-btn--view:hover:not(:disabled) {
+  color: var(--primary-hover, #4338ca);
+}
+.doc-action-btn--danger {
+  color: var(--danger-text, #b91c1c);
+  border-color: var(--danger-border, #fecaca);
+  background: var(--danger-bg, #fef2f2);
+}
+.doc-action-btn--danger:hover:not(:disabled) {
+  color: var(--danger-text, #b91c1c);
+  background: var(--danger-hover, #fecaca);
+}
+
+/* --- approval chain picker (assign dialog) ------------------------------ *
+ * Two directions side by side: top → employee and employee → top.
+ * Each step shows name, EMP ID and designation. */
+
+.doc-chain-pick {
+  margin: 4px 0 2px;
+}
+
+.doc-chain-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .doc-card {
+    padding: 14px 16px;
+  }
+
+  .doc-toolbar .dash-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .doc-toolbar .dash-select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .doc-toolbar-actions {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .doc-toolbar-actions .btn-primary,
+  .doc-toolbar-actions .btn-secondary {
+    padding: 9px 14px;
+    font-size: 0.82rem;
+  }
+
+  .doc-form-actions {
+    flex-wrap: wrap;
+  }
+
+  .doc-chain-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.doc-chain-option {
+  display: block;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.12));
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.doc-chain-option input[type="radio"] {
+  margin: 0 6px 8px 0;
+  accent-color: #db2777;
+}
+
+.doc-chain-option--active {
+  border-color: rgba(219, 39, 119, 0.55);
+  background: rgba(219, 39, 119, 0.05);
+}
+
+.doc-chain-option-title {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.doc-chain--compact {
+  margin-top: 8px;
+}
+
+.doc-chain--compact .doc-chain-step {
+  padding: 6px 9px;
+}
+
+/* --- detail list -------------------------------------------------------- */
+
+.doc-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 10px 14px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.doc-dl dt {
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.doc-dl dd {
+  margin: 0;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.doc-dl dd.doc-empty-value {
+  color: var(--text-muted);
+}
+
+/* --- checklist ---------------------------------------------------------- */
+
+.doc-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.doc-check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  flex-wrap: wrap;
+}
+
+.doc-check-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.doc-check-dot--complete {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+
+.doc-check-dot--pending {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
+.doc-check-dot--rejected {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+
+.doc-check-dot--muted {
+  background: #94a3b8;
+}
+
+.doc-check-main {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.doc-check-name {
+  font-size: 0.86rem;
+  font-weight: 620;
+  color: var(--text);
+}
+
+.doc-check-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.doc-check-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.doc-mini-btn {
+  border: 1px solid var(--input-border, rgba(15, 23, 42, 0.16));
+  background: var(--bg-elevated, #fff);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.doc-mini-btn:hover:not(:disabled) {
+  border-color: var(--link);
+  color: var(--link);
+}
+
+.doc-mini-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.doc-mini-btn--approve {
+  border-color: rgba(5, 150, 105, 0.4);
+  color: #059669;
+}
+
+.doc-mini-btn--reject {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+}
+
+.doc-mini-btn--primary {
+  background: #f97316;
+  border-color: #f97316;
+  color: #fff;
+}
+
+.doc-mini-btn--primary:hover:not(:disabled) {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
+}
+
+.doc-empty {
+  padding: 16px;
+  border: 1px dashed var(--input-border, rgba(15, 23, 42, 0.16));
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* --- approval rows ------------------------------------------------------ */
+
+.doc-approval-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  flex-wrap: wrap;
+}
+
+.doc-approval-row + .doc-approval-row {
+  margin-top: 10px;
+}
+
+.doc-approval-label {
+  font-size: 0.85rem;
+  font-weight: 620;
+  color: var(--text);
+}
+
+.doc-approval-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* --- form / modal ------------------------------------------------------- */
+
+.doc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 14px;
+}
+
+.doc-form-full {
+  grid-column: 1 / -1;
+}
+
+.doc-form-error {
+  font-size: 0.72rem;
+  color: #dc2626;
+}
+
+.doc-form-banner {
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #dc2626;
+}
+
+.doc-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.doc-modal-card {
+  width: min(720px, 100%);
+}
+
+.doc-modal-card--small {
+  width: min(520px, 100%);
+}
+
+/* --- destructive actions ------------------------------------------------ */
+
+.doc-delete-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.doc-delete-list li + li {
+  margin-top: 4px;
+}
+
+.doc-btn-danger {
+  border: 1px solid #dc2626;
+  background: #dc2626;
+  color: #fff;
+  border-radius: var(--radius-sm, 8px);
+  padding: 9px 15px;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.doc-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.doc-btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.doc-link-danger {
+  color: #dc2626;
+}
+
+.doc-link-danger:hover {
+  color: #b91c1c;
+}
+
+.doc-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin: -6px 0 12px;
+}
+
+/* --- directory tabs (Doctors | My shared links) --- */
+.doc-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.doc-tab {
+  appearance: none;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.doc-tab:hover {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.doc-tab--active {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.doc-tab--active:hover {
+  background: #1f2937;
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .doc-dl {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+
+  .doc-dl dd {
+    margin-bottom: 8px;
+  }
+
+  .doc-hero-side {
+    align-items: flex-start;
+  }
+}

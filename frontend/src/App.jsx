@@ -13,15 +13,14 @@ import ForgotPasswordPage from "./modules/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "./modules/auth/pages/ResetPasswordPage";
 import TenantsPage from "./modules/tenants/pages/TenantsPage";
 import RolesPage from "./modules/roles/pages/RolesPage";
-import PermissionsPage from "./modules/permissions/pages/PermissionsPage";
 import OrgEmployeePage from "./pages/OrgEmployeePage";
-import FormDispatchApprovalsPage from "./modules/workflows/pages/FormDispatchApprovalsPage";
 import FormsPage from "./modules/forms/pages/FormsPage";
 import KycPage from "./modules/kyc/pages/KycPage";
-import KycExternalFormsPage from "./modules/kyc/pages/KycExternalFormsPage";
 import NotificationsPage from "./modules/notifications/pages/NotificationsPage";
 import AuditPage from "./modules/audit/pages/AuditPage";
 import EmployeeManagementPage from "./modules/users/pages/EmployeeManagementPage";
+import DoctorManagementPage from "./modules/doctors/pages/DoctorManagementPage";
+import DoctorDetailsPage from "./modules/doctors/pages/DoctorDetailsPage";
 import AccessDeniedPage from "./pages/AccessDeniedPage";
 import { ROUTE_PERMISSIONS } from "./lib/access-control";
 import PublicKycVerifyPage from "./pages/PublicKycVerifyPage";
@@ -56,7 +55,7 @@ function App() {
               <Route
                 path="tenants"
                 element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/tenants"]}>
+                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/tenants"]} requireSuperAdmin>
                     <TenantsPage />
                   </ProtectedRoute>
                 }
@@ -64,7 +63,7 @@ function App() {
               <Route
                 path="roles"
                 element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/roles"]}>
+                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/roles"]} requireAdmin>
                     <RolesPage />
                   </ProtectedRoute>
                 }
@@ -80,39 +79,31 @@ function App() {
               <Route
                 path="employee-management"
                 element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/employee-management"]}>
+                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/employee-management"]} requireAdmin>
                     <EmployeeManagementPage />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="permissions"
+                path="doctors"
                 element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/permissions"]}>
-                    <PermissionsPage />
+                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/doctors"]}>
+                    <DoctorManagementPage />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="workflows"
+                path="doctors/:doctorId"
                 element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/workflows"]}>
-                    <KycExternalFormsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="form-dispatch-approvals"
-                element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/form-dispatch-approvals"]}>
-                    <FormDispatchApprovalsPage />
+                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/doctors"]}>
+                    <DoctorDetailsPage />
                   </ProtectedRoute>
                 }
               />
               <Route
                 path="forms"
                 element={
-                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/forms"]}>
+                  <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/forms"]} requireAdmin>
                     <FormsPage />
                   </ProtectedRoute>
                 }

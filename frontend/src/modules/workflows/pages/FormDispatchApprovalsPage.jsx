@@ -35,10 +35,17 @@ function FormDispatchApprovalsPage() {
   }, [tenantContextId, load]);
 
   const approve = async (id, action) => {
-    if (action === "REJECT" && !window.confirm("Reject this submission? The external user and creator will be notified.")) return;
+    let reason = "";
+    if (action === "REJECT") {
+      reason = (window.prompt("Reason for requesting a correction (required):", "") || "").trim();
+      if (!reason) {
+        showToast("A rejection reason is required.", "error");
+        return;
+      }
+    }
     try {
-      await api.post(`/kyc/form-dispatches/${id}/approve`, { action });
-      showToast(action === "APPROVE" ? "Approved." : "Rejected.", "success");
+      await api.post(`/kyc/form-dispatches/${id}/approve`, { action, reason });
+      showToast(action === "APPROVE" ? "Approved." : "Correction requested.", "success");
       load();
     } catch (error) {
       showToast(getErrorMessage(error), "error");

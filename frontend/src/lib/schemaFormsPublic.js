@@ -21,6 +21,7 @@ async function handleResponse(response) {
   if (!response.ok) {
     const message =
       payload.error ||
+      payload.message ||
       (Array.isArray(payload.errors) ? payload.errors.join(" ") : "Request failed.");
     const error = new Error(message);
     error.payload = payload;

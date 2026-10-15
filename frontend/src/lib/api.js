@@ -23,7 +23,10 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   const tenantContext = authContextBridge.getTenantContext();
-  if (tenantContext) {
+  const explicitTenant = config.headers?.get
+    ? config.headers.get("X-Tenant-Id")
+    : config.headers?.["X-Tenant-Id"];
+  if (tenantContext && !explicitTenant) {
     config.headers["X-Tenant-Id"] = tenantContext;
   }
   return config;

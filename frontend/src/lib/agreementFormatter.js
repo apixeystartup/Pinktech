@@ -16,7 +16,20 @@ function applyInline(text) {
   return out;
 }
 
-const ALLOWED_TAGS = ["H1", "H2", "H3", "H4", "P", "UL", "OL", "LI", "STRONG", "EM", "BR", "HR", "BLOCKQUOTE"];
+const ALLOWED_TAGS = ["H1", "H2", "H3", "H4", "P", "UL", "OL", "LI", "STRONG", "EM", "BR", "HR", "BLOCKQUOTE",
+  // Agreement templates: Party 1 block + body.
+  "DIV", "DL", "DT", "DD"];
+
+// Presentation-only attributes kept on allowed elements (no behavior, no URLs).
+function copySafeAttributes(source, target) {
+  const cls = source.getAttribute && source.getAttribute("class");
+  if (cls) target.setAttribute("class", cls);
+  if (source.attributes) {
+    for (const attr of source.attributes) {
+      if (attr.name.startsWith("data-")) target.setAttribute(attr.name, attr.value);
+    }
+  }
+}
 
 export function sanitizeHtml(dirty) {
   if (typeof document === "undefined") {
@@ -34,6 +47,7 @@ export function sanitizeHtml(dirty) {
       if (child.nodeType !== 1) return;
       if (ALLOWED_TAGS.includes(child.tagName)) {
         const el = document.createElement(child.tagName);
+        copySafeAttributes(child, el);
         walk(child, el);
         target.appendChild(el);
       } else {
@@ -131,6 +145,7 @@ export function textToStructuredHtml(rawText) {
 export async function fileToAgreementHtml(file) {
   if (!file) return "";
   const name = String(file.name || "").toLowerCase();
+  const type = String(file.type || "").toLowerCase();
 
   if (name.endsWith(".docx")) {
     const mammoth = await import("mammoth");
@@ -139,6 +154,53 @@ export async function fileToAgreementHtml(file) {
     return sanitizeHtml(result.value || "");
   }
 
+  if (name.endsWith(".pdf") || type === "application/pdf") {
+    const pdfjs = await import("pdfjs-dist");
+    try {
+      const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+      const workerUrl = worker?.default || worker;
+      if (workerUrl && pdfjs?.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+      }
+    } catch {
+      /* worker is optional — pdf.js falls back when unavailable */
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    const pages = [];
+    const maxPages = Math.min(pdf.numPages || 0, 50);
+    for (let i = 1; i <= maxPages; i += 1) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const lines = [];
+      let lastY = null;
+      for (const item of content.items || []) {
+        const str = item?.str ?? "";
+        const y = Array.isArray(item?.transform) ? Math.round(item.transform[5]) : null;
+        if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) lines.push("\n");
+        else if (str) lines.push(str);
+        if (str) lines.push(" ");
+        if (y !== null) lastY = y;
+      }
+      pages.push(lines.join("").replace(/[ \t]+/g, " "));
+    }
+    try {
+      await pdf.destroy();
+    } catch {
+      /* ignore */
+    }
+    const text = pages.join("\n\n").trim();
+    if (!text) return "";
+    return sanitizeHtml(textToStructuredHtml(text));
+  }
+
   const text = await file.text();
   return sanitizeHtml(textToStructuredHtml(text));
+}
+
+export function extractTemplateText(html) {
+  if (typeof document === "undefined") return String(html ?? "");
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  return (doc.body?.textContent || "").trim();
 }

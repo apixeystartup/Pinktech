@@ -17,12 +17,21 @@ function serviceAuthMiddleware(req, res, next) {
     permissionCodes = [];
   }
 
+  // Role classification computed by the gateway. Access control is disabled
+  // (everyone carries "*"), so these are what actually separate a platform
+  // super admin, a tenant admin, and an employee.
+  const accountRole = req.headers["x-auth-account-role"] || "employee";
+  const isSuperAdmin = req.headers["x-auth-is-super-admin"] === "true";
+
   req.auth = {
     userId,
     tenantId,
     baseTenantId: baseTenantId || tenantId,
     actingAsTenantId: tenantId !== baseTenantId ? tenantId : null,
     permissionCodes,
+    accountRole,
+    isSuperAdmin,
+    isAdmin: isSuperAdmin || accountRole === "tenant_admin",
   };
   req.tenantId = tenantId;
 

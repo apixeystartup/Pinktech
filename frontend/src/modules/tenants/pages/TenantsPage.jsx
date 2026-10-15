@@ -6,13 +6,27 @@ import DataTable from "../../../components/common/DataTable";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
 
+// Pinktech's own tenant powers super-admin access for every workspace, so it
+// must never be suspended or deleted. Older databases use code "PLATFORM" for
+// the same tenant; both are recognised as the platform.
+const isPlatformTenant = (tenant) =>
+  ["PINKTECH", "PLATFORM"].includes(String(tenant?.code || "").trim().toUpperCase());
+
 function TenantsPage() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ name: "", code: "", email: "", plan: "starter", status: "ACTIVE" });
   const [editModal, setEditModal] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", code: "", email: "", plan: "starter" });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    code: "",
+    email: "",
+    plan: "starter",
+    address: "",
+    phone: "",
+    registrationNumber: "",
+  });
 
   const load = async () => {
     try {
@@ -54,7 +68,15 @@ function TenantsPage() {
   };
 
   const openEdit = (tenant) => {
-    setEditForm({ name: tenant.name, code: tenant.code, email: tenant.email || "", plan: tenant.plan });
+    setEditForm({
+      name: tenant.name,
+      code: tenant.code,
+      email: tenant.email || "",
+      plan: tenant.plan,
+      address: tenant.address || "",
+      phone: tenant.phone || "",
+      registrationNumber: tenant.registrationNumber || "",
+    });
     setEditModal(tenant);
   };
 
@@ -64,6 +86,9 @@ function TenantsPage() {
         name: editForm.name,
         email: editForm.email,
         plan: editForm.plan,
+        address: editForm.address,
+        phone: editForm.phone,
+        registrationNumber: editForm.registrationNumber,
       };
       await api.patch(`/tenants/${editModal._id}`, payload);
       showToast("Tenant updated", "success");
@@ -135,10 +160,21 @@ function TenantsPage() {
               <span className="table-row-actions">
                 <button className="btn-secondary" type="button" onClick={() => openEdit(row)}>Edit</button>
                 <button className="btn-secondary" type="button" onClick={() => sendCreds(row)}>Send Creds</button>
-                <button className="btn-secondary" type="button" onClick={() => toggleTenantStatus(row)}>
-                  {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                </button>
-                {String(row._id) !== String(user?.tenantId) ? (
+                {isPlatformTenant(row) ? (
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    disabled
+                    title="The platform tenant powers super-admin access for every workspace and cannot be suspended"
+                  >
+                    Always Active
+                  </button>
+                ) : (
+                  <button className="btn-secondary" type="button" onClick={() => toggleTenantStatus(row)}>
+                    {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                  </button>
+                )}
+                {String(row._id) !== String(user?.tenantId) && !isPlatformTenant(row) ? (
                   <button className="btn-secondary" type="button" onClick={() => deleteTenant(row)}>Delete</button>
                 ) : null}
               </span>
@@ -159,6 +195,24 @@ function TenantsPage() {
               <input value={editForm.code} disabled style={{ opacity: 0.6 }} />
               <label>Admin Email</label>
               <input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+              <label>Address (agreement header)</label>
+              <input
+                value={editForm.address}
+                onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))}
+                placeholder="Registered office address"
+              />
+              <label>Phone (agreement header)</label>
+              <input
+                value={editForm.phone}
+                onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="+91 …"
+              />
+              <label>Registration no. (agreement header)</label>
+              <input
+                value={editForm.registrationNumber}
+                onChange={(e) => setEditForm((p) => ({ ...p, registrationNumber: e.target.value }))}
+                placeholder="CIN / registration number"
+              />
               <label>Plan</label>
               <select value={editForm.plan} onChange={(e) => setEditForm((p) => ({ ...p, plan: e.target.value }))}>
                 <option value="starter">Starter</option>

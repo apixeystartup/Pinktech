@@ -137,6 +137,45 @@ function toDisplayValue(value) {
   return String(value ?? "");
 }
 
+const SIG_MARKER_RES = {
+  pre: /{{\s*signature\.opening\s*}}/i,
+  post: /{{\s*signature\.closing\s*}}/i,
+};
+
+function signatureImageHtml(dataUrl, label) {
+  if (!dataUrl) return '<div class="muted">No signature provided</div>';
+  const safe = String(dataUrl).replace(/"/g, "&quot;");
+  return `<img class="signature" src="${safe}" alt="${escapeHtml(label)}" />`;
+}
+
+/**
+ * Signature-position markers ({{signature.opening}} / {{signature.closing}})
+ * placed anywhere in the template text: the signature image renders exactly
+ * there. Without a marker the image renders below the agreement as before.
+ */
+function renderAgreementSection({ title, text, accepted, acceptedAt, signatureDataUrl, markerRe, signatureLabel }) {
+  const raw = String(text ?? "");
+  const match = raw.match(markerRe);
+  let bodyHtml;
+  let trailingSigHtml = signatureImageHtml(signatureDataUrl, signatureLabel);
+  if (match && match.index !== undefined) {
+    bodyHtml =
+      renderAgreementHtml(raw.slice(0, match.index)) +
+      signatureImageHtml(signatureDataUrl, signatureLabel) +
+      renderAgreementHtml(raw.slice(match.index + match[0].length));
+    trailingSigHtml = "";
+  } else {
+    bodyHtml = renderAgreementHtml(raw);
+  }
+  return `<div class="section agreementBox">
+      <h2>${title}</h2>
+      <div class="agreementBody">${bodyHtml}</div>
+      <div class="agreementMeta">Accepted: ${accepted ? "Yes" : "No"}</div>
+      <div class="agreementMeta">Accepted At: ${escapeHtml(acceptedAt || "-")}</div>
+      ${trailingSigHtml}
+    </div>`;
+}
+
 function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
   const rows = Object.entries(submissionData || {})
     .map(
@@ -184,17 +223,15 @@ function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
       <div>${escapeHtml(moduleName)}</div>
     </div>
 
-    <div class="section agreementBox">
-      <h2>Opening Agreement</h2>
-      <div class="agreementBody">${renderAgreementHtml(agreements.pre?.text)}</div>
-      <div class="agreementMeta">Accepted: ${agreements.pre.accepted ? "Yes" : "No"}</div>
-      <div class="agreementMeta">Accepted At: ${escapeHtml(agreements.pre.acceptedAt || "-")}</div>
-      ${
-        agreements.pre.signatureDataUrl
-          ? `<img class="signature" src="${agreements.pre.signatureDataUrl}" alt="Opening signature" />`
-          : '<div class="muted">No signature provided</div>'
-      }
-    </div>
+    ${renderAgreementSection({
+      title: "Opening Agreement",
+      text: agreements.pre?.text,
+      accepted: agreements.pre?.accepted,
+      acceptedAt: agreements.pre?.acceptedAt,
+      signatureDataUrl: agreements.pre?.signatureDataUrl,
+      markerRe: SIG_MARKER_RES.pre,
+      signatureLabel: "Opening signature",
+    })}
 
     <div class="section">
       <h2>Submitted Form Data</h2>
@@ -204,17 +241,15 @@ function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
       </table>
     </div>
 
-    <div class="section agreementBox">
-      <h2>Closing Agreement</h2>
-      <div class="agreementBody">${renderAgreementHtml(agreements.post?.text)}</div>
-      <div class="agreementMeta">Accepted: ${agreements.post.accepted ? "Yes" : "No"}</div>
-      <div class="agreementMeta">Accepted At: ${escapeHtml(agreements.post.acceptedAt || "-")}</div>
-      ${
-        agreements.post.signatureDataUrl
-          ? `<img class="signature" src="${agreements.post.signatureDataUrl}" alt="Closing signature" />`
-          : '<div class="muted">No signature provided</div>'
-      }
-    </div>
+    ${renderAgreementSection({
+      title: "Closing Agreement",
+      text: agreements.post?.text,
+      accepted: agreements.post?.accepted,
+      acceptedAt: agreements.post?.acceptedAt,
+      signatureDataUrl: agreements.post?.signatureDataUrl,
+      markerRe: SIG_MARKER_RES.post,
+      signatureLabel: "Closing signature",
+    })}
   </body>
 </html>`;
 }
@@ -245,4 +280,4 @@ async function generateSubmissionPdf({ submissionId, moduleName, submissionData,
   return { fileName, filePath };
 }
 
-module.exports = { generateSubmissionPdf, buildSubmissionPdfHtml, renderAgreementHtml };
+module.exports = { generateSubmissionPdf, buildSubmissionPdfHtml, renderAgreementHtml, renderAgreementSection };

@@ -3,6 +3,7 @@ const Permission = require("../models/permission.model");
 const Position = require("../models/position.model");
 const User = require("../models/user.model");
 const ApiError = require("@pink/shared").ApiError;
+const { isReservedPlatformRoleName, RESERVED_ROLE_MESSAGE } = require("@pink/shared");
 const { writeAudit } = require("./audit.service");
 const { runOrgRoleEngine } = require("./orgRoleEngine.service");
 const { syncPositionLevelsFromOrg } = require("./positions.service");
@@ -33,7 +34,12 @@ async function resolvePermissionIds(payload) {
 }
 
 async function createRole(tenantId, payload, actor) {
-  const existing = await Role.findOne({ tenantId, name: payload.name.trim() });
+  const nameTrim = String(payload.name || "").trim();
+  // Super Admin is Pinktech's role for all tenants — never a tenant's own role.
+  if (payload.type === "SYSTEM" || isReservedPlatformRoleName(nameTrim)) {
+    throw new ApiError(400, RESERVED_ROLE_MESSAGE);
+  }
+  const existing = await Role.findOne({ tenantId, name: nameTrim });
   if (existing) {
     throw new ApiError(409, "Role already exists");
   }
@@ -43,7 +49,6 @@ async function createRole(tenantId, payload, actor) {
     permissionCodes: payload.permissionCodes,
   });
 
-  const nameTrim = payload.name.trim();
   const role = await Role.create({
     tenantId,
     name: nameTrim,
@@ -75,7 +80,12 @@ async function updateRole(tenantId, roleId, payload, actor) {
   }
 
   if (payload.name !== undefined) {
-    role.name = String(payload.name).trim();
+    const nextName = String(payload.name).trim();
+    // Super Admin is Pinktech's role for all tenants — never a tenant's own role.
+    if (isReservedPlatformRoleName(nextName)) {
+      throw new ApiError(400, RESERVED_ROLE_MESSAGE);
+    }
+    role.name = nextName;
     const upper = role.name.toUpperCase();
     if (upper && !(role.aliases || []).includes(upper)) {
       role.aliases = [...(role.aliases || []), upper];

@@ -1,13 +1,13 @@
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
-const RefreshToken = require("../models/refreshToken.model");
 const Role = require("../models/role.model");
+const RefreshToken = require("../models/refreshToken.model");
 require("../models/permission.model");
 const ApiError = require("@pink/shared").ApiError;
+const { isPlatformTenant } = require("@pink/shared");
 const env = require("../config/env");
 const { signAccessToken, signRefreshToken } = require("./token.service");
 const { writeAudit } = require("../services/audit.service");
@@ -78,61 +78,83 @@ function buildInitialInviteEmail({ tenantName, otpCode, inviteToken, loginEmail 
 `;
 }
 
-async function resolvePermissionCodes(tenantId, roleIds = [], userEmail) {
-  if (userEmail === "superadmin@example.com") {
-    return ["*"];
-  }
-  if (!roleIds.length) {
-    return [];
-  }
+async function resolvePermissionCodes(_tenantId, _roleIds = [], _userEmail) {
+  // Access control disabled: every user receives all permissions.
+  return ["*"];
+}
 
-  const validRoleIds = roleIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
-  if (!validRoleIds.length) {
-    return [];
-  }
+// Access control is disabled, so permission codes cannot distinguish a platform
+// super admin from a tenant admin. Classify the account from its roles and
+// tenant ownership instead: only Pinktech (the PLATFORM tenant) has a super
+// admin — the SYSTEM role it owns applies to every tenant. An org admin is the
+// tenant's designated admin (adminUserId / contact email) or carries an
+// "…Admin" role; no individual tenant ever gets its own super admin.
+async function resolveAccountRole(user, tenant) {
+  const roleIds = user?.roleIds || [];
+  const roles = roleIds.length
+    ? await Role.find({ _id: { $in: roleIds }, tenantId: user.tenantId }).select("name type").lean()
+    : [];
+  if (isPlatformTenant(tenant) && roles.some((r) => r.type === "SYSTEM")) return "super_admin";
 
-  const roles = await Role.find({ tenantId, _id: { $in: validRoleIds } }).populate("permissionIds", "code");
-  const codes = new Set();
-  for (const role of roles) {
-    for (const perm of role.permissionIds || []) {
-      if (perm?.code) {
-        codes.add(perm.code);
-      }
-    }
-  }
-  return Array.from(codes);
+  const tenantEmail = String(tenant?.email || "").toLowerCase().trim();
+  const userEmail = String(user?.email || "").toLowerCase().trim();
+  const isTenantAdmin =
+    (tenant?.adminUserId && String(tenant.adminUserId) === String(user?._id)) ||
+    (tenantEmail && tenantEmail === userEmail) ||
+    roles.some((r) => /admin/i.test(r.name || ""));
+  return isTenantAdmin ? "tenant_admin" : "employee";
 }
 
 async function login({ email, password }) {
   const normalizedLogin = String(email).toLowerCase().trim();
-  const user = await User.findOne({
+  // Email is unique per tenant, not globally: the same address can belong to a
+  // user in several tenants, each with its own password. Resolve every
+  // candidate and pick the one whose password matches, instead of binding the
+  // login to whichever record findOne() happens to return first.
+  const candidates = await User.find({
     $or: [{ email: normalizedLogin }, { orgContactEmail: normalizedLogin }],
   }).select("+passwordHash");
-  if (!user) {
+  if (!candidates.length) {
     throw new ApiError(401, "Invalid credentials");
   }
 
-  const tenant = await Tenant.findById(user.tenantId);
-  if (!tenant || tenant.status !== "ACTIVE") {
-    throw new ApiError(403, "Tenant is inactive");
-  }
+  const now = new Date();
+  let user = null;
+  let tenant = null;
 
-  if (user.lockUntil && user.lockUntil > new Date()) {
-    throw new ApiError(423, "Account temporarily locked due to failed login attempts");
-  }
-
-  if (user.status !== "ACTIVE" || user.status === "DISABLED") {
-    throw new ApiError(403, "Account is not active");
-  }
-
-  const isValid = await bcrypt.compare(password, user.passwordHash || "");
-  if (!isValid) {
-    user.loginAttempts = (user.loginAttempts || 0) + 1;
-    if (user.loginAttempts >= 5) {
-      user.status = "LOCKED";
-      user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+  for (const candidate of candidates) {
+    if (candidate.lockUntil && candidate.lockUntil > now) continue;
+    if (candidate.status !== "ACTIVE") continue;
+    const candidateTenant = await Tenant.findById(candidate.tenantId);
+    if (!candidateTenant || candidateTenant.status !== "ACTIVE") continue;
+    const isValid = await bcrypt.compare(password, candidate.passwordHash || "");
+    if (isValid) {
+      user = candidate;
+      tenant = candidateTenant;
+      break;
     }
-    await user.save();
+  }
+
+  if (!user) {
+    // Nothing authenticated. Fall back to the first record so lockout
+    // accounting and the specific status errors behave as before.
+    const target = candidates[0];
+    const targetTenant = await Tenant.findById(target.tenantId);
+    if (!targetTenant || targetTenant.status !== "ACTIVE") {
+      throw new ApiError(403, "Tenant is inactive");
+    }
+    if (target.lockUntil && target.lockUntil > now) {
+      throw new ApiError(423, "Account temporarily locked due to failed login attempts");
+    }
+    if (target.status !== "ACTIVE" || target.status === "DISABLED") {
+      throw new ApiError(403, "Account is not active");
+    }
+    target.loginAttempts = (target.loginAttempts || 0) + 1;
+    if (target.loginAttempts >= 5) {
+      target.status = "LOCKED";
+      target.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+    }
+    await target.save();
     throw new ApiError(401, "Invalid credentials");
   }
 
@@ -164,9 +186,13 @@ async function login({ email, password }) {
     metadata: { email: user.email },
   });
 
+  const accountRole = await resolveAccountRole(user, tenant);
+
   return {
     accessToken: signAccessToken(payload),
     refreshToken,
+    isSuperAdmin: accountRole === "super_admin",
+    accountRole,
     user: {
       id: user._id,
       tenantId: user.tenantId,
@@ -187,7 +213,7 @@ async function login({ email, password }) {
   };
 }
 
-async function inviteUser({ tenantId, name, email, empCode = null, roleIds = [], currentPositionId = null }) {
+async function inviteUser({ tenantId, name, email, empCode = null, roleIds = [], currentPositionId = null, actor = null }) {
   if (!tenantId) {
     throw new ApiError(400, "tenantId required");
   }
@@ -258,9 +284,12 @@ async function inviteUser({ tenantId, name, email, empCode = null, roleIds = [],
     user = await User.findOneAndUpdate(
       { tenantId, email: normalizedEmail },
       {
-        ...inviteFields,
-        email: normalizedEmail,
-        empCode: trimmedEmp,
+        $set: {
+          ...inviteFields,
+          email: normalizedEmail,
+          empCode: trimmedEmp,
+        },
+        $setOnInsert: { invitedByUserId: actor?.userId || null },
       },
       { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     );
@@ -268,6 +297,7 @@ async function inviteUser({ tenantId, name, email, empCode = null, roleIds = [],
 
   await writeAudit({
     tenantId,
+    userId: actor?.userId || null,
     action: "USER_INVITED",
     metadata: {
       userId: user._id,
@@ -466,7 +496,7 @@ async function refresh({ refreshToken }) {
   };
 }
 
-async function resendInvite({ tenantId, email }) {
+async function resendInvite({ tenantId, email, actor = null }) {
   const normalizedEmail = String(email).toLowerCase().trim();
   const user = await User.findOne({
     tenantId,
@@ -481,6 +511,7 @@ async function resendInvite({ tenantId, email }) {
     email: normalizedEmail,
     roleIds: user.roleIds,
     currentPositionId: user.currentPositionId,
+    actor,
   });
 
   return { message: "Invite resent", ...result };
@@ -527,7 +558,10 @@ async function getSessionProfile(userId) {
   if (!tenant || tenant.status !== "ACTIVE") {
     throw new ApiError(403, "Tenant is inactive");
   }
+  const accountRole = await resolveAccountRole(user, tenant);
   return {
+    isSuperAdmin: accountRole === "super_admin",
+    accountRole,
     user: {
       id: user._id,
       tenantId: user.tenantId,

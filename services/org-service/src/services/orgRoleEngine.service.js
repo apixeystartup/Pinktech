@@ -206,14 +206,25 @@ function countEmployeesByRole(users, roleById) {
 }
 
 async function runOrgRoleEngine(tenantId) {
-  const [users, roles] = await Promise.all([
-    User.find({ tenantId, orgFromWorkbook: true })
+  const [users, customRoles, systemRoles] = await Promise.all([
+    User.find({
+      tenantId,
+      orgLeftAt: null,
+      $or: [
+        { orgFromWorkbook: true },
+        {
+          roleIds: { $type: "array", $ne: [] },
+        },
+      ],
+    })
       .select("roleIds reportingToUserId status zone region state hq orgSeatVacant designationOverride")
       .lean(),
     Role.find({ tenantId, type: { $ne: "SYSTEM" } }),
+    Role.find({ tenantId, type: "SYSTEM" }),
   ]);
 
-  const roleById = new Map(roles.map((r) => [String(r._id), r]));
+  const allRoles = [...customRoles, ...systemRoles];
+  const roleById = new Map(allRoles.map((r) => [String(r._id), r]));
   const graph = emptyGraph();
   const userById = new Map(users.map((u) => [String(u._id), u]));
 
@@ -228,13 +239,14 @@ async function runOrgRoleEngine(tenantId) {
     addEdge(graph, String(mgrRole), String(subRole));
   }
 
-  inferLevelsFromGraph(roles, graph);
-  inferScopeFromUsers(roles, users, graph);
+  // Level/scope inference stays scoped to custom (org) roles.
+  inferLevelsFromGraph(customRoles, graph);
+  inferScopeFromUsers(customRoles, users, graph);
 
   const empCounts = countEmployeesByRole(users, roleById);
   const now = new Date();
 
-  for (const role of roles) {
+  for (const role of allRoles) {
     ensureRoleOrgDefaults(role);
     const upper = (role.name || "").trim().toUpperCase();
     if (upper && !(role.aliases || []).includes(upper)) {
@@ -245,14 +257,14 @@ async function runOrgRoleEngine(tenantId) {
     await role.save();
   }
 
-  const maxLevel = roles.reduce((m, r) => Math.max(m, Role.effectiveLevel(r)), 0);
+  const maxLevel = allRoles.reduce((m, r) => Math.max(m, Role.effectiveLevel(r)), 0);
   const scopes = { ALL_INDIA: 0, ZONE: 0, REGION: 0, AREA: 0, HQ: 0 };
-  for (const r of roles) {
+  for (const r of allRoles) {
     scopes[Role.effectiveScope(r)] += 1;
   }
 
   return {
-    roles: roles.length,
+    roles: allRoles.length,
     maxLevel,
     scopes,
   };

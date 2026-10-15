@@ -8,6 +8,10 @@ const { validateAgainstSchema } = require("../validation/submissionValidation");
 const { generateSubmissionPdf } = require("../services/pdfService");
 const { resolveAgreementTexts } = require("../services/agreementText");
 const { completeDispatchAfterSubmission } = require("../services/schemaFormDispatch.hook");
+const SchemaFormDispatch = require("../models/schemaFormDispatch.model");
+const ExternalUser = require("../models/externalUser.model");
+const Tenant = require("../models/tenant.model");
+const { placeholderContext, resolvePlaceholders } = require("@pink/shared");
 const ApiError = require("@pink/shared").ApiError;
 
 const router = express.Router();
@@ -90,6 +94,34 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
 
     const agreementTexts = resolveAgreementTexts(moduleDoc);
 
+    // Per-doctor placeholders resolve against the dispatch's own recipient so
+    // the signed copy and the PDF carry this doctor's details. Open-form
+    // links (no dispatch token) keep the template text untouched.
+    const rawDispatchToken = typeof dispatchToken === "string" ? dispatchToken.trim() : "";
+    if (rawDispatchToken) {
+      const dispatch = await SchemaFormDispatch.findOne({ token: rawDispatchToken }).lean();
+      const doctor = dispatch?.externalUserId
+        ? await ExternalUser.findById(dispatch.externalUserId).lean()
+        : null;
+      if (doctor) {
+        const tenant = dispatch?.tenantId
+          ? await Tenant.findById(dispatch.tenantId).lean()
+          : null;
+        const phContext = placeholderContext({ doctor, tenant: tenant || {} });
+        const openingHtml = dispatch?.openingAgreementHtml || dispatch?.agreementHtml || "";
+        const closingHtml = dispatch?.closingAgreementHtml || "";
+        if (openingHtml || closingHtml) {
+          // Templated form: the signed copy is the agreement frozen at assign
+          // time (never the client round-trip).
+          if (openingHtml) agreementTexts.pre = openingHtml;
+          if (closingHtml) agreementTexts.post = closingHtml;
+        } else {
+          agreementTexts.pre = resolvePlaceholders(agreementTexts.pre, phContext);
+          agreementTexts.post = resolvePlaceholders(agreementTexts.post, phContext);
+        }
+      }
+    }
+
     const submission = await Submission.create({
       moduleId,
       data: normalized,
@@ -131,11 +163,14 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
 
     const token = typeof dispatchToken === "string" ? dispatchToken.trim() : "";
     if (token) {
-      try {
-        await completeDispatchAfterSubmission({ dispatchToken: token, submissionId: submission._id, moduleId, pdfDownloadUrl: downloadUrl });
-      } catch (hookErr) {
-        console.error("schemaFormDispatch hook failed", hookErr);
-      }
+      // Dispatch bookkeeping + notification emails run in the background. The
+      // SMTP legs can outlast the gateway timeout while the submission and
+      // PDF are already safely stored, so never hold the 201 for them.
+      completeDispatchAfterSubmission({ dispatchToken: token, submissionId: submission._id, moduleId, pdfDownloadUrl: downloadUrl }).catch(
+        (hookErr) => {
+          console.error("schemaFormDispatch hook failed", hookErr);
+        },
+      );
     }
 
     return res.status(201).json({

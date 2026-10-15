@@ -1,8 +1,4 @@
-import { useState } from "react";
-
 function ModulePage({ title, description, actions, children }) {
-  const [collapsed, setCollapsed] = useState(false);
-
   return (
     <section className="module-page">
       <div className="module-header">
@@ -12,17 +8,9 @@ function ModulePage({ title, description, actions, children }) {
         </div>
         <div className="module-header-actions">
           {actions}
-          <button
-            type="button"
-            className="module-header-collapse"
-            aria-expanded={!collapsed}
-            onClick={() => setCollapsed((prev) => !prev)}
-          >
-            {collapsed ? "Show" : "Hide"}
-          </button>
         </div>
       </div>
-      {!collapsed ? children : null}
+      {children}
     </section>
   );
 }

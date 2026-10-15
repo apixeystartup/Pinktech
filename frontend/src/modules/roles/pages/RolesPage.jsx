@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
@@ -7,7 +6,6 @@ import TenantScopeBanner from "../../../components/common/TenantScopeBanner";
 import { getErrorMessage } from "../../../lib/error";
 import { useToast } from "../../../components/common/ToastProvider";
 import useAuth from "../../../hooks/useAuth";
-import { moduleTitle, permissionPrimaryLabel } from "../../../lib/permissionDisplay";
 
 function isSyntheticInviteEmail(addr) {
   const a = String(addr || "").toLowerCase();
@@ -48,7 +46,6 @@ function RolesPage() {
   const [items, setItems] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [form, setForm] = useState({ name: "" });
-  const [selectedCodes, setSelectedCodes] = useState([]);
   const [editingRoleId, setEditingRoleId] = useState(null);
   const [selectedRoleIds, setSelectedRoleIds] = useState([]);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -73,13 +70,40 @@ function RolesPage() {
     }
   }, [showToast]);
 
+  // The org tree derives each role's level, scope and employee count from the
+  // role engine. Recompute it after any role change so Org Explore shows the
+  // new data immediately instead of waiting for a manual "Re-detect".
+  const recomputeOrgRoles = useCallback(async () => {
+    try {
+      await api.post("/org/roles/auto-detect");
+    } catch {
+      // best-effort: the role change itself already succeeded
+    }
+  }, []);
+
   useEffect(() => {
     load();
   }, [load, tenantContextId]);
 
   useEffect(() => {
+    let lastRun = 0;
+    const run = () => {
+      if (document.visibilityState === "hidden") return;
+      const now = Date.now();
+      if (now - lastRun < 1500) return;
+      lastRun = now;
+      load();
+    };
+    window.addEventListener("focus", run);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      window.removeEventListener("focus", run);
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, [load]);
+
+  useEffect(() => {
     setForm({ name: "" });
-    setSelectedCodes([]);
     setEditingRoleId(null);
   }, [tenantContextId]);
 
@@ -109,44 +133,16 @@ function RolesPage() {
     };
   }, [inviteOpen, selectedRoleIds, tenantContextId, showToast]);
 
-  const permissionCodesForRole = useCallback(
-    (row) => {
-      const perms = row.permissionIds || [];
-      return perms
-        .map((p) => {
-          if (typeof p === "object" && p?.code) return p.code;
-          const id = String(p);
-          const found = permissions.find((x) => String(x._id) === id);
-          return found?.code;
-        })
-        .filter(Boolean);
-    },
-    [permissions],
-  );
-
   const startEdit = (row) => {
     if (row.type === "SYSTEM") return;
     setEditingRoleId(row._id);
     setForm({ name: row.name || "" });
-    setSelectedCodes(permissionCodesForRole(row));
   };
 
   const cancelEdit = () => {
     setEditingRoleId(null);
     setForm({ name: "" });
-    setSelectedCodes([]);
   };
-
-  const toggleCode = (code) => {
-    setSelectedCodes((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
-  };
-
-  const selectAllInModule = (module) => {
-    const codes = sortedPermissions.filter((p) => p.module === module).map((p) => p.code);
-    setSelectedCodes((prev) => [...new Set([...prev, ...codes])]);
-  };
-
-  const clearSelection = () => setSelectedCodes([]);
 
   const toggleRoleSelection = (roleId) => {
     const id = String(roleId);
@@ -166,19 +162,6 @@ function RolesPage() {
       return;
     }
     setSelectedRoleIds(selectableRoleIds);
-  };
-
-  const recomputeOrg = async () => {
-    try {
-      const res = await api.post("/roles/recompute-org");
-      showToast(
-        `Org levels updated — ${res.data?.roles ?? "?"} roles, max level ${res.data?.maxLevel ?? "—"}.`,
-        "success",
-      );
-      load();
-    } catch (error) {
-      showToast(getErrorMessage(error), "error");
-    }
   };
 
   const parseInviteEmails = (text) => {
@@ -276,6 +259,7 @@ function RolesPage() {
       await api.delete("/roles", { data: { roleIds: selectedRoleIds } });
       showToast("Selected roles deleted", "success");
       setSelectedRoleIds([]);
+      await recomputeOrgRoles();
       load();
     } catch (error) {
       showToast(getErrorMessage(error), "error");
@@ -284,51 +268,28 @@ function RolesPage() {
 
   const submitRole = async (event) => {
     event.preventDefault();
-    if (selectedCodes.length === 0) {
-      showToast("Select at least one permission below.", "error");
-      return;
-    }
+    const allCodes = sortedPermissions.map((p) => p.code);
     try {
       if (editingRoleId) {
-        await api.patch(`/roles/${editingRoleId}`, { name: form.name, permissionCodes: selectedCodes });
+        await api.patch(`/roles/${editingRoleId}`, { name: form.name, permissionCodes: allCodes });
         showToast("Role updated", "success");
         cancelEdit();
       } else {
-        await api.post("/roles", { name: form.name, permissionCodes: selectedCodes });
+        await api.post("/roles", { name: form.name, permissionCodes: allCodes });
         setForm({ name: "" });
-        setSelectedCodes([]);
         showToast("Role created", "success");
       }
+      await recomputeOrgRoles();
       load();
     } catch (error) {
       showToast(getErrorMessage(error), "error");
     }
   };
 
-  const modules = useMemo(
-    () =>
-      [...new Set(sortedPermissions.map((p) => p.module))]
-        .sort((a, b) => moduleTitle(a).localeCompare(moduleTitle(b))),
-    [sortedPermissions],
-  );
-
   return (
     <ModulePage
       title="Roles"
-      description="Pick permissions by name (code). IDs are resolved on the server. Use ORG employee for the org directory, workbook import, and seat roles."
-      actions={
-        <span className="table-row-actions">
-          <button type="button" className="btn-secondary" onClick={recomputeOrg}>
-            Recompute org levels and scope
-          </button>
-          <Link to="/app/org-employees" className="btn-secondary">
-            ORG employee
-          </Link>
-          <Link to="/app/permissions" className="btn-ghost">
-            Access catalog
-          </Link>
-        </span>
-      }
+      description="Manage seats and org levels. Access control is disabled — every signed-in user has all permissions, so permission selection is not required. Use Org Explore for the org directory, workbook import, and seat roles."
     >
       <TenantScopeBanner context="Roles" />
       <form className="stacked-form" onSubmit={submitRole}>
@@ -348,50 +309,6 @@ function RolesPage() {
               Cancel
             </button>
           ) : null}
-        </div>
-        <div className="permission-picker">
-          <div className="permission-picker-toolbar">
-            <span>
-              Selected: <strong>{selectedCodes.length}</strong> permission{selectedCodes.length === 1 ? "" : "s"}
-            </span>
-            <button type="button" className="btn-secondary" onClick={clearSelection}>
-              Clear selection
-            </button>
-          </div>
-          <div className="permission-picker-grid">
-            {modules.map((mod) => (
-              <div key={mod} className="permission-picker-module">
-                <div className="permission-picker-module-head">
-                  <strong>{moduleTitle(mod)}</strong>
-                  <button type="button" className="btn-linkish" onClick={() => selectAllInModule(mod)}>
-                    Add all in module
-                  </button>
-                </div>
-                <ul className="permission-check-list">
-                  {sortedPermissions
-                    .filter((p) => p.module === mod)
-                    .map((p) => (
-                      <li key={p.code}>
-                        <label className="permission-check-item">
-                          <input
-                            type="checkbox"
-                            checked={selectedCodes.includes(p.code)}
-                            onChange={() => toggleCode(p.code)}
-                          />
-                          <span className="permission-check-item__body">
-                            <span className="permission-check-item__title">{permissionPrimaryLabel(p)}</span>
-                            <span className="permission-check-item__code">{p.code}</span>
-                            {p.description ? (
-                              <span className="permission-check-item__desc">{p.description}</span>
-                            ) : null}
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            ))}
-          </div>
         </div>
       </form>
       <h3>Existing roles</h3>
@@ -429,7 +346,7 @@ function RolesPage() {
             <h3 id="invite-modal-title">Invite employees</h3>
             <p className="small-note">
               <strong>{inviteRoleLabel || "Selected role"}</strong> — addresses load from people who already have this
-              seat role (ORG employee / workbook). Official email is preferred when stored. Remove anyone with{" "}
+              seat role (Org Explore / workbook). Official email is preferred when stored. Remove anyone with{" "}
               <strong>×</strong> before sending. Add extra addresses below if needed. Each person gets an OTP, then an
               invitation code to set their password.
             </p>
@@ -545,14 +462,6 @@ function RolesPage() {
           },
           { key: "employeeCount", label: "People" },
           { key: "_id", label: "Role ID" },
-          {
-            key: "permissionIds",
-            label: "Permissions",
-            render: (row) =>
-              (row.permissionIds || [])
-                .map((p) => (typeof p === "object" && p?.code ? p.code : String(p)))
-                .join(", ") || "—",
-          },
           {
             key: "actions",
             label: "",

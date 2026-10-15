@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const ApiError = require("@pink/shared").ApiError;
 const ExternalUser = require("../models/externalUser.model");
 const User = require("../models/user.model");
+const Role = require("../models/role.model");
 const SchemaFormDispatch = require("../models/schemaFormDispatch.model");
 const Module = require("../models/module.model");
 const {
@@ -10,6 +11,8 @@ const {
   afterApprovalStepNotify,
   afterFullyApprovedNotify,
   afterRejectedNotify,
+  regenerateDispatchLink,
+  notifyRecipientRegeneratedLink,
   buildApprovalChain,
   pushDispatchEvent,
   dispatchPublicPath,
@@ -113,16 +116,34 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
   router.get("/approval-chain-preview/:managerId", async (req, res, next) => {
     try {
       const managerId = req.params.managerId;
+      if (!mongoose.Types.ObjectId.isValid(managerId)) {
+        throw new ApiError(422, "Invalid employee selected");
+      }
       const managerOid = new mongoose.Types.ObjectId(managerId);
       const baseOids = await buildApprovalChain(req.tenantId, managerId);
       const allOids = [managerOid, ...baseOids];
       const users = await User.find({ _id: { $in: allOids } })
-        .select("name email empCode")
+        .select("name email empCode designationOverride roleIds")
         .lean();
       const byId = new Map(users.map((u) => [String(u._id), u]));
-      const chain = allOids.map((id) => byId.get(String(id))).filter(Boolean);
+      // Designation shown next to each name: the employee's own override,
+      // otherwise the name of their first assigned role.
+      const roleIds = [...new Set(users.flatMap((u) => (u.roleIds || []).map(String)))];
+      const roles = roleIds.length
+        ? await Role.find({ _id: { $in: roleIds } }).select("name").lean()
+        : [];
+      const roleNameById = new Map(roles.map((r) => [String(r._id), r.name]));
+      const withDesignation = (u) =>
+        u
+          ? {
+              ...u,
+              designation:
+                u.designationOverride || roleNameById.get(String((u.roleIds || [])[0])) || null,
+            }
+          : u;
+      const chain = allOids.map((id) => withDesignation(byId.get(String(id)))).filter(Boolean);
       res.status(200).json({
-        description: "Chain from selected manager (manager first, then upward).",
+        description: "Chain from selected employee (employee first, then upward).",
         chain,
         reversedChain: [...chain].reverse(),
       });
@@ -260,10 +281,17 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
           idx >= 0 &&
           idx < chain.length &&
           chain[idx] === String(req.auth.userId);
+        const isOwner = String(row.dispatchedByUserId?._id || row.dispatchedByUserId) === String(req.auth.userId);
+        const canRegenerate =
+          (isAdmin || isOwner) && (row.status === "CORRECTION_REQUIRED" || row.status === "REJECTED");
         return {
           ...row,
           moduleName: modNameById.get(String(row.moduleId)) || "—",
           canApprove,
+          canRegenerate,
+          revision: row.revision || 1,
+          linkVersion: row.linkVersion || 1,
+          rejection: row.rejection || null,
           publicPath: row.token ? dispatchPublicPath(row.token) : "",
           publicUrl: row.token ? dispatchPublicUrl(row.token) : "",
         };
@@ -279,9 +307,14 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
     try {
       const schema = Joi.object({
         action: Joi.string().valid("APPROVE", "REJECT").required(),
+        reason: Joi.string().allow("").max(2000).optional(),
       });
       const { error, value } = schema.validate(req.body, { abortEarly: false });
       if (error) throw new ApiError(422, "Validation failed", error.details);
+      const reason = String(value.reason || "").trim();
+      if (value.action === "REJECT" && !reason) {
+        throw new ApiError(422, "A rejection reason is required.");
+      }
 
       const dispatch = await SchemaFormDispatch.findOne({
         _id: req.params.dispatchId,
@@ -303,10 +336,18 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
       const moduleName = mod?.name || "Form";
 
       if (value.action === "REJECT") {
-        dispatch.status = "REJECTED";
+        const at = new Date();
+        const byUserId = new mongoose.Types.ObjectId(req.auth.userId);
+        dispatch.status = "CORRECTION_REQUIRED";
+        dispatch.rejection = { reason, byUserId, at, stepIndex: idx };
+        dispatch.rejectionHistory.push({ revision: dispatch.revision || 1, reason, byUserId, at, stepIndex: idx });
         await dispatch.save();
-        await pushDispatchEvent(dispatch._id, "REJECTED", `Rejected at approver step ${idx + 1}.`);
-        await afterRejectedNotify({ dispatch, moduleName, actorUserId: req.auth.userId });
+        await pushDispatchEvent(
+          dispatch._id,
+          "CORRECTION_REQUIRED",
+          `Correction requested at approver step ${idx + 1}. Reason: ${reason}`,
+        );
+        await afterRejectedNotify({ dispatch, moduleName, actorUserId: req.auth.userId, reason });
         res.status(200).json(dispatch);
         return;
       }
@@ -335,6 +376,98 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
       }
 
       res.status(200).json(dispatch);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/form-dispatches/:dispatchId/regenerate-link", async (req, res, next) => {
+    try {
+      const schema = Joi.object({
+        appPublicOrigin: Joi.string().uri({ scheme: ["http", "https"] }).optional().allow(""),
+      });
+      const { error, value } = schema.validate(req.body || {}, { abortEarly: false });
+      if (error) throw new ApiError(422, "Validation failed", error.details);
+
+      const dispatch = await SchemaFormDispatch.findOne({
+        _id: req.params.dispatchId,
+        tenantId: req.tenantId,
+      });
+      if (!dispatch) throw new ApiError(404, "Dispatch not found");
+
+      const isOwner = String(dispatch.dispatchedByUserId) === String(req.auth.userId);
+      if (!isOwner && !canManageAllExternal(req)) {
+        throw new ApiError(403, "Only the employee who sent this form or a tenant admin may regenerate the link.");
+      }
+      // A fresh link only makes sense once the current one can no longer be
+      // used. A live (SENT) link still works, so there is nothing to re-issue.
+      // Any spent state — submitted, in approval, correction requested, or
+      // already approved (e.g. the doctor submitted wrong data) — gets a new
+      // token and a new revision; previous submissions stay in history.
+      if (dispatch.status === "SENT") {
+        throw new ApiError(
+          400,
+          "The current link is still active — the doctor has not submitted yet.",
+        );
+      }
+
+      const linkOrigin = value.appPublicOrigin ? String(value.appPublicOrigin).trim().replace(/\/$/, "") : "";
+      const wasCorrection = dispatch.status === "CORRECTION_REQUIRED" || dispatch.status === "REJECTED";
+      const { token, version, url } = await regenerateDispatchLink({
+        dispatch,
+        actorUserId: req.auth.userId,
+        linkOrigin: linkOrigin || undefined,
+      });
+
+      const mod = await Module.findById(dispatch.moduleId).select("name").lean();
+      await notifyRecipientRegeneratedLink({
+        dispatch,
+        moduleName: mod?.name || "Form",
+        linkOrigin: linkOrigin || undefined,
+        wasCorrection,
+      });
+
+      res.status(200).json({
+        _id: dispatch._id,
+        token,
+        linkVersion: version,
+        publicPath: dispatchPublicPath(token),
+        publicUrl: url,
+        status: dispatch.status,
+        revision: dispatch.revision,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get("/form-dispatches/:dispatchId/history", async (req, res, next) => {
+    try {
+      const dispatch = await SchemaFormDispatch.findOne({
+        _id: req.params.dispatchId,
+        tenantId: req.tenantId,
+      }).lean();
+      if (!dispatch) throw new ApiError(404, "Dispatch not found");
+
+      const isOwner = String(dispatch.dispatchedByUserId) === String(req.auth.userId);
+      const inChain = (dispatch.approvalChainUserIds || []).map(String).includes(String(req.auth.userId));
+      if (!isOwner && !inChain && !canManageAllExternal(req)) {
+        throw new ApiError(403, "You are not permitted to view this dispatch history.");
+      }
+
+      res.status(200).json({
+        _id: dispatch._id,
+        status: dispatch.status,
+        revision: dispatch.revision || 1,
+        linkVersion: dispatch.linkVersion || 1,
+        rejection: dispatch.rejection || null,
+        rejectionHistory: dispatch.rejectionHistory || [],
+        submissions: dispatch.submissions || [],
+        linkHistory: dispatch.linkHistory || [],
+        eventLog: dispatch.eventLog || [],
+        approvalChainUserIds: dispatch.approvalChainUserIds || [],
+        currentApprovalIndex: dispatch.currentApprovalIndex,
+      });
     } catch (err) {
       next(err);
     }

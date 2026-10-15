@@ -4,6 +4,7 @@ const authService = require("../../services/auth-service/src/services/auth.servi
 const ApiError = require("@pink/shared").ApiError;
 const User = require("../../services/auth-service/src/models/user.model");
 const Tenant = require("../../services/auth-service/src/models/tenant.model");
+const Role = require("../../services/auth-service/src/models/role.model");
 const RefreshToken = require("../../services/auth-service/src/models/refreshToken.model");
 const tokenService = require("../../services/auth-service/src/services/token.service");
 const auditService = require("../../services/auth-service/src/services/audit.service");
@@ -13,6 +14,7 @@ jest.mock("bcrypt");
 jest.mock("jsonwebtoken");
 jest.mock("../../services/auth-service/src/models/user.model");
 jest.mock("../../services/auth-service/src/models/tenant.model");
+jest.mock("../../services/auth-service/src/models/role.model");
 jest.mock("../../services/auth-service/src/models/refreshToken.model");
 jest.mock("../../services/auth-service/src/services/token.service");
 jest.mock("../../services/auth-service/src/services/audit.service");
@@ -24,6 +26,9 @@ jest.mock("@pink/shared", () => ({
 describe("auth.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    Role.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
+    });
   });
 
   describe("login", () => {
@@ -40,8 +45,8 @@ describe("auth.service", () => {
         status: "ACTIVE",
         save,
       };
-      User.findOne.mockReturnValue({
-        select: jest.fn().mockResolvedValue(userDoc),
+      User.find.mockReturnValue({
+        select: jest.fn().mockResolvedValue([userDoc]),
       });
       bcrypt.compare.mockResolvedValue(true);
       tokenService.signAccessToken.mockReturnValue("access-token");
@@ -67,8 +72,8 @@ describe("auth.service", () => {
     });
 
     it("throws 401 when user not found", async () => {
-      User.findOne.mockReturnValue({
-        select: jest.fn().mockResolvedValue(null),
+      User.find.mockReturnValue({
+        select: jest.fn().mockResolvedValue([]),
       });
 
       await expect(
@@ -77,11 +82,13 @@ describe("auth.service", () => {
     });
 
     it("throws 403 when account not active", async () => {
-      User.findOne.mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          tenantId: "tenant-1",
-          status: "OTP_PENDING",
-        }),
+      User.find.mockReturnValue({
+        select: jest.fn().mockResolvedValue([
+          {
+            tenantId: "tenant-1",
+            status: "OTP_PENDING",
+          },
+        ]),
       });
       Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE" });
 
@@ -91,14 +98,16 @@ describe("auth.service", () => {
     });
 
     it("throws 401 on invalid password", async () => {
-      User.findOne.mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          _id: "u-1",
-          tenantId: "tenant-1",
-          status: "ACTIVE",
-          passwordHash: "hash",
-          save: jest.fn().mockResolvedValue(undefined),
-        }),
+      User.find.mockReturnValue({
+        select: jest.fn().mockResolvedValue([
+          {
+            _id: "u-1",
+            tenantId: "tenant-1",
+            status: "ACTIVE",
+            passwordHash: "hash",
+            save: jest.fn().mockResolvedValue(undefined),
+          },
+        ]),
       });
       bcrypt.compare.mockResolvedValue(false);
       Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE" });
@@ -106,6 +115,46 @@ describe("auth.service", () => {
       await expect(
         authService.login({ email: "x@test.com", password: "bad-pass" })
       ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+    });
+
+    it("logs into the tenant whose password matches when the email exists in several tenants", async () => {
+      const saveA = jest.fn().mockResolvedValue(undefined);
+      const saveB = jest.fn().mockResolvedValue(undefined);
+      const userA = {
+        _id: "user-a",
+        tenantId: "tenant-a",
+        roleIds: [],
+        name: "A",
+        email: "dup@test.com",
+        passwordHash: "hash-a",
+        status: "ACTIVE",
+        save: saveA,
+      };
+      const userB = {
+        _id: "user-b",
+        tenantId: "tenant-b",
+        roleIds: [],
+        name: "B",
+        email: "dup@test.com",
+        passwordHash: "hash-b",
+        status: "ACTIVE",
+        save: saveB,
+      };
+      User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([userA, userB]) });
+      Tenant.findById.mockImplementation((id) =>
+        Promise.resolve({ _id: id, status: "ACTIVE", name: `Tenant ${id}`, code: String(id).toUpperCase() })
+      );
+      bcrypt.compare.mockImplementation((pw, hash) => Promise.resolve(hash === "hash-b" && pw === "pass-b"));
+      tokenService.signAccessToken.mockReturnValue("access-b");
+      tokenService.signRefreshToken.mockReturnValue("refresh-b");
+      RefreshToken.create.mockResolvedValue({ _id: "rt-b" });
+
+      const result = await authService.login({ email: "dup@test.com", password: "pass-b" });
+
+      expect(result.user.id).toBe("user-b");
+      expect(result.tenant._id).toBe("tenant-b");
+      expect(saveB).toHaveBeenCalledTimes(1);
+      expect(saveA).not.toHaveBeenCalled();
     });
   });
 
@@ -355,8 +404,8 @@ describe("auth.service", () => {
   });
 
   it("uses ApiError class in failures", async () => {
-    User.findOne.mockReturnValue({
-      select: jest.fn().mockResolvedValue(null),
+    User.find.mockReturnValue({
+      select: jest.fn().mockResolvedValue([]),
     });
 
     try {

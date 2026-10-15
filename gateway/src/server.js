@@ -9,7 +9,7 @@ const mongoose = require("mongoose");
 const http = require("http");
 const crypto = require("crypto");
 const env = require("./config/env");
-const { logger } = require("@pink/shared");
+const { logger, isPlatformTenant } = require("@pink/shared");
 
 const app = express();
 
@@ -70,12 +70,6 @@ const userSchema = new mongoose.Schema({
   roleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Role" }],
 }, { timestamps: true, strict: false });
 
-const roleSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true },
-  name: { type: String, required: true },
-  permissionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Permission" }],
-}, { timestamps: true, strict: false });
-
 const permissionSchema = new mongoose.Schema({
   code: { type: String, required: true },
 }, { timestamps: true, strict: false });
@@ -86,10 +80,16 @@ const tenantSchema = new mongoose.Schema({
   status: { type: String, default: "ACTIVE" },
 }, { timestamps: true, strict: false });
 
+const roleSchema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant" },
+  name: { type: String },
+  type: { type: String, default: "CUSTOM" },
+}, { timestamps: true, strict: false });
+
 const User = mongoose.model("User", userSchema);
-const Role = mongoose.model("Role", roleSchema);
 const Permission = mongoose.model("Permission", permissionSchema);
 const Tenant = mongoose.model("Tenant", tenantSchema);
+const Role = mongoose.model("Role", roleSchema);
 
 const SERVICE_MAP = {
   auth: "http://127.0.0.1:4001",
@@ -110,6 +110,7 @@ const ROUTE_SERVICE_MAP = [
   { prefix: "/api/v1/permissions", service: "platform", servicePath: "/permissions" },
   { prefix: "/api/v1/audit", service: "platform", servicePath: "/audit" },
   { prefix: "/api/v1/dashboard", service: "platform", servicePath: "/dashboard" },
+  { prefix: "/api/v1/doctors", service: "kyc", servicePath: "/doctors" },
   { prefix: "/api/v1/assignments", service: "org", servicePath: "/assignments" },
   { prefix: "/api/v1/positions", service: "org", servicePath: "/positions" },
   { prefix: "/api/v1/org", service: "org", servicePath: "/" },
@@ -146,6 +147,11 @@ function proxyRequest(targetUrl, path, req, res) {
   delete headers.host;
   delete headers.connection;
   delete headers["keep-alive"];
+  // The gateway re-emits the body itself, so the client's Expect directive must
+  // not be forwarded. Node flushes the header block the moment it sees
+  // `Expect: 100-continue`, which makes any later setHeader() throw
+  // ERR_HTTP_HEADERS_SENT and turns the request into a 500.
+  delete headers.expect;
 
   if (req.headers["x-auth-user-id"]) {
     headers["x-auth-user-id"] = req.headers["x-auth-user-id"];
@@ -161,6 +167,17 @@ function proxyRequest(targetUrl, path, req, res) {
   }
   if (req.headers["x-auth-role-ids"]) {
     headers["x-auth-role-ids"] = req.headers["x-auth-role-ids"];
+  }
+
+  // The body has to be known before http.request() runs so that content-length
+  // is part of the initial header block. A ClientRequest rejects setHeader() as
+  // soon as its headers have been flushed.
+  const isBodyMethod = ["POST", "PUT", "PATCH"].includes(req.method);
+  const isJsonBody = (req.headers["content-type"] || "").includes("application/json");
+  const body = isBodyMethod && isJsonBody ? JSON.stringify(req.body || {}) : null;
+
+  if (body !== null) {
+    headers["content-length"] = Buffer.byteLength(body);
   }
 
   const options = {
@@ -191,20 +208,46 @@ function proxyRequest(targetUrl, path, req, res) {
     }
   });
 
-  if (["POST", "PUT", "PATCH"].includes(req.method)) {
-    const ct = req.headers["content-type"] || "";
-    if (ct.includes("application/json")) {
-      const body = JSON.stringify(req.body || {});
-      proxyReq.setHeader("content-length", Buffer.byteLength(body));
-      proxyReq.write(body);
+  if (body !== null) {
+    proxyReq.end(body);
+  } else if (isBodyMethod) {
+    // Non-JSON bodies are streamed through untouched. If the stream was already
+    // drained by a body parser, 'end' would never fire, so end the proxy request
+    // right away instead of waiting for the 15s timeout.
+    if (req.readableEnded) {
       proxyReq.end();
     } else {
-      req.on("data", (chunk) => proxyReq.write(chunk));
-      req.on("end", () => proxyReq.end());
+      req.pipe(proxyReq);
     }
   } else {
     proxyReq.end();
   }
+}
+
+// Classify the account from its roles and tenant ownership, mirroring the auth
+// service. Access control is disabled, so permission codes ("*" for everyone)
+// cannot tell a platform super admin, a tenant admin, and an employee apart.
+// Pinktech (the PLATFORM tenant) owns the one super admin and it applies to
+// every tenant; a tenant admin is the tenant's designated admin (adminUserId /
+// contact email) or holds an "…Admin" role. Everyone else is an employee — and
+// employees only ever see their own team in the org directory.
+async function resolveAccountRole(user, tenant) {
+  const roleIds = user?.roleIds || [];
+  const roles = roleIds.length
+    ? await Role.find({ _id: { $in: roleIds }, tenantId: user.tenantId })
+        .select("name type")
+        .lean()
+    : [];
+  if (isPlatformTenant(tenant) && roles.some((r) => r.type === "SYSTEM")) {
+    return "super_admin";
+  }
+  const tenantEmail = String(tenant?.email || "").toLowerCase().trim();
+  const userEmail = String(user?.email || "").toLowerCase().trim();
+  const isTenantAdmin =
+    (tenant?.adminUserId && String(tenant.adminUserId) === String(user?._id)) ||
+    (tenantEmail && tenantEmail === userEmail) ||
+    roles.some((r) => /admin/i.test(r.name || ""));
+  return isTenantAdmin ? "tenant_admin" : "employee";
 }
 
 async function authMiddleware(req, res, next) {
@@ -249,23 +292,18 @@ async function authMiddleware(req, res, next) {
       return res.status(403).json({ message: "Tenant is inactive" });
     }
 
-    const roles = await Role.find({
-      _id: { $in: decoded.roleIds || [] },
-      tenantId: decoded.tenantId,
-    }).populate("permissionIds");
-
-    let permissionCodes = [...new Set(roles.flatMap((role) => role.permissionIds.map((p) => p.code)))];
-
-    if (user.email === "superadmin@example.com") {
-      permissionCodes = ["*"];
-    }
+    // Access control disabled: every authenticated user receives all permissions.
+    const permissionCodes = ["*"];
 
     const requestedTenantId = req.headers["x-tenant-id"];
     let effectiveTenantId = String(decoded.tenantId);
     let effectivePermissionCodes = permissionCodes;
 
+    const accountRole = await resolveAccountRole(user, tenant);
+    const isSuperAdmin = accountRole === "super_admin";
+
     if (requestedTenantId && String(requestedTenantId) !== String(decoded.tenantId)) {
-      if (!permissionCodes.includes("*") && !permissionCodes.includes("tenant.manage")) {
+      if (!isSuperAdmin) {
         return res.status(403).json({ message: "Tenant override is restricted to super admins" });
       }
       const targetTenant = await Tenant.findById(requestedTenantId);
@@ -281,6 +319,8 @@ async function authMiddleware(req, res, next) {
     req.headers["x-auth-base-tenant-id"] = String(decoded.tenantId);
     req.headers["x-auth-role-ids"] = JSON.stringify(decoded.roleIds || []);
     req.headers["x-auth-permission-codes"] = JSON.stringify(effectivePermissionCodes);
+    req.headers["x-auth-is-super-admin"] = isSuperAdmin ? "true" : "false";
+    req.headers["x-auth-account-role"] = accountRole;
 
     return next();
   } catch {

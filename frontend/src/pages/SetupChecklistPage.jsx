@@ -8,7 +8,7 @@ const steps = [
   { title: "Org directory: workbook, roles, reporting tree", route: "/app/org-employees" },
   { title: "Assign users to positions", route: "/app/roles" },
   { title: "Invite and OTP activate users", route: "/verify-otp" },
-  { title: "Create workflow", route: "/app/workflows" },
+  { title: "Assign forms to doctors & approve", route: "/app/doctors" },
   { title: "Create forms and share public links (Forms page)", route: "/app/forms" },
   { title: "Trigger KYC", route: "/app/kyc" },
   { title: "Check notifications + audit logs", route: "/app/notifications" },

@@ -72,6 +72,20 @@ module.exports = [
     description: "Access employee management tab: list employees, send credentials, reset passwords.",
   },
   {
+    code: "doctor.view",
+    module: "doctor",
+    action: "view",
+    label: "View doctors",
+    description: "See doctor records and their form statuses within the authorized scope.",
+  },
+  {
+    code: "doctor.manage",
+    module: "doctor",
+    action: "manage",
+    label: "Manage doctors",
+    description: "Create, update, assign forms to, and manage doctor records and their links.",
+  },
+  {
     code: "role.view",
     module: "role",
     action: "view",

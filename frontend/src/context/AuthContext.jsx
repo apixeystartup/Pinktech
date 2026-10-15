@@ -10,19 +10,21 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(
     localStorage.getItem("authUser") ? JSON.parse(localStorage.getItem("authUser")) : null,
   );
-  const [permissionCodes, setPermissionCodes] = useState(
-    localStorage.getItem("permissionCodes")
-      ? JSON.parse(localStorage.getItem("permissionCodes"))
-      : [],
-  );
+  // Access control disabled: every signed-in user has all permissions.
+  const [permissionCodes, setPermissionCodes] = useState(["*"]);
   const [currentTenant, setCurrentTenant] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const applySessionPayload = useCallback((data) => {
     const baseUser = data?.user ?? null;
-    const codes = data?.permissionCodes ?? [];
+    const codes = ["*"];
     if (baseUser) {
-      const nextUser = { ...baseUser, tenantId: baseUser.tenantId };
+      const nextUser = {
+        ...baseUser,
+        tenantId: baseUser.tenantId,
+        isSuperAdmin: Boolean(data?.isSuperAdmin),
+        accountRole: data?.accountRole || (data?.isSuperAdmin ? "super_admin" : "employee"),
+      };
       localStorage.setItem("authUser", JSON.stringify(nextUser));
       setUser(nextUser);
     }
@@ -87,9 +89,16 @@ export function AuthProvider({ children }) {
       const nextRefreshToken = response.data?.refreshToken;
       const baseUser = response.data?.user || null;
       const org = response.data?.tenant;
-      const nextUser =
-        baseUser && org ? { ...baseUser, tenantId: baseUser.tenantId || org._id } : baseUser;
-      const nextPermissionCodes = response.data?.permissionCodes || [];
+      const nextUser = baseUser
+        ? {
+            ...baseUser,
+            tenantId: baseUser.tenantId || org?._id,
+            isSuperAdmin: Boolean(response.data?.isSuperAdmin),
+            accountRole:
+              response.data?.accountRole || (response.data?.isSuperAdmin ? "super_admin" : "employee"),
+          }
+        : baseUser;
+      const nextPermissionCodes = ["*"];
 
       if (!token || !nextRefreshToken) {
         throw new Error("Access token not returned by API.");
@@ -159,6 +168,8 @@ export function AuthProvider({ children }) {
       tenantContextId,
       currentTenant,
       permissionCodes,
+      isSuperAdmin: Boolean(user?.isSuperAdmin),
+      accountRole: user?.accountRole || (user?.isSuperAdmin ? "super_admin" : null),
       isAuthenticated: Boolean(accessToken),
       isLoading,
       login,

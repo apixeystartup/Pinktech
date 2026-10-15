@@ -9,6 +9,7 @@ const serviceAuth = require("./middlewares/serviceAuth");
 const formsRoutes = require("./routes/forms.route");
 const formsPublicRoutes = require("./routes/formsPublic.routes");
 const schemaFormsRoutes = require("./routes/schemaForms.routes");
+const formTemplatesRoutes = require("./routes/formTemplates.routes");
 const pinkFormSubmissionsRoutes = require("./routes/pinkFormSubmissions.routes");
 const seedRoutes = require("./routes/seed.routes");
 
@@ -33,6 +34,7 @@ app.use("/public", formsPublicRoutes);
 // Authenticated routes
 app.use("/", serviceAuth, formsRoutes);
 app.use("/schema-forms", serviceAuth, schemaFormsRoutes);
+app.use("/templates", serviceAuth, formTemplatesRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 app.use(errorMiddleware);

@@ -3,6 +3,7 @@ export const MODULE_TITLES = {
   auth: "Authentication",
   user: "Users & directory",
   employee: "Employee management",
+  doctor: "Doctors",
   role: "Roles & grants",
   position: "Positions",
   workflow: "Workflows",

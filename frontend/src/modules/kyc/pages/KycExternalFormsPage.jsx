@@ -176,10 +176,35 @@ function KycExternalFormsPage() {
   };
 
   const approveDispatch = async (id, action) => {
-    if (action === "REJECT" && !window.confirm("Reject this submission? The external user and creator will be notified.")) return;
+    let reason = "";
+    if (action === "REJECT") {
+      reason = (window.prompt("Reason for requesting a correction (required):", "") || "").trim();
+      if (!reason) {
+        showToast("A rejection reason is required.", "error");
+        return;
+      }
+    }
     try {
-      await api.post(`/kyc/form-dispatches/${id}/approve`, { action });
-      showToast(action === "APPROVE" ? "Approved." : "Rejected.", "success");
+      await api.post(`/kyc/form-dispatches/${id}/approve`, { action, reason });
+      showToast(action === "APPROVE" ? "Approved." : "Correction requested.", "success");
+      loadDispatches();
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    }
+  };
+
+  const regenerateLink = async (id) => {
+    try {
+      const { data } = await api.post(`/kyc/form-dispatches/${id}/regenerate-link`, {});
+      showToast("New link generated and emailed to the external user.", "success");
+      if (data?.publicUrl) {
+        try {
+          await navigator.clipboard.writeText(data.publicUrl);
+          showToast("New link copied", "success");
+        } catch {
+          /* clipboard unavailable */
+        }
+      }
       loadDispatches();
     } catch (error) {
       showToast(getErrorMessage(error), "error");
@@ -422,19 +447,28 @@ function KycExternalFormsPage() {
           {
             key: "actions",
             label: "Actions",
-            render: (row) =>
-              row.canApprove ? (
+            render: (row) => {
+              if (!row.canApprove && !row.canRegenerate) return "—";
+              return (
                 <span className="table-row-actions">
-                  <button type="button" className="btn-primary" onClick={() => approveDispatch(row._id, "APPROVE")}>
-                    Approve
-                  </button>
-                  <button type="button" className="btn-danger" onClick={() => approveDispatch(row._id, "REJECT")}>
-                    Reject
-                  </button>
+                  {row.canApprove ? (
+                    <>
+                      <button type="button" className="btn-primary" onClick={() => approveDispatch(row._id, "APPROVE")}>
+                        Approve
+                      </button>
+                      <button type="button" className="btn-danger" onClick={() => approveDispatch(row._id, "REJECT")}>
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+                  {row.canRegenerate ? (
+                    <button type="button" className="btn-secondary" onClick={() => regenerateLink(row._id)}>
+                      New link
+                    </button>
+                  ) : null}
                 </span>
-              ) : (
-                "—"
-              ),
+              );
+            },
           },
         ]}
         rows={dispatches}

@@ -29,6 +29,9 @@ describe("serviceAuth middleware", () => {
       baseTenantId: "base-tenant",
       actingAsTenantId: "tenant-1",
       permissionCodes: ["tenant.manage"],
+      isSuperAdmin: false,
+      accountRole: "employee",
+      isOrgAdmin: false,
     });
     expect(next).toHaveBeenCalledWith();
   });

@@ -16,28 +16,61 @@ function asBool(v) {
   return false;
 }
 
+// Access control is disabled (every account carries "*"), so the org directory
+// must decide from the account role: admins see the whole organization, while
+// an employee only ever sees themselves and their own team.
 function orgDirectoryFullAccess(req) {
-  const p = req.auth?.permissionCodes || [];
-  return p.includes("*") || p.includes("tenant.manage");
+  return Boolean(req.auth?.isOrgAdmin);
 }
 
 async function resolveOrgSnapshot(req) {
-  const full = await orgDirectory.loadSnapshot(req.tenantId);
+  // Home view for a platform super admin (no tenant override chosen): one
+  // read-only roll-up of every customer tenant under the Pinktech root.
+  if (asBool(req.query.all_tenants) && req.auth?.isSuperAdmin) {
+    const full = await orgDirectory.loadPlatformSnapshot();
+    const rooted = full.positions.length ? orgDirectory.withPlatformVirtualRoot(full) : full;
+    if (orgDirectoryFullAccess(req)) return rooted;
+    const actor = req.auth?.userId;
+    if (!actor) return rooted;
+    return orgDirectory.filterSnapshotToDescendants(rooted, actor);
+  }
+  let full = await orgDirectory.loadSnapshot(req.tenantId);
+  // Pinktech (the platform) is the super admin for every tenant, so a platform
+  // super admin exploring any tenant — including their own — gets the virtual
+  // root above that tenant's admin(s): Pinktech -> Admin -> team.
+  if (req.auth?.isSuperAdmin && full.byId.size > 0) {
+    full = await orgDirectory.withVirtualSuperAdminRoot(full, req.tenantId);
+  }
   if (orgDirectoryFullAccess(req)) return full;
   const actor = req.auth?.userId;
   if (!actor) return full;
   return orgDirectory.filterSnapshotToDescendants(full, actor);
 }
 
-async function resolveSubjectId(tenantId, key, req) {
+/**
+ * Resolve a subject key to { id, tenantId }. Normally the key lives in the
+ * request's tenant; from the Home roll-up it may belong to another tenant, so a
+ * super admin's edit is routed to the record's own tenant instead of silently
+ * failing (or worse, hitting the wrong organization).
+ */
+async function resolveSubject(tenantId, key, req) {
   const full = await orgDirectory.loadSnapshot(tenantId);
   const p = orgDirectory.findInSnapshot(full, key);
-  if (!p) throw new ApiError(404, "not_found");
-  if (req && !orgDirectoryFullAccess(req)) {
-    const allowed = orgDirectory.collectDescendantIds(full, req.auth.userId);
-    if (!allowed.has(String(p._id))) throw new ApiError(404, "not_found");
+  if (p) {
+    if (req && !orgDirectoryFullAccess(req)) {
+      const allowed = orgDirectory.collectDescendantIds(full, req.auth.userId);
+      if (!allowed.has(String(p._id))) throw new ApiError(404, "not_found");
+    }
+    return { id: String(p._id), tenantId };
   }
-  return String(p._id);
+  // Not in the live snapshot. It may be someone who has left (restore) or — for
+  // a super admin working from the Home roll-up — a record in another tenant.
+  // A plain member may only ever reach records of their own tenant.
+  const owner = await orgDirectory.findTenantForSubject(key);
+  if (owner && (String(owner.tenantId) === String(tenantId) || req?.auth?.isSuperAdmin)) {
+    return owner;
+  }
+  throw new ApiError(404, "not_found");
 }
 
 async function listEmployees(req, res, next) {
@@ -137,8 +170,8 @@ async function getFilters(req, res, next) {
 
 async function putEmployee(req, res, next) {
   try {
-    const subjectId = await resolveSubjectId(req.tenantId, req.params.key, req);
-    const emp = await orgMutations.putEmployee(req.tenantId, subjectId, req.body || {}, req.auth);
+    const subject = await resolveSubject(req.tenantId, req.params.key, req);
+    const emp = await orgMutations.putEmployee(subject.tenantId, subject.id, req.body || {}, req.auth);
     res.json({ employee: emp });
   } catch (e) {
     next(e);
@@ -147,7 +180,14 @@ async function putEmployee(req, res, next) {
 
 async function postEmployee(req, res, next) {
   try {
-    const emp = await orgMutations.addEmployee(req.tenantId, req.body || {}, req.auth);
+    // A person is always created inside the tenant they belong to. From the Home
+    // roll-up the row's tenant arrives in the body (the UI knows which branch the
+    // "+ Add" was clicked from); otherwise the request's own tenant is used.
+    const body = req.body || {};
+    const tenantId = asStr(body.tenant_id) || req.tenantId;
+    const payload = { ...body };
+    delete payload.tenant_id;
+    const emp = await orgMutations.addEmployee(tenantId, payload, req.auth);
     res.status(201).json({ employee: emp });
   } catch (e) {
     next(e);
@@ -156,8 +196,12 @@ async function postEmployee(req, res, next) {
 
 async function postLeave(req, res, next) {
   try {
-    const subjectId = await resolveSubjectId(req.tenantId, req.params.key, req);
-    const result = await orgMutations.markLeft(req.tenantId, subjectId, req.body?.reassign_to || null, req.auth);
+    const subject = await resolveSubject(req.tenantId, req.params.key, req);
+    let reassignTo = req.body?.reassign_to || null;
+    if (reassignTo) {
+      reassignTo = (await resolveSubject(subject.tenantId, reassignTo, req)).id;
+    }
+    const result = await orgMutations.markLeft(subject.tenantId, subject.id, reassignTo, req.auth);
     res.json(result);
   } catch (e) {
     next(e);
@@ -166,7 +210,8 @@ async function postLeave(req, res, next) {
 
 async function postRestore(req, res, next) {
   try {
-    const emp = await orgMutations.restoreEmployee(req.tenantId, req.params.key, req.auth);
+    const subject = await resolveSubject(req.tenantId, req.params.key, req);
+    const emp = await orgMutations.restoreEmployee(subject.tenantId, subject.id, req.auth);
     res.json({ employee: emp });
   } catch (e) {
     next(e);
@@ -175,8 +220,8 @@ async function postRestore(req, res, next) {
 
 async function postReplace(req, res, next) {
   try {
-    const subjectId = await resolveSubjectId(req.tenantId, req.params.key, req);
-    const emp = await orgMutations.replacePerson(req.tenantId, subjectId, req.body || {}, req.auth);
+    const subject = await resolveSubject(req.tenantId, req.params.key, req);
+    const emp = await orgMutations.replacePerson(subject.tenantId, subject.id, req.body || {}, req.auth);
     res.json({ employee: emp });
   } catch (e) {
     next(e);
@@ -185,12 +230,12 @@ async function postReplace(req, res, next) {
 
 async function postReassign(req, res, next) {
   try {
-    const fromId = await resolveSubjectId(req.tenantId, req.params.key, req);
+    const from = await resolveSubject(req.tenantId, req.params.key, req);
     let toId = req.body?.to_id || null;
     if (toId) {
-      toId = await resolveSubjectId(req.tenantId, toId, req);
+      toId = (await resolveSubject(from.tenantId, toId, req)).id;
     }
-    const result = await orgMutations.reassignReports(req.tenantId, fromId, toId, req.body?.report_ids, req.auth);
+    const result = await orgMutations.reassignReports(from.tenantId, from.id, toId, req.body?.report_ids, req.auth);
     res.json(result);
   } catch (e) {
     next(e);
@@ -199,6 +244,26 @@ async function postReassign(req, res, next) {
 
 async function getRemoved(req, res, next) {
   try {
+    // Only admins manage the removed list (and only they see the entry point).
+    if (!orgDirectoryFullAccess(req)) {
+      res.json({ count: 0, items: [] });
+      return;
+    }
+    // Home roll-up: show everyone who has left, from every customer tenant, each
+    // row tagged with the tenant it came from.
+    if (asBool(req.query.all_tenants) && req.auth?.isSuperAdmin) {
+      const tenants = await orgDirectory.listCustomerTenants();
+      const all = [];
+      for (const tenant of tenants) {
+        const items = await orgMutations.removedPeople(String(tenant._id));
+        for (const item of items) {
+          all.push({ ...item, tenant_id: String(tenant._id), pinktech_code: tenant.code || null });
+        }
+      }
+      all.sort((a, b) => String(b.left_at || "").localeCompare(String(a.left_at || "")));
+      res.json({ count: all.length, items: all });
+      return;
+    }
     const items = await orgMutations.removedPeople(req.tenantId);
     res.json({ count: items.length, items });
   } catch (e) {

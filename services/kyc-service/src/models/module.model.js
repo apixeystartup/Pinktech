@@ -55,6 +55,9 @@ const moduleSchema = new mongoose.Schema(
           type: String,
           default: "Thanks. Your response has been received."
         },
+        templateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
+        openingTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
+        closingTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
         allowDraft: { type: Boolean, default: false }
       }
     }
