@@ -627,6 +627,11 @@
   transition: box-shadow 0.2s ease;
 }
 
+/* Breathing room between the "Add question" header row and the first card. */
+.schema-forms .adminRow + .questionCard {
+  margin-top: 0.9rem;
+}
+
 .schema-forms .questionCard:hover {
   box-shadow: var(--shadow-md);
 }
