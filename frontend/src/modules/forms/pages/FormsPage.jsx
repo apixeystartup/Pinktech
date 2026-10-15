@@ -1,17 +1,128 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ModulePage from "../../../components/common/ModulePage";
 import SchemaFormsBuilder from "../SchemaFormsBuilder";
 import TemplatesTab from "../TemplatesTab";
+import useAuth from "../../../hooks/useAuth";
+import api from "../../../lib/api";
+import { getErrorMessage } from "../../../lib/error";
+import "../../../styles/schema-forms.css";
+
+const EMPTY_ORG = { name: "", code: "", email: "", phone: "", address: "", registrationNumber: "" };
 
 function FormsPage() {
+  const { tenantContextId, isSuperAdmin } = useAuth();
   const [tab, setTab] = useState("builder");
+  const [org, setOrg] = useState(EMPTY_ORG);
+  const [orgLoading, setOrgLoading] = useState(true);
+  const [orgSaving, setOrgSaving] = useState(false);
+  const [orgNote, setOrgNote] = useState("");
+  const [showOrgEdit, setShowOrgEdit] = useState(false);
+
+  // Org (Party 1) data feeds the Templates header box + the template preview.
+  // Reload on every tenant switch — super admin designs per tenant via the
+  // header override.
+  const tenantKey = String(tenantContextId || "");
+  const loadedFor = useRef("");
+  useEffect(() => {
+    if (loadedFor.current === tenantKey) return;
+    loadedFor.current = tenantKey;
+    let active = true;
+    setOrgLoading(true);
+    setOrgNote("");
+    api
+      .get("/tenants/current")
+      .then((res) => {
+        if (!active) return;
+        const t = res.data || {};
+        setOrg({
+          name: t.name || "",
+          code: t.code || "",
+          email: t.email || "",
+          phone: t.phone || "",
+          address: t.address || "",
+          registrationNumber: t.registrationNumber || t.registration_number || "",
+        });
+        setOrgLoading(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setOrgNote(getErrorMessage(err));
+        setOrgLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [tenantKey]);
+
+  const saveOrg = async (event) => {
+    event.preventDefault();
+    setOrgSaving(true);
+    setOrgNote("");
+    try {
+      const res = await api.patch("/tenants/current", {
+        email: org.email || "",
+        phone: org.phone || "",
+        address: org.address || "",
+        registrationNumber: org.registrationNumber || "",
+      });
+      const t = res.data || {};
+      setOrg((prev) => ({
+        ...prev,
+        email: t.email || "",
+        phone: t.phone || "",
+        address: t.address || "",
+        registrationNumber: t.registrationNumber || t.registration_number || "",
+      }));
+      setOrgNote("Organization data saved — templates use it as Party 1.");
+      setShowOrgEdit(false);
+    } catch (err) {
+      setOrgNote(getErrorMessage(err));
+    } finally {
+      setOrgSaving(false);
+    }
+  };
+
+  const needsTenant = Boolean(isSuperAdmin && !tenantContextId);
+
+  const orgSummary = (
+    <span className="org-summary">
+      <span className="org-summary__label">Organization data (Party 1)</span>
+      {needsTenant ? (
+        <span className="org-summary__data">Pick a tenant in the top bar.</span>
+      ) : orgLoading ? (
+        <span className="org-summary__data">Loading…</span>
+      ) : (
+        <span className="org-summary__data">
+          <strong>{org.name || "—"}</strong>
+          {org.code ? <span className="org-summary__code">{org.code}</span> : null}
+          {org.email ? <span>{org.email}</span> : null}
+          {org.phone ? <span>{org.phone}</span> : null}
+        </span>
+      )}
+      {needsTenant ? null : (
+        <button
+          type="button"
+          className="ioButton ioButton--sm"
+          onClick={() => {
+            setOrgNote("");
+            setShowOrgEdit(true);
+          }}
+        >
+          Edit
+        </button>
+      )}
+      {orgNote && !showOrgEdit ? <span className="org-summary__note">{orgNote}</span> : null}
+    </span>
+  );
+
   return (
     <ModulePage
-      title={tab === "builder" ? "Forms" : ""}
+      title={tab === "builder" ? "Forms" : orgSummary}
       description={
         tab === "builder"
           ? "Schema-driven forms (pink-form): design questions, share the public link, and review submissions with PDF receipts."
-          : ""
+          : null
       }
       actions={
         <div className="segmented-toggle" role="tablist" aria-label="Forms view">
@@ -36,7 +147,61 @@ function FormsPage() {
         </div>
       }
     >
-      {tab === "builder" ? <SchemaFormsBuilder /> : <TemplatesTab />}
+      {tab === "builder" ? <SchemaFormsBuilder /> : <TemplatesTab org={org} />}
+      {showOrgEdit
+        ? createPortal(
+          <div className="form-editor-backdrop" onClick={() => setShowOrgEdit(false)}>
+            <div className="form-editor-modal schema-forms" onClick={(e) => e.stopPropagation()}>
+              <div className="builderCard">
+                <div className="adminRow">
+                  <h2>Edit organization data</h2>
+                  <button type="button" className="ghostBtn" onClick={() => setShowOrgEdit(false)}>
+                    Close
+                  </button>
+                </div>
+                <form onSubmit={saveOrg}>
+                  <div className="grid">
+                    <div className="field">
+                      <label>Organization name</label>
+                      <input value={org.name} disabled />
+                    </div>
+                    <div className="field">
+                      <label>Organization code</label>
+                      <input value={org.code} disabled />
+                    </div>
+                    <div className="field">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        value={org.email}
+                        onChange={(e) => setOrg((p) => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Phone</label>
+                      <input value={org.phone} onChange={(e) => setOrg((p) => ({ ...p, phone: e.target.value }))} />
+                    </div>
+                  </div>
+                  <label>Address</label>
+                  <textarea rows={2} value={org.address} onChange={(e) => setOrg((p) => ({ ...p, address: e.target.value }))} />
+                  <label>Registration no.</label>
+                  <input
+                    value={org.registrationNumber}
+                    onChange={(e) => setOrg((p) => ({ ...p, registrationNumber: e.target.value }))}
+                  />
+                  <div className="adminRow" style={{ marginTop: 10 }}>
+                    <button type="submit" className="btn-primary" disabled={orgSaving}>
+                      {orgSaving ? "Saving…" : "Save organization data"}
+                    </button>
+                    {orgNote ? <span className="doc-form-note" style={{ margin: 0 }}>{orgNote}</span> : null}
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
     </ModulePage>
   );
 }

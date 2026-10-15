@@ -760,6 +760,51 @@ a:hover {
   vertical-align: middle;
 }
 
+/* Compact "Organization data (Party 1)" summary shown in the module header
+   on the Templates tab, in place of the page title + description. */
+.org-summary {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+}
+.org-summary__label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.org-summary__data {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.org-summary__data strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.org-summary__code {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--nav-active);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent);
+}
+.org-summary__note {
+  font-size: 0.78rem;
+  color: var(--success-text, var(--text-muted));
+}
+
 .module-header-actions {
   display: flex;
   gap: 10px;
