@@ -768,8 +768,7 @@ a:hover {
   margin-bottom: 0;
 }
 .org-summary {
-  display: flex;
-  width: 100%;
+  display: inline-flex;
   min-height: calc(1.42rem * 1.2 + 6px + 0.92rem * 1.55);
   align-items: center;
   flex-wrap: wrap;
