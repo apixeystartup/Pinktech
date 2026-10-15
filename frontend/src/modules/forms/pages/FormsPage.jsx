@@ -87,17 +87,20 @@ function FormsPage() {
 
   const orgSummary = (
     <span className="org-summary">
-      <span className="org-summary__label">Organization data (Party 1)</span>
       {needsTenant ? (
         <span className="org-summary__data">Pick a tenant in the top bar.</span>
       ) : orgLoading ? (
         <span className="org-summary__data">Loading…</span>
       ) : (
-        <span className="org-summary__data">
-          <strong>{org.name || "—"}</strong>
-          {org.code ? <span className="org-summary__code">{org.code}</span> : null}
-          {org.email ? <span>{org.email}</span> : null}
-          {org.phone ? <span>{org.phone}</span> : null}
+        <span className="org-summary__data org-summary__data--stacked">
+          <span className="org-summary__row">
+            <strong>{org.name || "—"}</strong>
+            {org.code ? <span className="org-summary__code">{org.code}</span> : null}
+          </span>
+          <span className="org-summary__row">
+            {org.email ? <span>{org.email}</span> : null}
+            {org.phone ? <span>{org.phone}</span> : null}
+          </span>
         </span>
       )}
       {needsTenant ? null : (
