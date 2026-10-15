@@ -16,6 +16,16 @@ const templatePayloadSchema = Joi.object({
   name: Joi.string().trim().min(2).max(160).required(),
   bodyText: Joi.string().max(200000).allow("").default(""),
   partyFields: Joi.array().items(Joi.string().valid(...TEMPLATE_PARTY_KEYS)).default([]),
+  // Author-filled values for custom blanks found by "Detect required fields".
+  fieldValues: Joi.array()
+    .items(
+      Joi.object({
+        tag: Joi.string().trim().min(1).max(120).required(),
+        value: Joi.string().max(4000).allow("").default(""),
+      }),
+    )
+    .max(200)
+    .default([]),
 });
 
 function toDto(doc) {

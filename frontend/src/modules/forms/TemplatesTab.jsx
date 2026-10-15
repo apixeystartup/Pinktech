@@ -4,30 +4,60 @@ import api from "../../lib/api";
 import { getErrorMessage } from "../../lib/error";
 import useAuth from "../../hooks/useAuth";
 import { extractTemplateText, fileToAgreementHtml, sanitizeHtml, textToStructuredHtml } from "../../lib/agreementFormatter";
-import { resolvePlaceholdersClient } from "../../lib/placeholders";
+import { PLACEHOLDER_TAGS, resolvePlaceholdersClient } from "../../lib/placeholders";
 import "../../styles/schema-forms.css";
 import "../../styles/doctors.css";
 
-// Mirrors TEMPLATE_PARTY_FIELDS in shared/src/placeholders.js: the org fields
-// a tenant admin can pick for Party 1 of a template.
-const PARTY_FIELD_OPTIONS = [
-  { key: "name", label: "Organization name" },
-  { key: "code", label: "Organization code" },
-  { key: "email", label: "Organization email" },
-  { key: "phone", label: "Organization phone" },
-  { key: "address", label: "Organization address" },
-  { key: "registration_number", label: "Organization registration no." },
-];
+const EMPTY_EDITOR = { _id: "", name: "", partyFields: ["name"], bodyText: "", fieldValues: {} };
 
-const EMPTY_EDITOR = { _id: "", name: "", partyFields: ["name"], bodyText: "" };
+// Defense-in-depth before injecting the saved signature into preview HTML —
+// only embedded raster data URLs pass (same rule the backend enforces).
+const SAFE_SIG_RE = /^data:image\/(png|jpe?g|gif|webp);base64,/i;
+
+const TAG_RE = /{{\s*([a-zA-Z0-9_.]+)\s*}}/g;
+
+const KNOWN_LABELS = (() => {
+  const map = {};
+  for (const def of PLACEHOLDER_TAGS) map[def.key] = def.label;
+  return map;
+})();
+
+/**
+ * Classify every {{tag}} in the body:
+ *  - auto: resolved from org data / today (tenant.*, date)
+ *  - party2: filled by the doctor when the link is assigned (doctor.*)
+ *  - signature: rendering markers (signature.*)
+ *  - unknown: the fields the author must fill — returned as inputs.
+ */
+function scanBodyTags(text) {
+  const auto = [];
+  const party2 = [];
+  const signature = [];
+  const unknown = [];
+  const seen = new Set();
+  const src = String(text || "");
+  let m;
+  TAG_RE.lastIndex = 0;
+  while ((m = TAG_RE.exec(src)) !== null) {
+    const key = String(m[1]).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (key.startsWith("tenant.") || key === "date") auto.push(key);
+    else if (key.startsWith("doctor.")) party2.push(key);
+    else if (key.startsWith("signature.")) signature.push(key);
+    else unknown.push(key);
+  }
+  return { auto, party2, signature, unknown };
+}
 
 const TEMPLATE_PROMPT = `Write a tenancy / service agreement as plain text I can paste as a template.
 
 Rules:
 - Use {{tenant.name}}, {{tenant.email}}, {{tenant.phone}}, {{tenant.address}}, {{tenant.registration_number}} for Party 1 (my organization).
 - Use {{doctor.name}}, {{doctor.email}}, {{doctor.phone}}, {{doctor.address}} for Party 2 (the doctor).
-- Use {{date}} for today. Any other fill-in (rent, dates, amounts) stays as {{CAPITAL_WORDS}}.
-- Keep headings with # and plain paragraphs. No signature images needed.
+- Use {{date}} for today. Any other fill-in (rent, dates, amounts) stays as {{CAPITAL_WORDS}} — I will fill those in the editor.
+- Use {{signature.tenant}} where my organization (Party 1) signs, and {{signature.doctor}} where the doctor (Party 2) signs.
+- Keep headings with # and plain paragraphs.
 
 Example sections: title, between, purpose, term, rent, obligations, termination, governing law, signatures.`;
 
@@ -53,6 +83,9 @@ function TemplatesTab({ org }) {
   const [banner, setBanner] = useState("");
   const [uploading, setUploading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+  // Detected-field inputs are shown after "Detect required fields" (auto-shown
+  // when editing a template that already has saved values).
+  const [showFields, setShowFields] = useState(false);
   const bodyRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -152,7 +185,15 @@ function TemplatesTab({ org }) {
     setSaving(true);
     setBanner("");
     try {
-      const payload = { name: editor.name.trim(), bodyText: editor.bodyText || "", partyFields: editor.partyFields };
+      const fieldValues = Object.entries(editor.fieldValues || {})
+        .filter(([, v]) => String(v).trim() !== "")
+        .map(([tag, value]) => ({ tag, value: String(value) }));
+      const payload = {
+        name: editor.name.trim(),
+        bodyText: editor.bodyText || "",
+        partyFields: editor.partyFields,
+        fieldValues,
+      };
       if (editor._id) {
         await api.put(`/forms/templates/${editor._id}`, payload);
       } else {
@@ -205,24 +246,49 @@ function TemplatesTab({ org }) {
     );
   }
 
-  const previewCtx = tenantPreviewContext(org);
+  const previewCtx = { ...tenantPreviewContext(org), ...(editor.fieldValues || {}) };
   const previewBody = resolvePlaceholdersClient(editor.bodyText || "", previewCtx);
-  const partyRows = PARTY_FIELD_OPTIONS.filter((o) => editor.partyFields.includes(o.key)).map((o) => ({
-    label: o.label,
-    value: previewCtx[`tenant.${o.key}`] || "",
-  })).filter((r) => r.value);
+  const tagScan = scanBodyTags(editor.bodyText || "");
+
+  // {{signature.tenant}} → the saved Party 1 signature image (or a note when
+  // missing); {{signature.doctor}} stays a visible marker — the doctor signs
+  // on their own link.
+  const tenantSigHtml = SAFE_SIG_RE.test(String(org?.signature || ""))
+    ? `<img class="templateSignature" src="${org.signature}" alt="Party 1 signature" />`
+    : `<span class="templateSignatureMissing">Party 1 signature not saved yet — add it via the pencil icon above.</span>`;
+  const doctorSigHtml = `<span class="templateSignaturePending">Party 2 signature — signed when the doctor opens the link.</span>`;
+  const previewHtml = sanitizeHtml(textToStructuredHtml(previewBody))
+    .replace(/{{\s*signature\.tenant\s*}}/gi, () => tenantSigHtml)
+    .replace(/{{\s*signature\.(doctor|opening|closing)\s*}}/gi, () => doctorSigHtml);
 
   // "+ Add Template": blank template in the popup editor.
   const addTemplate = () => {
     setEditor(EMPTY_EDITOR);
     setBanner("");
+    setShowFields(false);
     setShowEditor(true);
   };
 
   const editTemplate = (t) => {
     setBanner("");
-    setEditor({ _id: String(t._id), name: t.name || "", partyFields: t.partyFields || [], bodyText: t.bodyText || "" });
+    const fieldValues = {};
+    for (const pair of t.fieldValues || []) {
+      fieldValues[String(pair.tag || "").toLowerCase()] = String(pair.value || "");
+    }
+    setEditor({
+      _id: String(t._id),
+      name: t.name || "",
+      partyFields: t.partyFields || [],
+      bodyText: t.bodyText || "",
+      fieldValues,
+    });
+    // Saved values mean fields were already detected — show the inputs.
+    setShowFields(Object.keys(fieldValues).length > 0);
     setShowEditor(true);
+  };
+
+  const detectFields = () => {
+    setShowFields(true);
   };
 
   return (
@@ -240,7 +306,7 @@ function TemplatesTab({ org }) {
         ) : templates.length ? (
           <div className="schema-forms-module-grid" style={{ marginTop: "1rem" }}>
             {templates.map((t) => {
-              const fieldCount = (t.partyFields || []).length;
+              const customCount = (t.fieldValues || []).length;
               const active = Boolean(editor._id) && editor._id === String(t._id);
               return (
                 <article
@@ -252,7 +318,7 @@ function TemplatesTab({ org }) {
                     <span className="schema-forms-module-card__badge">Template</span>
                   </div>
                   <p className="schema-forms-module-card__meta">
-                    {fieldCount} org field{fieldCount === 1 ? "" : "s"} · updated{" "}
+                    {customCount ? `${customCount} filled field${customCount === 1 ? "" : "s"} · ` : ""}updated{" "}
                     {t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : "—"}
                   </p>
                   <div className="schema-forms-module-card__actions">
@@ -335,27 +401,60 @@ function TemplatesTab({ org }) {
             onChange={(e) => setEditor((p) => ({ ...p, bodyText: e.target.value }))}
             placeholder={"Paste the agreement here, e.g. BASIC TENANCY AGREEMENT with blanks like {{AGREEMENT_DATE}}, {{tenant.name}} and {{doctor.name}}. Upload a .txt, .md, .docx or .pdf above to fill this in."}
           />
+
+          <div className="adminRow" style={{ marginTop: 8, gap: 8 }}>
+            <button type="button" className="btn-secondary" onClick={detectFields}>
+              Detect required fields
+            </button>
+            {tagScan.unknown.length ? (
+              <span className="doc-form-note" style={{ margin: 0 }}>
+                {tagScan.unknown.length} field{tagScan.unknown.length === 1 ? "" : "s"} need{tagScan.unknown.length === 1 ? "s" : ""} a value
+              </span>
+            ) : null}
+          </div>
+
+          {showFields ? (
+            <div className="detectedFields">
+              {tagScan.unknown.length ? (
+                tagScan.unknown.map((tag) => (
+                  <div className="field" key={tag}>
+                    <label htmlFor={`field-value-${tag}`}>{KNOWN_LABELS[tag] || tag}</label>
+                    <input
+                      id={`field-value-${tag}`}
+                      value={editor.fieldValues[tag] || ""}
+                      onChange={(e) =>
+                        setEditor((p) => ({ ...p, fieldValues: { ...p.fieldValues, [tag]: e.target.value } }))
+                      }
+                      placeholder={`Value for {{${tag}}}`}
+                    />
+                  </div>
+                ))
+              ) : (
+                <p className="doc-form-note" style={{ margin: 0 }}>
+                  No unknown fields — everything resolves from organization data or the doctor's profile.
+                </p>
+              )}
+              {tagScan.party2.length ? (
+                <p className="doc-form-note" style={{ margin: 0 }}>
+                  Party 2 fields ({tagScan.party2.map((t) => `{{${t}}}`).join(", ")}) fill in when the doctor
+                  opens the link — nothing to enter here.
+                </p>
+              ) : null}
+              {tagScan.signature.includes("signature.tenant") && !org?.signature ? (
+                <p className="fieldError" style={{ margin: 0 }}>
+                  This template needs your organization's Party 1 signature — save it first via the pencil
+                  icon in the header, or forms can't be assigned until then.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <h3>Preview</h3>
           <div className="agreementPreview">
             <div className="templateAgreement">
-              <div className="templateParty" data-party="tenant">
-                <h3>Party 1 — {org.name || "Organization"}</h3>
-                {partyRows.length ? (
-                  <dl className="templatePartyRows">
-                    {partyRows.map((r) => (
-                      <div className="templatePartyRow" key={r.label}>
-                        <dt>{r.label}</dt>
-                        <dd>{r.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <p className="doc-form-note" style={{ margin: 0 }}>No org fields ticked.</p>
-                )}
-              </div>
               <div className="templateBody">
                 {previewBody.trim() ? (
-                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(textToStructuredHtml(previewBody)) }} />
+                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 ) : (
                   <p className="doc-form-note" style={{ margin: 0 }}>Body preview appears here.</p>
                 )}

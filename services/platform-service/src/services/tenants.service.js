@@ -104,7 +104,7 @@ async function updateOwnTenantProfile(tenantId, payload, actor) {
     throw new ApiError(403, "Only administrators can update the organization profile");
   }
   const allowed = {};
-  for (const key of ["email", "address", "phone", "registrationNumber"]) {
+  for (const key of ["email", "address", "phone", "registrationNumber", "signature"]) {
     if (payload[key] !== undefined) allowed[key] = payload[key];
   }
   if (!Object.keys(allowed).length) {
@@ -116,11 +116,16 @@ async function updateOwnTenantProfile(tenantId, payload, actor) {
     throw new ApiError(404, "Tenant not found");
   }
 
+  // The signature is a base64 image — log only that it changed, never the blob.
+  const auditMetadata = { ...allowed };
+  if (auditMetadata.signature !== undefined) {
+    auditMetadata.signature = auditMetadata.signature ? `[saved ${String(auditMetadata.signature).length} chars]` : "[cleared]";
+  }
   await writeAudit({
     tenantId: tenant._id,
     userId: actor?.userId || null,
     action: "TENANT_PROFILE_UPDATED",
-    metadata: allowed,
+    metadata: auditMetadata,
   });
 
   return tenant;

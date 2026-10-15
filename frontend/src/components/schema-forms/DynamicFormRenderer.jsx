@@ -126,6 +126,10 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "", templateAgreement 
   const postAgreementText =
     settings.postAgreementText ||
     "I confirm submitted information is accurate and I will not disclose sensitive form data.";
+  // Template dispatches carry frozen opening/closing html — show that instead
+  // of the generic settings text so what the recipient sees is what is stored.
+  const openingAgreementHtml = templateAgreement ? templateAgreement.html || "" : "";
+  const closingAgreementHtml = templateAgreement ? templateAgreement.closingHtml || "" : "";
 
   const setValue = (key, value) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -204,17 +208,19 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "", templateAgreement 
       {phase === "pre" ? (
         <section className="agreementCard glassPanel">
           <h2>{templateAgreement ? templateAgreement.name || "Agreement" : "Opening Agreement"}</h2>
-          {templateAgreement ? (
-            <AgreementHtml html={templateAgreement.html} />
-          ) : splitAtSignatureMarker(preAgreementText, "opening") ? (
+          {splitAtSignatureMarker(openingAgreementHtml || preAgreementText, "opening") ? (
             <>
-              <AgreementHtml html={splitAtSignatureMarker(preAgreementText, "opening").before} />
+              <AgreementHtml
+                html={splitAtSignatureMarker(openingAgreementHtml || preAgreementText, "opening").before}
+              />
               <PreSignatureBlock mode={preSigMode} setMode={setPreSigMode} signatureDataUrl={preSignatureDataUrl} setSignatureDataUrl={setPreSignatureDataUrl} />
-              <AgreementHtml html={splitAtSignatureMarker(preAgreementText, "opening").after} />
+              <AgreementHtml
+                html={splitAtSignatureMarker(openingAgreementHtml || preAgreementText, "opening").after}
+              />
             </>
           ) : (
             <>
-              <AgreementHtml html={preAgreementText} />
+              <AgreementHtml html={openingAgreementHtml || preAgreementText} />
               <PreSignatureBlock mode={preSigMode} setMode={setPreSigMode} signatureDataUrl={preSignatureDataUrl} setSignatureDataUrl={setPreSignatureDataUrl} />
             </>
           )}
@@ -264,15 +270,15 @@ function DynamicFormRenderer({ moduleDoc, dispatchToken = "", templateAgreement 
           <input type="text" name={honeypotName} style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
           <div className="full agreementCard glassPanel">
             <h2>Closing Agreement</h2>
-            {splitAtSignatureMarker(postAgreementText, "closing") ? (
+            {splitAtSignatureMarker(closingAgreementHtml || postAgreementText, "closing") ? (
               <>
-                <AgreementHtml html={splitAtSignatureMarker(postAgreementText, "closing").before} />
+                <AgreementHtml html={splitAtSignatureMarker(closingAgreementHtml || postAgreementText, "closing").before} />
                 <PostSignatureBlock mode={postSigMode} setMode={setPostSigMode} signatureDataUrl={postSignatureDataUrl} setSignatureDataUrl={setPostSignatureDataUrl} />
-                <AgreementHtml html={splitAtSignatureMarker(postAgreementText, "closing").after} />
+                <AgreementHtml html={splitAtSignatureMarker(closingAgreementHtml || postAgreementText, "closing").after} />
               </>
             ) : (
               <>
-                <AgreementHtml html={postAgreementText} />
+                <AgreementHtml html={closingAgreementHtml || postAgreementText} />
                 <PostSignatureBlock mode={postSigMode} setMode={setPostSigMode} signatureDataUrl={postSignatureDataUrl} setSignatureDataUrl={setPostSignatureDataUrl} />
               </>
             )}

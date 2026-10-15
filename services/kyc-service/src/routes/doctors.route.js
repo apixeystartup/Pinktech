@@ -9,7 +9,7 @@ const Module = require("../models/module.model");
 const SchemaFormDispatch = require("../models/schemaFormDispatch.model");
 const Submission = require("../models/submission.model");
 const { writeAudit } = require("../services/audit.service");
-const { placeholderContext, collectPlaceholderIssues, resolvePlaceholders, TEMPLATE_PARTY_FIELDS } = require("@pink/shared");
+const { placeholderContext, collectPlaceholderIssues, resolvePlaceholders } = require("@pink/shared");
 const { extractIdentity } = require("../services/idExtract.service");
 const { dispatchPublicPath, createDispatchesForRecipients } = require("../services/schemaFormDispatch.service");
 
@@ -48,17 +48,21 @@ function canEdit(req, doctor) {
 /**
  * Tags in the module agreements / instructions that will not resolve for this
  * doctor: profile fields that are empty, or tags no known field provides.
+ * `filledTags` are custom blanks the template author already filled in — those
+ * resolve at compose time, so they never warn.
  */
-function dispatchWarnings(moduleDoc, instructions, doctor, tenant = null, templateBodyText = "") {
+function dispatchWarnings(moduleDoc, instructions, doctor, tenant = null, templateBodyText = "", filledTags = []) {
   const settings = moduleDoc?.formSchema?.settings || {};
   const context = placeholderContext({ doctor: doctor || {}, tenant: tenant || {} });
   const { missing, unknown } = collectPlaceholderIssues(
     [settings.preAgreementText, settings.postAgreementText, settings.description, templateBodyText, instructions],
     context,
   );
+  const filled = new Set(filledTags.map((t) => String(t).trim().toLowerCase()));
   const warnings = [
     ...missing.map((m) => `Dr. ${doctor?.name || "this doctor"} has no ${m.label.toLowerCase()} (${m.tag})`),
-    ...unknown.map((u) => `Unsupported placeholder ${u.tag} — it will stay as-is on the link`),
+    ...unknown.filter((u) => !filled.has(u.tag.replace(/[{}]/g, "")))
+      .map((u) => `Unsupported placeholder ${u.tag} — it will stay as-is on the link`),
   ];
   return warnings;
 }
@@ -81,27 +85,46 @@ function templateBodyToHtml(text) {
     .join("");
 }
 
+// Only embedded raster data URLs survive as <img src> — the tenant's saved
+// Party 1 signature. Mirrors the forms-service PDF sanitizer.
+const SAFE_IMG_SRC_RE = /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=]+$/;
+
+/** {{signature.tenant}} → the saved Party 1 signature image (or a note). */
+function tenantSignatureHtml(tenant) {
+  const src = String(tenant?.signature || "");
+  if (SAFE_IMG_SRC_RE.test(src)) {
+    return `<img class="signature" src="${escapeTemplateHtml(src)}" alt="Party 1 signature" />`;
+  }
+  // Span, not <p>: this lands inside the body's own <p> paragraphs.
+  return `<span class="muted">Party 1 signature not set yet.</span>`;
+}
+
 /**
- * Compose a template agreement for one dispatch: Party 1 (the sending tenant,
- * with exactly the org fields the template picked) + the body with the
- * doctor's blanks resolved. Frozen onto the dispatch so later template edits
- * never rewrite an issued link.
+ * Compose a template agreement for one dispatch: the body with the doctor's
+ * blanks and the author's filled custom fields resolved, plus Party 1's saved
+ * signature at {{signature.tenant}}. Frozen onto the dispatch so later
+ * template edits never rewrite an issued link.
+ *
+ * `side` is "opening" or "closing": every Party 2 signer marker
+ * ({{signature.doctor}} / opening / closing) is normalised to this side's
+ * {{signature.<side>}} so the recipient page and the PDF both split at the
+ * author's chosen position.
  */
-function composeTemplateAgreementHtml({ template, tenant, doctor }) {
+function composeTemplateAgreementHtml({ template, tenant, doctor, side = "opening" }) {
   const context = placeholderContext({ doctor: doctor || {}, tenant: tenant || {} });
-  const tenantName = String(context["tenant.name"] || "").trim() || "Organization";
-  const defs = TEMPLATE_PARTY_FIELDS.filter((d) => (template.partyFields || []).includes(d.key));
-  const rows = defs
-    .map((d) => ({ label: d.label, value: String(context[d.tag] ?? "").trim() }))
-    .filter((r) => r.value);
-  const partyRows = rows.length
-    ? `<dl class="templatePartyRows">` + rows
-      .map((r) => `<div class="templatePartyRow"><dt>${escapeTemplateHtml(r.label)}</dt><dd>${escapeTemplateHtml(r.value)}</dd></div>`)
-      .join("") + `</dl>`
-    : "";
-  const body = templateBodyToHtml(resolvePlaceholders(String(template.bodyText || ""), context));
+  // Values the author filled via "Detect required fields" — resolved like any
+  // other context key so the issued link carries them.
+  for (const pair of template?.fieldValues || []) {
+    const key = String(pair?.tag || "").trim().toLowerCase();
+    if (key) context[key] = String(pair?.value ?? "");
+  }
+  const resolved = resolvePlaceholders(String(template?.bodyText || ""), context);
+  const signerMarkerRe = /{{\s*signature\.(doctor|opening|closing)\s*}}/gi;
+  const body = templateBodyToHtml(resolved)
+    .replace(/{{\s*signature\.tenant\s*}}/gi, () => tenantSignatureHtml(tenant))
+    .replace(signerMarkerRe, (match, tag) =>
+      String(tag).toLowerCase() === side ? match : `{{signature.${side}}}`);
   return `<div class="templateAgreement">`
-    + `<div class="templateParty" data-party="tenant"><h3>Party 1 — ${escapeTemplateHtml(tenantName)}</h3>${partyRows}</div>`
     + (body ? `<div class="templateBody">${body}</div>` : "")
     + `</div>`;
 }
@@ -892,11 +915,19 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
     const openingDoc = await loadTemplate(openingTemplateId, "opening");
     const closingDoc = await loadTemplate(closingTemplateId, "closing");
     const templateDoc = openingDoc || closingDoc || null;
+    // {{signature.tenant}} = Party 1's own signature, saved in the Forms
+    // org-data popup. Block here so the issued link never shows a blank line.
+    const needsPartyOneSig = [openingDoc, closingDoc].some((doc) =>
+      /{{\s*signature\.tenant\s*}}/i.test(String(doc?.bodyText || "")));
+    if (needsPartyOneSig && !String(tenantDoc?.signature || "").trim()) {
+      throw new ApiError(422,
+        "This form's template needs your organization's Party 1 signature — add it first in Forms → Organization data (pencil icon), then assign again.");
+    }
     const openingAgreementHtml = openingDoc
-      ? composeTemplateAgreementHtml({ template: openingDoc, tenant: tenantDoc, doctor })
+      ? composeTemplateAgreementHtml({ template: openingDoc, tenant: tenantDoc, doctor, side: "opening" })
       : "";
     const closingAgreementHtml = closingDoc
-      ? composeTemplateAgreementHtml({ template: closingDoc, tenant: tenantDoc, doctor })
+      ? composeTemplateAgreementHtml({ template: closingDoc, tenant: tenantDoc, doctor, side: "closing" })
       : "";
     // Legacy single-agreement field keeps the opening side so older readers work.
     const agreementHtml = openingAgreementHtml || closingAgreementHtml || "";
@@ -963,6 +994,7 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
         doctor,
         tenantDoc,
         [openingDoc?.bodyText, closingDoc?.bodyText].filter(Boolean).join("\n"),
+        [openingDoc, closingDoc].filter(Boolean).flatMap((d) => (d.fieldValues || []).map((p) => p.tag)),
       ),
     });
   } catch (error) {

@@ -16,24 +16,43 @@ function escapeHtml(input) {
 // Mirrors frontend/src/lib/agreementFormatter.js ALLOWED_TAGS so the PDF looks
 // exactly like the Opening/Closing Agreement cards in the form.
 const AGREEMENT_ALLOWED_TAGS = new Set([
-  "h1", "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "br", "hr", "blockquote"
+  "h1", "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "br", "hr", "blockquote", "img"
 ]);
 
-const VOID_TAGS = new Set(["br", "hr"]);
+const VOID_TAGS = new Set(["br", "hr", "img"]);
+
+// Only embedded raster data URLs survive as <img src> — the saved Party 1
+// signature. Remote URLs and SVG are dropped.
+const SAFE_IMG_SRC_RE = /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=]+$/;
 
 function sanitizeAgreementHtml(input) {
-  return String(input ?? "")
+  // Pull safe embedded images (Party 1's saved signature) out first and
+  // re-insert them after the tag pass, which rebuilds tags without attributes.
+  const images = [];
+  const tokenized = String(input ?? "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
     .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/<\/?([a-z0-9]+)(?:\s[^>]*)?>/gi, (match, rawTag) => {
-      const tag = String(rawTag).toLowerCase();
-      if (!AGREEMENT_ALLOWED_TAGS.has(tag)) return "";
-      const isClosing = /^<\s*\//.test(match);
-      if (VOID_TAGS.has(tag)) return isClosing ? "" : `<${tag} />`;
-      return isClosing ? `</${tag}>` : `<${tag}>`;
+    .replace(/<(img)(\s[^>]*)?>/gi, (match, _tag, attrs) => {
+      const srcMatch = String(attrs || "").match(/\bsrc\s*=\s*"([^"]*)"/i);
+      const src = srcMatch ? srcMatch[1] : "";
+      if (!SAFE_IMG_SRC_RE.test(src)) return "";
+      images.push(src);
+      return `@@AGREEMENT_IMG_${images.length - 1}@@`;
     });
+  const stripped = tokenized.replace(/<\/?([a-z0-9]+)(?:\s[^>]*)?>/gi, (match, rawTag) => {
+    const tag = String(rawTag).toLowerCase();
+    if (!AGREEMENT_ALLOWED_TAGS.has(tag)) return "";
+    const isClosing = /^<\s*\//.test(match);
+    if (VOID_TAGS.has(tag)) return isClosing ? "" : `<${tag} />`;
+    return isClosing ? `</${tag}>` : `<${tag}>`;
+  });
+  return stripped.replace(/@@AGREEMENT_IMG_(\d+)@@/g, (_m, i) => {
+    const src = images[Number(i)] || "";
+    if (!SAFE_IMG_SRC_RE.test(src)) return "";
+    return `<img src="${escapeHtml(src)}" alt="Signature" />`;
+  });
 }
 
 function applyInlineMarkup(text) {

@@ -10,6 +10,15 @@ const formTemplateSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, maxlength: 160 },
     bodyText: { type: String, default: "" },
     partyFields: { type: [String], default: [] },
+    // Author-filled values for custom blanks ({{RENT_AMOUNT}} etc.).
+    fieldValues: {
+      type: [{
+        _id: false,
+        tag: { type: String, required: true },
+        value: { type: String, default: "" },
+      }],
+      default: [],
+    },
     createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true, collection: "formtemplates" }

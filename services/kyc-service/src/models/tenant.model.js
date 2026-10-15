@@ -10,6 +10,9 @@ const tenantSchema = new mongoose.Schema(
     address: { type: String, trim: true, default: "" },
     phone: { type: String, trim: true, default: "" },
     registrationNumber: { type: String, trim: true, default: "" },
+    // Party 1 signature (data URL) saved from the tenant's Forms org popup.
+    // Rendered inline where a template puts {{signature.tenant}}.
+    signature: { type: String, default: "" },
     plan: { type: String, default: "starter" },
     status: {
       type: String,

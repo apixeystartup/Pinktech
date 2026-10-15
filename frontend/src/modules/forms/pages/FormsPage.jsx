@@ -3,12 +3,52 @@ import { createPortal } from "react-dom";
 import ModulePage from "../../../components/common/ModulePage";
 import SchemaFormsBuilder from "../SchemaFormsBuilder";
 import TemplatesTab from "../TemplatesTab";
+import SignaturePad from "../../../components/schema-forms/SignaturePad";
 import useAuth from "../../../hooks/useAuth";
 import api from "../../../lib/api";
 import { getErrorMessage } from "../../../lib/error";
 import "../../../styles/schema-forms.css";
 
-const EMPTY_ORG = { name: "", code: "", email: "", phone: "", address: "", registrationNumber: "" };
+const EMPTY_ORG = { name: "", code: "", email: "", phone: "", address: "", registrationNumber: "", signature: "" };
+
+// Cap uploads at ~1.2M chars of base64 so the PATCH stays under the gateway's
+// 2mb JSON limit (mirrors the Joi max on the platform service).
+const MAX_SIG_CHARS = 1200000;
+
+/**
+ * Uploaded signature image → downscaled PNG data URL (max 900px wide) so a
+ * phone photo doesn't blow past the body limit.
+ */
+function fileToSignatureDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read the image file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Could not load that image. Try a PNG or JPG."));
+      img.onload = () => {
+        const maxW = 900;
+        const width = Math.min(img.width || maxW, maxW);
+        const height = Math.max(1, Math.round((img.height || 1) * (width / (img.width || 1))));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/png");
+        if (dataUrl.length > MAX_SIG_CHARS) {
+          reject(new Error("That image is too large even after resizing — use a smaller image."));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function FormsPage() {
   const { tenantContextId, isSuperAdmin } = useAuth();
@@ -18,6 +58,9 @@ function FormsPage() {
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgNote, setOrgNote] = useState("");
   const [showOrgEdit, setShowOrgEdit] = useState(false);
+  // "upload" (file picker) or "draw" (canvas pad) — how the Party 1 signature
+  // is captured in the org edit popup.
+  const [sigMode, setSigMode] = useState("upload");
 
   // Org (Party 1) data feeds the Templates header box + the template preview.
   // Reload on every tenant switch — super admin designs per tenant via the
@@ -42,6 +85,7 @@ function FormsPage() {
           phone: t.phone || "",
           address: t.address || "",
           registrationNumber: t.registrationNumber || t.registration_number || "",
+          signature: t.signature || "",
         });
         setOrgLoading(false);
       })
@@ -65,6 +109,8 @@ function FormsPage() {
         phone: String(org.phone || "").trim(),
         address: String(org.address || "").trim(),
         registrationNumber: String(org.registrationNumber || "").trim(),
+        // Party 1 signature (drawn or uploaded) — fills {{signature.tenant}}.
+        signature: org.signature || "",
       });
       const t = res.data || {};
       setOrg((prev) => ({
@@ -73,12 +119,27 @@ function FormsPage() {
         phone: t.phone || "",
         address: t.address || "",
         registrationNumber: t.registrationNumber || t.registration_number || "",
+        signature: t.signature || "",
       }));
       setShowOrgEdit(false);
+      setSigMode("upload");
     } catch (err) {
       setOrgNote(getErrorMessage(err));
     } finally {
       setOrgSaving(false);
+    }
+  };
+
+  const onSignatureFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await fileToSignatureDataUrl(file);
+      setOrg((p) => ({ ...p, signature: dataUrl }));
+      setOrgNote("");
+    } catch (err) {
+      setOrgNote(err?.message || "Failed to read the signature image.");
     }
   };
 
@@ -196,6 +257,60 @@ function FormsPage() {
                     value={org.registrationNumber}
                     onChange={(e) => setOrg((p) => ({ ...p, registrationNumber: e.target.value }))}
                   />
+                  <div className="sigCapture">
+                    <div className="adminRow" style={{ gap: 8 }}>
+                      <label style={{ margin: 0 }}>Party 1 signature — used in templates ({`{{signature.tenant}}`})</label>
+                      <div className="segmented-toggle" role="tablist" aria-label="Signature input mode">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={sigMode === "upload"}
+                          className={`segmented-toggle-btn${sigMode === "upload" ? " active" : ""}`}
+                          onClick={() => setSigMode("upload")}
+                        >
+                          Upload
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={sigMode === "draw"}
+                          className={`segmented-toggle-btn${sigMode === "draw" ? " active" : ""}`}
+                          onClick={() => setSigMode("draw")}
+                        >
+                          Draw
+                        </button>
+                      </div>
+                    </div>
+                    {sigMode === "upload" ? (
+                      <div className="adminRow" style={{ gap: 8 }}>
+                        <input type="file" accept="image/*" onChange={onSignatureFile} />
+                        {org.signature ? (
+                          <button
+                            type="button"
+                            className="smallBtn"
+                            onClick={() => setOrg((p) => ({ ...p, signature: "" }))}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <SignaturePad
+                        width={420}
+                        height={140}
+                        onSign={(dataUrl) => setOrg((p) => ({ ...p, signature: dataUrl }))}
+                      />
+                    )}
+                    {org.signature ? (
+                      <div className="sigCapture__preview">
+                        <img src={org.signature} alt="Saved Party 1 signature" />
+                      </div>
+                    ) : (
+                      <p className="doc-form-note" style={{ margin: "4px 0 0" }}>
+                        No signature saved yet — templates show a blank signature line until you add one.
+                      </p>
+                    )}
+                  </div>
                   <div className="adminRow" style={{ marginTop: 10 }}>
                     <button type="submit" className="btn-primary" disabled={orgSaving}>
                       {orgSaving ? "Saving…" : "Save organization data"}

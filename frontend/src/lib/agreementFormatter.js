@@ -18,7 +18,9 @@ function applyInline(text) {
 
 const ALLOWED_TAGS = ["H1", "H2", "H3", "H4", "P", "UL", "OL", "LI", "STRONG", "EM", "BR", "HR", "BLOCKQUOTE",
   // Agreement templates: Party 1 block + body.
-  "DIV", "DL", "DT", "DD"];
+  "DIV", "DL", "DT", "DD",
+  // Party 1's saved signature renders inline as a data-URL image.
+  "IMG"];
 
 // Presentation-only attributes kept on allowed elements (no behavior, no URLs).
 function copySafeAttributes(source, target) {
@@ -48,6 +50,14 @@ export function sanitizeHtml(dirty) {
       if (ALLOWED_TAGS.includes(child.tagName)) {
         const el = document.createElement(child.tagName);
         copySafeAttributes(child, el);
+        if (child.tagName === "IMG") {
+          // Only embedded raster images (the saved Party 1 signature) —
+          // never remote URLs or SVG.
+          const src = child.getAttribute("src") || "";
+          if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(src)) el.setAttribute("src", src);
+          const alt = child.getAttribute("alt") || "";
+          if (alt) el.setAttribute("alt", alt);
+        }
         walk(child, el);
         target.appendChild(el);
       } else {
