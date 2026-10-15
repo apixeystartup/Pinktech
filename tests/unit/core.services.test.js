@@ -77,30 +77,31 @@ describe("core services", () => {
     expect(current.name).toBe("Acme");
   });
 
-  it("rejects creating a tenant whose admin email fronts another tenant", async () => {
+  it("allows the same admin email for admins of different tenants", async () => {
+    // One admin per tenant: N tenants created by the super admin means N
+    // admins, and the same address may front several orgs. Each record keeps
+    // its own password, and sign-in resolves by password match.
     Tenant.findOne.mockResolvedValue(null);
-    Tenant.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
-      _id: "t9",
-      name: "Old",
-      code: "OLD",
-      email: "taken@example.com",
+    PlatformPermission.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
     });
-    await expect(
-      tenantsService.createTenant({ name: "New", code: "new", email: "taken@example.com" }, { userId: "u1" }),
-    ).rejects.toThrow("cannot be reused for another tenant");
-    expect(Tenant.create).not.toHaveBeenCalled();
-  });
-
-  it("rejects assigning an employee whose email admins another tenant", async () => {
-    const employeeId = "507f1f77bcf86cd799439011";
-    const tenantDoc = { _id: "t1", email: "jane@acme.com", adminUserId: null, save: jest.fn() };
-    Tenant.findById.mockResolvedValue(tenantDoc);
-    PlatformUser.findOne.mockResolvedValue({ _id: employeeId, tenantId: "t1", email: "jane@acme.com" });
-    PlatformUser.find.mockResolvedValue([
-      { _id: "holder9", tenantId: "t2", email: "jane@acme.com", status: "ACTIVE" },
-    ]);
-    await expect(tenantsService.assignTenantAccount("t1", employeeId, { userId: "u2" })).rejects.toThrow(
-      "cannot be reused for another tenant",
+    PlatformRole.findOneAndUpdate.mockResolvedValue({ _id: "admin1", name: "Admin" });
+    PlatformUser.findOne.mockResolvedValue(null);
+    PlatformUser.create.mockResolvedValue({ _id: "admin9" });
+    const secondTenantDoc = {
+      _id: "t2",
+      code: "BETA",
+      name: "Beta",
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    Tenant.create.mockResolvedValue(secondTenantDoc);
+    const created = await tenantsService.createTenant(
+      { name: "Beta", code: "beta", email: "admin@example.com" },
+      { userId: "u1" },
+    );
+    expect(created.code).toBe("BETA");
+    expect(PlatformUser.create).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "t2", status: "INVITED" }),
     );
   });
 
