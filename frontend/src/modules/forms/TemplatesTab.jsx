@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../../lib/api";
 import { getErrorMessage } from "../../lib/error";
 import useAuth from "../../hooks/useAuth";
@@ -49,14 +50,13 @@ function TemplatesTab({ org }) {
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [editor, setEditor] = useState(EMPTY_EDITOR);
+  const [showEditor, setShowEditor] = useState(false);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState("");
   const [uploading, setUploading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
   const bodyRef = useRef(null);
   const fileRef = useRef(null);
-  // "+ Add Template" jumps to the design card below.
-  const editorCardRef = useRef(null);
 
   // Save/delete reload the list — setState inside .then callbacks is fine.
   const loadTemplates = useCallback(async () => {
@@ -193,6 +193,7 @@ function TemplatesTab({ org }) {
         await api.post("/forms/templates", payload);
       }
       setEditor(EMPTY_EDITOR);
+      setShowEditor(false);
       await loadTemplates();
     } catch (err) {
       setBanner(getErrorMessage(err));
@@ -201,11 +202,24 @@ function TemplatesTab({ org }) {
     }
   };
 
+  // Lock body scroll while the editor popup is open (same as the builder).
+  useEffect(() => {
+    if (!showEditor) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showEditor]);
+
   const deleteTemplate = async (id, name) => {
     if (!window.confirm(`Delete template "${name}"? Forms using it will need another template.`)) return;
     try {
       await api.delete(`/forms/templates/${id}`);
-      if (editor._id === id) setEditor(EMPTY_EDITOR);
+      if (editor._id === id) {
+        setEditor(EMPTY_EDITOR);
+        setShowEditor(false);
+      }
       await loadTemplates();
     } catch (err) {
       setBanner(getErrorMessage(err));
@@ -232,14 +246,17 @@ function TemplatesTab({ org }) {
     value: previewCtx[`tenant.${o.key}`] || "",
   })).filter((r) => r.value);
 
-  // "+ Add Template": reset the editor to a blank template and jump to the
-  // design card below so the user lands right in it.
+  // "+ Add Template": blank template in the popup editor.
   const addTemplate = () => {
     setEditor(EMPTY_EDITOR);
     setBanner("");
-    requestAnimationFrame(() => {
-      editorCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    setShowEditor(true);
+  };
+
+  const editTemplate = (t) => {
+    setBanner("");
+    setEditor({ _id: String(t._id), name: t.name || "", partyFields: t.partyFields || [], bodyText: t.bodyText || "" });
+    setShowEditor(true);
   };
 
   return (
@@ -276,7 +293,7 @@ function TemplatesTab({ org }) {
                     <button
                       type="button"
                       className="ioButton ioButton--sm"
-                      onClick={() => setEditor({ _id: String(t._id), name: t.name || "", partyFields: t.partyFields || [], bodyText: t.bodyText || "" })}
+                      onClick={() => editTemplate(t)}
                     >
                       Edit
                     </button>
@@ -311,9 +328,21 @@ function TemplatesTab({ org }) {
         </div>
       </div>
 
-      <div className="builderCard" ref={editorCardRef}>
-        <h2>{editor._id ? `Edit template — ${editor.name}` : "New template"}</h2>
-        <form onSubmit={saveTemplate}>
+      {/* Portal to body like the builder editor: backdrop-blur containers would
+          otherwise trap the fixed overlay at their own height. */}
+      {showEditor
+        ? createPortal(
+          <div className="form-editor-backdrop" onClick={() => setShowEditor(false)}>
+            <div className="form-editor-modal schema-forms" onClick={(e) => e.stopPropagation()}>
+              <div className="builderCard">
+                <div className="adminRow">
+                  <h2>{editor._id ? `Edit template — ${editor.name}` : "New template"}</h2>
+                  <button type="button" className="ghostBtn" onClick={() => setShowEditor(false)}>
+                    Close
+                  </button>
+                </div>
+                {banner ? <div className="fieldError">{banner}</div> : null}
+                <form onSubmit={saveTemplate}>
           <label>Template name *</label>
           <input
             value={editor.name}
@@ -412,7 +441,12 @@ function TemplatesTab({ org }) {
             ) : null}
           </div>
         </form>
-      </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
     </div>
   );
 }
