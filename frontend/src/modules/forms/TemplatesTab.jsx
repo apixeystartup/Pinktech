@@ -98,15 +98,6 @@ function TemplatesTab({ org }) {
     };
   }, [tenantKey]);
 
-  const togglePartyField = (key) => {
-    setEditor((prev) => ({
-      ...prev,
-      partyFields: prev.partyFields.includes(key)
-        ? prev.partyFields.filter((k) => k !== key)
-        : [...prev.partyFields, key],
-    }));
-  };
-
   const onTemplateFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -324,22 +315,6 @@ function TemplatesTab({ org }) {
             onChange={(e) => setEditor((p) => ({ ...p, name: e.target.value }))}
             placeholder="e.g. Service Agreement"
           />
-
-          <div className="stacked-label" style={{ marginTop: 12 }}>
-            <span>Organization fields in Party 1</span>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginBottom: 4 }}>
-            {PARTY_FIELD_OPTIONS.map((o) => (
-              <label key={o.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem" }}>
-                <input
-                  type="checkbox"
-                  checked={editor.partyFields.includes(o.key)}
-                  onChange={() => togglePartyField(o.key)}
-                />
-                {o.label}
-              </label>
-            ))}
-          </div>
 
           <label htmlFor="template-body">Agreement text — paste or upload a document</label>
           <div className="adminRow" style={{ gap: 8, marginBottom: 8 }}>
