@@ -411,7 +411,7 @@ function SchemaFormsBuilder() {
       {showEditor
         ? createPortal(
       <div className="form-editor-backdrop" onClick={() => setShowEditor(false)}>
-        <div className="form-editor-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="form-editor-modal schema-forms" onClick={(e) => e.stopPropagation()}>
       <div className="adminTopBar">
         <div className="adminStats">
           <div className="statCard">
