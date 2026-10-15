@@ -354,7 +354,7 @@ function SchemaFormsBuilder() {
           </button>
         </div>
         {!modules.length ? (
-          <p className="hint">No saved modules yet. Save a new one below to see cards here.</p>
+          <p className="hint">No saved modules yet. Use + Add Form to create the first one.</p>
         ) : (
           <div className="schema-forms-module-grid">
             {modules.map((mod) => {

@@ -342,7 +342,7 @@ function TemplatesTab({ org }) {
             })}
           </div>
         ) : (
-          <p className="doc-form-note">No templates yet — design the first one below.</p>
+          <p className="doc-form-note">No templates yet — use + Add Template to design the first one.</p>
         )}
       </div>
 
