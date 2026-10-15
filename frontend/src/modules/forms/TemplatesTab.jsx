@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../../lib/api";
 import { getErrorMessage } from "../../lib/error";
 import useAuth from "../../hooks/useAuth";
@@ -53,6 +54,7 @@ function TemplatesTab() {
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [editor, setEditor] = useState(EMPTY_EDITOR);
+  const [showOrgEdit, setShowOrgEdit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -144,6 +146,7 @@ function TemplatesTab() {
         registrationNumber: t.registrationNumber || t.registration_number || "",
       }));
       setOrgNote("Organization data saved — templates use it as Party 1.");
+      setShowOrgEdit(false);
     } catch (err) {
       setOrgNote(getErrorMessage(err));
     } finally {
@@ -286,53 +289,93 @@ function TemplatesTab() {
   return (
     <div className="schema-forms">
       <div className="builderCard">
-        <h2>Organization data (Party 1)</h2>
+        <div className="adminRow">
+          <h2>Organization data (Party 1)</h2>
+          <button type="button" className="ioButton ioButton--sm" onClick={() => { setOrgNote(""); setShowOrgEdit(true); }}>
+            Edit
+          </button>
+        </div>
         <p className="doc-form-note">
-          This tenant is Party 1 of every template. Save the org data here, then tick per template
-          which of these fields appear in its Party 1 block.
+          This tenant is Party 1 of every template.
         </p>
         {orgLoading ? (
           <p className="doc-form-note">Loading organization…</p>
         ) : (
-          <form onSubmit={saveOrg}>
-            <div className="grid">
-              <div className="field">
-                <label>Organization name</label>
-                <input value={org.name} disabled />
-              </div>
-              <div className="field">
-                <label>Organization code</label>
-                <input value={org.code} disabled />
-              </div>
-              <div className="field">
-                <label>Email</label>
-                <input
-                  type="email"
-                  value={org.email}
-                  onChange={(e) => setOrg((p) => ({ ...p, email: e.target.value }))}
-                />
-              </div>
-              <div className="field">
-                <label>Phone</label>
-                <input value={org.phone} onChange={(e) => setOrg((p) => ({ ...p, phone: e.target.value }))} />
-              </div>
+          <div className="grid">
+            <div className="field">
+              <label>Organization name</label>
+              <div>{org.name || "—"}</div>
             </div>
-            <label>Address</label>
-            <textarea rows={2} value={org.address} onChange={(e) => setOrg((p) => ({ ...p, address: e.target.value }))} />
-            <label>Registration no.</label>
-            <input
-              value={org.registrationNumber}
-              onChange={(e) => setOrg((p) => ({ ...p, registrationNumber: e.target.value }))}
-            />
-            <div className="adminRow" style={{ marginTop: 10 }}>
-              <button type="submit" className="btn-primary" disabled={orgSaving}>
-                {orgSaving ? "Saving…" : "Save organization data"}
-              </button>
-              {orgNote ? <span className="doc-form-note" style={{ margin: 0 }}>{orgNote}</span> : null}
+            <div className="field">
+              <label>Organization code</label>
+              <div>{org.code || "—"}</div>
             </div>
-          </form>
+            <div className="field">
+              <label>Email</label>
+              <div>{org.email || "—"}</div>
+            </div>
+            <div className="field">
+              <label>Phone</label>
+              <div>{org.phone || "—"}</div>
+            </div>
+          </div>
         )}
+        {orgNote && !showOrgEdit ? <p className="doc-form-note" style={{ marginTop: 8 }}>{orgNote}</p> : null}
       </div>
+      {showOrgEdit
+        ? createPortal(
+          <div className="form-editor-backdrop" onClick={() => setShowOrgEdit(false)}>
+            <div className="form-editor-modal schema-forms" onClick={(e) => e.stopPropagation()}>
+              <div className="builderCard">
+                <div className="adminRow">
+                  <h2>Edit organization data</h2>
+                  <button type="button" className="ghostBtn" onClick={() => setShowOrgEdit(false)}>
+                    Close
+                  </button>
+                </div>
+                <form onSubmit={saveOrg}>
+                  <div className="grid">
+                    <div className="field">
+                      <label>Organization name</label>
+                      <input value={org.name} disabled />
+                    </div>
+                    <div className="field">
+                      <label>Organization code</label>
+                      <input value={org.code} disabled />
+                    </div>
+                    <div className="field">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        value={org.email}
+                        onChange={(e) => setOrg((p) => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Phone</label>
+                      <input value={org.phone} onChange={(e) => setOrg((p) => ({ ...p, phone: e.target.value }))} />
+                    </div>
+                  </div>
+                  <label>Address</label>
+                  <textarea rows={2} value={org.address} onChange={(e) => setOrg((p) => ({ ...p, address: e.target.value }))} />
+                  <label>Registration no.</label>
+                  <input
+                    value={org.registrationNumber}
+                    onChange={(e) => setOrg((p) => ({ ...p, registrationNumber: e.target.value }))}
+                  />
+                  <div className="adminRow" style={{ marginTop: 10 }}>
+                    <button type="submit" className="btn-primary" disabled={orgSaving}>
+                      {orgSaving ? "Saving…" : "Save organization data"}
+                    </button>
+                    {orgNote ? <span className="doc-form-note" style={{ margin: 0 }}>{orgNote}</span> : null}
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
 
       <div className="builderCard">
         <h2>Templates</h2>

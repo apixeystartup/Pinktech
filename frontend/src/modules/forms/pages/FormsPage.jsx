@@ -2,21 +2,17 @@ import { useState } from "react";
 import ModulePage from "../../../components/common/ModulePage";
 import SchemaFormsBuilder from "../SchemaFormsBuilder";
 import TemplatesTab from "../TemplatesTab";
-import useAuth from "../../../hooks/useAuth";
 
 function FormsPage() {
   const [tab, setTab] = useState("builder");
-  const { currentTenant } = useAuth();
-  const tenantLabel = currentTenant ? `${currentTenant.name} (${currentTenant.code})` : null;
   return (
     <ModulePage
-      title={
-        <>
-          Forms
-          {tenantLabel ? <span className="module-title-tenant">{tenantLabel}</span> : null}
-        </>
+      title={tab === "builder" ? "Forms" : ""}
+      description={
+        tab === "builder"
+          ? "Schema-driven forms (pink-form): design questions, share the public link, and review submissions with PDF receipts."
+          : ""
       }
-      description="Schema-driven forms (pink-form): design questions, share the public link, and review submissions with PDF receipts."
       actions={
         <div className="segmented-toggle" role="tablist" aria-label="Forms view">
           <button
