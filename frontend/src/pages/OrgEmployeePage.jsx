@@ -738,6 +738,8 @@ function Field({ label, value }) {
 // ─── RolesView ─────────────────────────────────────────────
 
 function RolesView() {
+  const { tenantContextId, isSuperAdmin } = useAuth();
+  const isHome = !!isSuperAdmin && !tenantContextId;
   const rolesQ = useOrgRoles();
   const createRoleMut = useCreateRole();
   const autoDetectMut = useAutoDetectRoles();
@@ -757,6 +759,8 @@ function RolesView() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          {!isHome && (
+          <>
           <button type="button" className="org-btn-secondary" disabled={resetAllMut.isPending}
             onClick={() => { if (!confirm("Reset all roles? Your level/scope overrides and any role renames will be lost.")) return; resetAllMut.mutate(); }}>
             {resetAllMut.isPending ? "Resetting…" : "Reset all roles"}
@@ -768,9 +772,16 @@ function RolesView() {
             onClick={() => { const name = prompt("Role name (e.g. National Sales Head):"); if (name) createRoleMut.mutate({ name, aliases: [name.toUpperCase()] }); }}>
             + Add role
           </button>
+          </>
+          )}
         </div>
       </div>
       <div className="overflow-auto">
+        {isHome ? (
+          <p className="notifications-empty">
+            Home shows every tenant at once — pick a tenant in the switcher above to manage its roles.
+          </p>
+        ) : (
         <table className="roles-table">
           <thead><tr><th>Role</th><th>Aliases</th><th>Level</th><th>Scope</th><th>People in this role</th></tr></thead>
           <tbody>
@@ -782,6 +793,7 @@ function RolesView() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </section>
   );

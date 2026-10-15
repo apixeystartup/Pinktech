@@ -228,7 +228,9 @@ function orderPlatformRootChildren(snap) {
 }
 
 // Hang every top-level person of the snapshot under the read-only Pinktech root.
+// Defensive: never stack a second platform root if one is already present.
 function attachVirtualRoot(snap) {
+  if (snap.positions.some((p) => p.isVirtualRoot)) return snap;
   const rootIds = new Set((snap.childrenByParent.get("__root__") || []).map(String));
   const positions = snap.positions.map((p) =>
     rootIds.has(String(p._id)) ? { ...p, parentPositionId: VIRTUAL_SUPER_ADMIN_ID } : p,

@@ -282,10 +282,23 @@ async function postHierarchyReset(req, res, next) {
 
 async function listRoles(req, res, next) {
   try {
+    // Home is a roll-up, not a tenant: roles belong to tenants, so there is
+    // nothing to manage here — notably never the platform's own roles (the
+    // Super Admin seat must not surface as a manageable row).
+    if (req.auth?.isSuperAdmin && !req.auth?.actingAsTenantId) {
+      res.json({ roles: [] });
+      return;
+    }
     const data = await orgRegistry.listOrgRoles(req.tenantId);
     res.json(data);
   } catch (e) {
     next(e);
+  }
+}
+
+function requireTenantContext(req) {
+  if (req.auth?.isSuperAdmin && !req.auth?.actingAsTenantId) {
+    throw new ApiError(400, "Select a tenant first — roles are managed per tenant");
   }
 }
 
@@ -301,6 +314,7 @@ async function getRole(req, res, next) {
 
 async function putRole(req, res, next) {
   try {
+    requireTenantContext(req);
     const data = await orgRegistry.putOrgRole(req.tenantId, req.params.id, req.body || {}, req.auth);
     res.json(data);
   } catch (e) {
@@ -310,6 +324,7 @@ async function putRole(req, res, next) {
 
 async function postRoleReset(req, res, next) {
   try {
+    requireTenantContext(req);
     const data = await orgRegistry.resetOrgRole(req.tenantId, req.params.id, req.auth);
     res.json(data);
   } catch (e) {
@@ -319,6 +334,7 @@ async function postRoleReset(req, res, next) {
 
 async function postRoleCreate(req, res, next) {
   try {
+    requireTenantContext(req);
     const data = await orgRegistry.createOrgRole(req.tenantId, req.body || {}, req.auth);
     res.status(201).json(data);
   } catch (e) {
@@ -328,6 +344,7 @@ async function postRoleCreate(req, res, next) {
 
 async function postAutoDetect(req, res, next) {
   try {
+    requireTenantContext(req);
     const summary = await orgRegistry.autoDetectRoles(req.tenantId, req.auth);
     res.json(summary);
   } catch (e) {
@@ -337,6 +354,7 @@ async function postAutoDetect(req, res, next) {
 
 async function postResetAllRoles(req, res, next) {
   try {
+    requireTenantContext(req);
     const result = await orgRegistry.resetAllOrgRoles(req.tenantId, req.auth);
     res.json(result);
   } catch (e) {
