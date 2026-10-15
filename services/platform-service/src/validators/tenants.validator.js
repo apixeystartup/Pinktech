@@ -38,7 +38,9 @@ const updateTenantSchema = Joi.object({
 }).min(1);
 
 const updateOwnTenantSchema = Joi.object({
-  email: Joi.string().email().allow("").optional(),
+  // tlds:{allow:false} keeps dev/test addresses like ops@acme.test valid;
+  // trim() strips stray whitespace before the email check.
+  email: Joi.string().trim().email({ tlds: { allow: false } }).allow("").optional(),
   address: Joi.string().max(500).allow("", null).optional(),
   phone: Joi.string().max(30).allow("", null).optional(),
   registrationNumber: Joi.string().max(100).allow("", null).optional(),

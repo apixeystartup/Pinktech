@@ -61,10 +61,10 @@ function FormsPage() {
     setOrgNote("");
     try {
       const res = await api.patch("/tenants/current", {
-        email: org.email || "",
-        phone: org.phone || "",
-        address: org.address || "",
-        registrationNumber: org.registrationNumber || "",
+        email: String(org.email || "").trim(),
+        phone: String(org.phone || "").trim(),
+        address: String(org.address || "").trim(),
+        registrationNumber: String(org.registrationNumber || "").trim(),
       });
       const t = res.data || {};
       setOrg((prev) => ({
@@ -74,7 +74,6 @@ function FormsPage() {
         address: t.address || "",
         registrationNumber: t.registrationNumber || t.registration_number || "",
       }));
-      setOrgNote("Organization data saved — templates use it as Party 1.");
       setShowOrgEdit(false);
     } catch (err) {
       setOrgNote(getErrorMessage(err));
