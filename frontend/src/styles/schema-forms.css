@@ -65,6 +65,9 @@
 
 .schema-forms__modules-section {
   margin-bottom: 1.5rem;
+  /* Default floor: reach the screen end when there are few cards. The block
+     grows naturally as cards are added — no inner scrolling anywhere. */
+  min-height: calc(100vh - 380px);
 }
 
 .schema-forms__modules-heading {
