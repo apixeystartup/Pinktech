@@ -394,7 +394,8 @@ function SchemaFormsBuilder() {
       </div>
 
       {showEditor ? (
-      <>
+      <div className="form-editor-backdrop" onClick={() => setShowEditor(false)}>
+        <div className="form-editor-modal" onClick={(e) => e.stopPropagation()}>
       <div className="adminTopBar">
         <div className="adminStats">
           <div className="statCard">
@@ -678,7 +679,8 @@ function SchemaFormsBuilder() {
       {status.message ? (
         <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>
       ) : null}
-      </>
+        </div>
+      </div>
       ) : null}
     </div>
   );
