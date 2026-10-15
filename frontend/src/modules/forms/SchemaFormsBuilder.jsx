@@ -134,6 +134,9 @@ function SchemaFormsBuilder() {
   const [showRawJson, setShowRawJson] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [templates, setTemplates] = useState([]);
+  // The editor (second section) only appears when creating or editing a form.
+  // Otherwise the tab shows just the form list plus the Add button.
+  const [showEditor, setShowEditor] = useState(false);
 
   const fields = builderState.schema?.fields || [];
 
@@ -174,6 +177,13 @@ function SchemaFormsBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function onAddForm() {
+    setSelectedId("");
+    syncTextWithBuilder(normalizeModuleDoc(starterSchema));
+    setStatus({ type: "", message: "" });
+    setShowEditor(true);
+  }
+
   function onChangeModule(id) {
     setSelectedId(id);
     if (!id) {
@@ -182,6 +192,7 @@ function SchemaFormsBuilder() {
     }
     const selected = modules.find((item) => item._id === id);
     syncTextWithBuilder(normalizeModuleDoc(selected || starterSchema));
+    setShowEditor(true);
   }
 
   function updateRootField(key, value) {
@@ -289,6 +300,7 @@ function SchemaFormsBuilder() {
       }
       setStatus({ type: "success", message: "Form saved successfully." });
       await refreshModules(result._id);
+      setShowEditor(false);
     } catch (err) {
       setStatus({ type: "error", message: err.message || "Failed to save form." });
     }
@@ -300,6 +312,7 @@ function SchemaFormsBuilder() {
       await deleteModule(moduleId);
       setStatus({ type: "success", message: "Form deleted." });
       setSelectedId("");
+      setShowEditor(false);
       syncTextWithBuilder(normalizeModuleDoc(starterSchema));
       await refreshModules();
     } catch (err) {
@@ -323,7 +336,12 @@ function SchemaFormsBuilder() {
   return (
     <div className="schema-forms">
       <div className="schema-forms__modules-section">
-        <h2 className="schema-forms__modules-heading">Form modules</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+          <h2 className="schema-forms__modules-heading">Form modules</h2>
+          <button type="button" className="ioButton ioButton--sm" onClick={onAddForm}>
+            + Add Form
+          </button>
+        </div>
         <p className="hint schema-forms__modules-lead">
           Each card is a shareable form. Copy the public link or open it in a new tab. Use <strong>Edit</strong> to load it in the builder below.
         </p>
@@ -375,6 +393,8 @@ function SchemaFormsBuilder() {
         )}
       </div>
 
+      {showEditor ? (
+      <>
       <div className="adminTopBar">
         <div className="adminStats">
           <div className="statCard">
@@ -387,6 +407,9 @@ function SchemaFormsBuilder() {
           </div>
         </div>
         <div className="adminActions">
+          <button type="button" className="ghostBtn" onClick={() => setShowEditor(false)}>
+            Back to list
+          </button>
           <button type="button" className="ioButton" onClick={onSave}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
@@ -654,6 +677,8 @@ function SchemaFormsBuilder() {
 
       {status.message ? (
         <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>
+      ) : null}
+      </>
       ) : null}
     </div>
   );
