@@ -348,15 +348,11 @@ function SchemaFormsBuilder() {
   return (
     <div className="schema-forms">
       <div className="schema-forms__modules-section">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-          <h2 className="schema-forms__modules-heading">Form modules</h2>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
           <button type="button" className="ioButton ioButton--sm" onClick={onAddForm}>
             + Add Form
           </button>
         </div>
-        <p className="hint schema-forms__modules-lead">
-          Each card is a shareable form. Copy the public link or open it in a new tab. Use <strong>Edit</strong> to load it in the builder below.
-        </p>
         {!modules.length ? (
           <p className="hint">No saved modules yet. Save a new one below to see cards here.</p>
         ) : (
