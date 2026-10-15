@@ -1508,6 +1508,7 @@ a.btn-ghost:hover {
 }
 .form-editor-modal {
   max-width: 960px;
+  min-height: 82vh;
   margin: 0 auto;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
