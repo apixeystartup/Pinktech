@@ -1,15 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ModulePage from "../../../components/common/ModulePage";
 import SchemaFormsBuilder from "../SchemaFormsBuilder";
 import TemplatesTab from "../TemplatesTab";
+import { fetchTemplates, templatesKey } from "../templatesQuery";
 import SignaturePad from "../../../components/schema-forms/SignaturePad";
 import useAuth from "../../../hooks/useAuth";
 import api from "../../../lib/api";
 import { getErrorMessage } from "../../../lib/error";
 import "../../../styles/schema-forms.css";
 
-const EMPTY_ORG = { name: "", code: "", email: "", phone: "", address: "", registrationNumber: "", signature: "" };
+const EMPTY_ORG = { name: "", code: "", email: "", phone: "", address: "", registrationNumber: "", signature: "", stamp: "" };
+
+/** /tenants/current payload → the editable Party 1 org shape. */
+function tenantToOrg(t) {
+  return {
+    name: t.name || "",
+    code: t.code || "",
+    email: t.email || "",
+    phone: t.phone || "",
+    address: t.address || "",
+    registrationNumber: t.registrationNumber || t.registration_number || "",
+    signature: t.signature || "",
+    stamp: t.stamp || "",
+  };
+}
 
 // Cap uploads at ~1.2M chars of base64 so the PATCH stays under the gateway's
 // 2mb JSON limit (mirrors the Joi max on the platform service).
@@ -54,7 +70,6 @@ function FormsPage() {
   const { tenantContextId, isSuperAdmin } = useAuth();
   const [tab, setTab] = useState("builder");
   const [org, setOrg] = useState(EMPTY_ORG);
-  const [orgLoading, setOrgLoading] = useState(true);
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgNote, setOrgNote] = useState("");
   const [showOrgEdit, setShowOrgEdit] = useState(false);
@@ -62,42 +77,39 @@ function FormsPage() {
   // is captured in the org edit popup.
   const [sigMode, setSigMode] = useState("upload");
 
+  const queryClient = useQueryClient();
   // Org (Party 1) data feeds the Templates header box + the template preview.
-  // Reload on every tenant switch — super admin designs per tenant via the
-  // header override.
+  // Cached per tenant, so remounts and tab switches render the header from
+  // cache immediately while a background revalidation keeps it fresh — no more
+  // waiting on (or refreshing for) /tenants/current.
   const tenantKey = String(tenantContextId || "");
-  const loadedFor = useRef("");
+  const orgQuery = useQuery({
+    queryKey: ["tenant-current", tenantKey],
+    queryFn: async () => (await api.get("/tenants/current")).data || null,
+    staleTime: 60000,
+  });
+  const orgLoading = orgQuery.isPending;
+  const orgFetchError = orgQuery.isError ? getErrorMessage(orgQuery.error) : "";
+
+  // Warm the Templates list while this page is open so the tab opens instantly.
   useEffect(() => {
-    if (loadedFor.current === tenantKey) return;
-    loadedFor.current = tenantKey;
-    let active = true;
-    setOrgLoading(true);
+    queryClient.prefetchQuery({
+      queryKey: templatesKey(tenantKey),
+      queryFn: fetchTemplates,
+      staleTime: 60000,
+    });
+  }, [queryClient, tenantKey]);
+
+  // Seed the editable copy once per tenant, and never while the popup is open —
+  // a background refresher must not wipe what the admin is typing.
+  const seededFor = useRef("");
+  useEffect(() => {
+    const t = orgQuery.data;
+    if (!t || showOrgEdit || seededFor.current === tenantKey) return;
+    seededFor.current = tenantKey;
+    setOrg(tenantToOrg(t));
     setOrgNote("");
-    api
-      .get("/tenants/current")
-      .then((res) => {
-        if (!active) return;
-        const t = res.data || {};
-        setOrg({
-          name: t.name || "",
-          code: t.code || "",
-          email: t.email || "",
-          phone: t.phone || "",
-          address: t.address || "",
-          registrationNumber: t.registrationNumber || t.registration_number || "",
-          signature: t.signature || "",
-        });
-        setOrgLoading(false);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setOrgNote(getErrorMessage(err));
-        setOrgLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [tenantKey]);
+  }, [orgQuery.data, showOrgEdit, tenantKey]);
 
   const saveOrg = async (event) => {
     event.preventDefault();
@@ -113,6 +125,8 @@ function FormsPage() {
         signature: org.signature || "",
       });
       const t = res.data || {};
+      // Keep the cache in step so a later remount doesn't show the old data.
+      queryClient.setQueryData(["tenant-current", tenantKey], (prev) => ({ ...(prev || {}), ...t }));
       setOrg((prev) => ({
         ...prev,
         email: t.email || "",
@@ -161,6 +175,11 @@ function FormsPage() {
             {org.email ? <span>{org.email}</span> : null}
             {org.phone ? <span>{org.phone}</span> : null}
           </span>
+          <span className="org-summary__row">
+            Signature: {org.signature ? "on file" : "not saved"}
+            {" · "}
+            Stamp: {org.stamp ? "on file" : "not uploaded"}
+          </span>
         </span>
       )}
       {needsTenant ? null : (
@@ -180,7 +199,9 @@ function FormsPage() {
           </svg>
         </button>
       )}
-      {orgNote && !showOrgEdit ? <span className="org-summary__note">{orgNote}</span> : null}
+      {(orgNote || orgFetchError) && !showOrgEdit ? (
+        <span className="org-summary__note">{orgNote || orgFetchError}</span>
+      ) : null}
     </span>
   );
 
@@ -215,7 +236,9 @@ function FormsPage() {
         </div>
       }
     >
-      {tab === "builder" ? <SchemaFormsBuilder /> : <TemplatesTab org={org} />}
+      {/* key=tenant: a tenant switch remounts the tab, so the editor, banner,
+          and detected fields reset instead of carrying the old tenant's work. */}
+      {tab === "builder" ? <SchemaFormsBuilder /> : <TemplatesTab key={tenantKey || "home"} org={org} />}
       {showOrgEdit
         ? createPortal(
           <div className="form-editor-backdrop" onClick={() => setShowOrgEdit(false)}>
