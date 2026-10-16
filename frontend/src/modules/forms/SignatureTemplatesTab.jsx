@@ -52,7 +52,7 @@ export default function SignatureTemplatesTab({ org }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [localOrg, setLocalOrg] = useState(org || {});
-  const { tenantContextId } = useAuth();
+  const { tenantContextId, currentTenant } = useAuth();
   const orgQuery = useQuery({
     queryKey: ["tenant-current", String(tenantContextId || "")],
     queryFn: async () => (await api.get("/tenants/current")).data || null,
@@ -102,10 +102,10 @@ export default function SignatureTemplatesTab({ org }) {
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
   useEffect(() => {
-    const source = orgQuery.data || org;
+    const source = currentTenant || orgQuery.data || org;
     if (!source) return;
     setLocalOrg(mapOrg(source));
-  }, [org, orgQuery.data]);
+  }, [org, orgQuery.data, currentTenant]);
 
   useEffect(() => {
     if (!editing?.template?._id) {
