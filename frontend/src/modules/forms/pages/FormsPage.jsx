@@ -67,9 +67,9 @@ function fileToSignatureDataUrl(file) {
 }
 
 function FormsPage() {
-  const { tenantContextId, isSuperAdmin } = useAuth();
+  const { tenantContextId, isSuperAdmin, currentTenant } = useAuth();
   const [tab, setTab] = useState("builder");
-  const [org, setOrg] = useState(EMPTY_ORG);
+  const [org, setOrg] = useState(() => (currentTenant ? tenantToOrg(currentTenant) : EMPTY_ORG));
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgNote, setOrgNote] = useState("");
   const [showOrgEdit, setShowOrgEdit] = useState(false);
@@ -87,6 +87,7 @@ function FormsPage() {
     queryKey: ["tenant-current", tenantKey],
     queryFn: async () => (await api.get("/tenants/current")).data || null,
     staleTime: 60000,
+    ...(currentTenant ? { initialData: currentTenant } : {}),
   });
   const orgLoading = orgQuery.isPending;
   const orgFetchError = orgQuery.isError ? getErrorMessage(orgQuery.error) : "";
@@ -104,7 +105,7 @@ function FormsPage() {
   // a background refresher must not wipe what the admin is typing.
   const seededFor = useRef("");
   useEffect(() => {
-    const t = orgQuery.data;
+    const t = orgQuery.data || currentTenant;
     if (!t || showOrgEdit || seededFor.current === tenantKey) return;
     seededFor.current = tenantKey;
     setOrg(tenantToOrg(t));
@@ -174,15 +175,6 @@ function FormsPage() {
           <span className="org-summary__row">
             {org.email ? <span>{org.email}</span> : null}
             {org.phone ? <span>{org.phone}</span> : null}
-          </span>
-          <span className="org-summary__row">
-            Signature: {org.signature ? "on file" : "not saved – click pencil"} ·
-            Stamp: {org.stamp ? "on file" : "not uploaded"}
-          </span>
-          <span className="org-summary__row">
-            Signature: {org.signature ? "on file" : "not saved"}
-            {" · "}
-            Stamp: {org.stamp ? "on file" : "not uploaded"}
           </span>
         </span>
       )}
@@ -356,4 +348,5 @@ function FormsPage() {
 }
 
 export default FormsPage;
+
 
