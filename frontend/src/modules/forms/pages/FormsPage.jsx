@@ -176,6 +176,10 @@ function FormsPage() {
             {org.phone ? <span>{org.phone}</span> : null}
           </span>
           <span className="org-summary__row">
+            Signature: {org.signature ? "on file" : "not saved – click pencil"} ·
+            Stamp: {org.stamp ? "on file" : "not uploaded"}
+          </span>
+          <span className="org-summary__row">
             Signature: {org.signature ? "on file" : "not saved"}
             {" · "}
             Stamp: {org.stamp ? "on file" : "not uploaded"}
@@ -352,3 +356,4 @@ function FormsPage() {
 }
 
 export default FormsPage;
+
