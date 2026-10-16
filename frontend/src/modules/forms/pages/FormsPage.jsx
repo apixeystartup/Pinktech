@@ -124,6 +124,8 @@ function FormsPage() {
         registrationNumber: String(org.registrationNumber || "").trim(),
         // Party 1 signature (drawn or uploaded) — fills {{signature.tenant}}.
         signature: org.signature || "",
+        // Party 1 stamp/seal — fills the template "stamp" field.
+        stamp: org.stamp || "",
       });
       const t = res.data || {};
       // Keep the cache in step so a later remount doesn't show the old data.
@@ -135,6 +137,7 @@ function FormsPage() {
         address: t.address || "",
         registrationNumber: t.registrationNumber || t.registration_number || "",
         signature: t.signature || "",
+        stamp: t.stamp || "",
       }));
       setShowOrgEdit(false);
       setSigMode("upload");
@@ -155,6 +158,19 @@ function FormsPage() {
       setOrgNote("");
     } catch (err) {
       setOrgNote(err?.message || "Failed to read the signature image.");
+    }
+  };
+
+  const onStampFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await fileToSignatureDataUrl(file);
+      setOrg((p) => ({ ...p, stamp: dataUrl }));
+      setOrgNote("");
+    } catch (err) {
+      setOrgNote(err?.message || "Failed to read the stamp image.");
     }
   };
 
@@ -327,6 +343,32 @@ function FormsPage() {
                     ) : (
                       <p className="doc-form-note" style={{ margin: "4px 0 0" }}>
                         No signature saved yet — templates show a blank signature line until you add one.
+                      </p>
+                    )}
+                  </div>
+                  <div className="sigCapture">
+                    <div className="adminRow" style={{ gap: 8 }}>
+                      <label style={{ margin: 0 }}>Party 1 stamp / seal - used in sign templates (stamp field)</label>
+                    </div>
+                    <div className="adminRow" style={{ gap: 8 }}>
+                      <input type="file" accept="image/*" onChange={onStampFile} />
+                      {org.stamp ? (
+                        <button
+                          type="button"
+                          className="smallBtn"
+                          onClick={() => setOrg((p) => ({ ...p, stamp: "" }))}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
+                    {org.stamp ? (
+                      <div className="sigCapture__preview">
+                        <img src={org.stamp} alt="Saved Party 1 stamp" />
+                      </div>
+                    ) : (
+                      <p className="doc-form-note" style={{ margin: "4px 0 0" }}>
+                        No stamp uploaded yet - templates show a blank stamp area until you add one.
                       </p>
                     )}
                   </div>
