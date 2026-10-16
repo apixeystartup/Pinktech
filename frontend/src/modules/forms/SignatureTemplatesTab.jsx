@@ -81,6 +81,7 @@ export default function SignatureTemplatesTab({ org }) {
   const [uploadBusy, setUploadBusy] = useState(false);
   const fileRef = useRef(null);
 
+  // Retained for compatibility; UI Send was removed per request.
   const [sendFor, setSendFor] = useState(null);
   const [doctors, setDoctors] = useState([]);
   const [sendDoctorId, setSendDoctorId] = useState("");
