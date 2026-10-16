@@ -68,8 +68,13 @@ function fileToSignatureDataUrl(file) {
 
 function FormsPage() {
   const { tenantContextId, isSuperAdmin, currentTenant } = useAuth();
+  const tenantKey = String(tenantContextId || "");
+  const cachedTenant = (() => {
+    try { return JSON.parse(localStorage.getItem("pink:org:" + tenantKey) || "null"); } catch { return null; }
+  })();
+
   const [tab, setTab] = useState("builder");
-  const [org, setOrg] = useState(() => (currentTenant ? tenantToOrg(currentTenant) : EMPTY_ORG));
+  const [org, setOrg] = useState(() => tenantToOrg(currentTenant || cachedTenant || EMPTY_ORG));
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgNote, setOrgNote] = useState("");
   const [showOrgEdit, setShowOrgEdit] = useState(false);
@@ -78,16 +83,11 @@ function FormsPage() {
   const [sigMode, setSigMode] = useState("upload");
 
   const queryClient = useQueryClient();
-  // Org (Party 1) data feeds the Templates header box + the template preview.
-  // Cached per tenant, so remounts and tab switches render the header from
-  // cache immediately while a background revalidation keeps it fresh — no more
-  // waiting on (or refreshing for) /tenants/current.
-  const tenantKey = String(tenantContextId || "");
   const orgQuery = useQuery({
     queryKey: ["tenant-current", tenantKey],
     queryFn: async () => (await api.get("/tenants/current")).data || null,
     staleTime: 60000,
-    ...(currentTenant ? { initialData: currentTenant } : {}),
+    ...(currentTenant || cachedTenant ? { initialData: currentTenant || cachedTenant } : {}),
   });
   const orgLoading = orgQuery.isPending;
   const orgFetchError = orgQuery.isError ? getErrorMessage(orgQuery.error) : "";
