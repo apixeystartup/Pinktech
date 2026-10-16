@@ -322,7 +322,7 @@ export default function SignatureTemplatesTab({ org }) {
               <input
                 ref={fileRef}
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx"
                 style={{ display: "none" }}
                 disabled={uploadBusy}
                 onChange={(e) => {
@@ -394,7 +394,7 @@ export default function SignatureTemplatesTab({ org }) {
                 <p>No agreement uploaded yet.</p>
                 <label className="ioButton ioButton--sm">
                   {uploadBusy ? "Uploading…" : "Upload agreement (PDF)"}
-                  <input type="file" accept="application/pdf" style={{ display: "none" }} disabled={uploadBusy} onChange={(e) => {
+                  <input type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx" style={{ display: "none" }} disabled={uploadBusy} onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleUpload(f);
                     e.target.value = "";

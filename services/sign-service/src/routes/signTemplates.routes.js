@@ -10,6 +10,7 @@ const Envelope = require("../models/envelope.model");
 const Tenant = require("../models/tenant.model");
 const ExternalUser = require("../models/externalUser.model");
 const upload = require("../middlewares/upload");
+const { normalizeAgreementUpload, countPdfPages } = require("../services/documentConversion");
 const { appendEvent } = require("../services/eventLog");
 const { sendEnvelope } = require("../services/sendEnvelope");
 const { toDto } = require("../services/envelopeDto");
@@ -177,21 +178,19 @@ router.post("/:id/document", uploadPdf, async (req, res, next) => {
     const denied = denyUnlessAdmin(req, res, "upload agreements");
     if (denied) return denied;
     const doc = await loadTemplate(req);
-    if (!req.file) throw new ApiError(422, "Attach the agreement PDF (form field \"file\").");
-    const magic = req.file.buffer.subarray(0, 5).toString("latin1");
-    if (!magic.startsWith("%PDF-")) throw new ApiError(422, "That file is not a PDF.");
-
-    const sha256 = crypto.createHash("sha256").update(req.file.buffer).digest("hex");
+    if (!req.file) throw new ApiError(422, "Attach the agreement file (form field \"file\").");
+    const normalized = await normalizeAgreementUpload(req.file);
+    const sha256 = crypto.createHash("sha256").update(normalized.buffer).digest("hex");
     fs.mkdirSync(SIGN_STORAGE_DIR, { recursive: true });
-    const safeName = path.basename(req.file.originalname || "agreement.pdf").replace(/[^\w.\- ]+/g, "_").slice(0, 120);
-    const filePath = path.join(SIGN_STORAGE_DIR, `template-${doc._id}-${Date.now()}.pdf`);
-    fs.writeFileSync(filePath, req.file.buffer);
+    const safeName = path.basename(normalized.originalName || "agreement.pdf").replace(/[^\w.\- ]+/g, "_").slice(0, 120);
+    const filePath = path.join(SIGN_STORAGE_DIR, "template-" + doc._id + "-" + Date.now() + ".pdf");
+    fs.writeFileSync(filePath, normalized.buffer);
 
     for (const old of doc.documents) {
       if (old.filePath) fs.promises.unlink(old.filePath).catch(() => {});
     }
-    const pages = Math.max(0, Math.min(9999, Number.parseInt(req.body?.pages, 10) || 0));
-    // One PDF per template for now — uploading replaces the previous document.
+    const pages = await countPdfPages(normalized.buffer);
+    // One generated PDF per template for now — uploading replaces the previous document.
     doc.documents = [{ name: safeName, filePath, sha256, pages }];
     await doc.save();
     return res.json(toTemplateDto(doc));
