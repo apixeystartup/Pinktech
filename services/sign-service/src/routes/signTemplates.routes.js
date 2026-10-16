@@ -116,6 +116,17 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+router.get("/:id", async (req, res, next) => {
+  try {
+    const denied = denyUnlessAdmin(req, res, "view signature templates");
+    if (denied) return denied;
+    const doc = await loadTemplate(req);
+    return res.json(toTemplateDto(doc));
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post("/", async (req, res, next) => {
   try {
     const denied = denyUnlessAdmin(req, res, "create signature templates");
