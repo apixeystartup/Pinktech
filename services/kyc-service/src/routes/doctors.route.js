@@ -908,10 +908,9 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
         throw new ApiError(422, `The form's ${side} template is invalid — pick another template on the form`);
       }
       const doc = await FormTemplate.findOne({ _id: id, tenantId: req.tenantId }).lean();
-      if (!doc) {
-        throw new ApiError(422, `The form's ${side} template no longer exists — pick another template on the form`);
-      }
-      return doc;
+      // Return null when not found — the caller checks sign-service before
+      // deciding the template is truly missing.
+      return doc || null;
     }
     const openingDoc = await loadTemplate(openingTemplateId, "opening");
     const closingDoc = await loadTemplate(closingTemplateId, "closing");
@@ -936,6 +935,14 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
     }
     const openingSigTemplate = openingDoc ? null : await getSignTemplate(openingTemplateId);
     const closingSigTemplate = closingDoc ? null : await getSignTemplate(closingTemplateId);
+
+    // A selected template that exists in neither service is a real error.
+    if (openingTemplateId && !openingDoc && !openingSigTemplate) {
+      throw new ApiError(422, `The form's opening template no longer exists — pick another template on the form`);
+    }
+    if (closingTemplateId && !closingDoc && !closingSigTemplate) {
+      throw new ApiError(422, `The form's closing template no longer exists — pick another template on the form`);
+    }
     // {{signature.tenant}} = Party 1's own signature, saved in the Forms
     // org-data popup. Block here so the issued link never shows a blank line.
     const needsPartyOneSig = [openingDoc, closingDoc].some((doc) =>
