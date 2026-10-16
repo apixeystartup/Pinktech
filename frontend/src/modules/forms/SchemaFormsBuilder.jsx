@@ -124,8 +124,6 @@ function normalizeModuleDoc(moduleDoc) {
         templateId: settings.templateId || null,
         openingTemplateId: settings.openingTemplateId || settings.templateId || null,
         closingTemplateId: settings.closingTemplateId || null,
-        openingSignatureTemplateId: settings.openingSignatureTemplateId || null,
-        closingSignatureTemplateId: settings.closingSignatureTemplateId || null,
         allowDraft: Boolean(settings.allowDraft),
       },
       fields: Array.isArray(raw.schema?.fields) ? raw.schema.fields.map(normalizeField) : [],
@@ -526,7 +524,7 @@ function SchemaFormsBuilder() {
               }}
             >
               <option value="">No opening agreement</option>
-              {templates.map((t) => (
+              {signatureTemplates.map((t) => (
                 <option key={t._id} value={t._id}>
                   {t.name}
                 </option>
@@ -541,38 +539,6 @@ function SchemaFormsBuilder() {
               onChange={(e) => updateSetting("closingTemplateId", e.target.value || null)}
             >
               <option value="">No closing agreement</option>
-              {templates.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="grid">
-          <div className="field">
-            <label htmlFor="setting-opening-sig-template">Opening agreement — signature template</label>
-            <select
-              id="setting-opening-sig-template"
-              value={builderState.schema?.settings?.openingSignatureTemplateId || ""}
-              onChange={(e) => updateSetting("openingSignatureTemplateId", e.target.value || null)}
-            >
-              <option value="">No signature agreement</option>
-              {signatureTemplates.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="setting-closing-sig-template">Closing agreement — signature template</label>
-            <select
-              id="setting-closing-sig-template"
-              value={builderState.schema?.settings?.closingSignatureTemplateId || ""}
-              onChange={(e) => updateSetting("closingSignatureTemplateId", e.target.value || null)}
-            >
-              <option value="">No signature agreement</option>
               {signatureTemplates.map((t) => (
                 <option key={t._id} value={t._id}>
                   {t.name}
@@ -581,9 +547,10 @@ function SchemaFormsBuilder() {
             </select>
           </div>
         </div>
+
         <p className="doc-form-note">
-          Signature templates are uploaded in the Templates tab. Designer chooses signature, party, stamp, etc. {"{{tenant.*}}"} fills from this tenant at setup,{" "}
-          {"{{doctor.*}}"} fills from the doctor when the form is assigned. Design templates in the Templates tab.
+          Pick a signature template from the Templates tab for each side. {"{{tenant.*}}"} fills from this tenant at setup,{" "}
+          {"{{doctor.*}}"} fills from the doctor when the form is assigned.
         </p>
       </div>
 

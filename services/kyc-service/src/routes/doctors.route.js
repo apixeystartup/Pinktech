@@ -902,8 +902,6 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
     const settings = moduleDoc.formSchema?.settings || {};
     const openingTemplateId = settings.openingTemplateId || settings.templateId || null;
     const closingTemplateId = settings.closingTemplateId || null;
-    const openingSigTemplateId = settings.openingSignatureTemplateId || null;
-    const closingSigTemplateId = settings.closingSignatureTemplateId || null;
     async function loadTemplate(id, side) {
       if (!id) return null;
       if (!mongoose.isValidObjectId(id)) {
@@ -936,8 +934,8 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
         return await res.json();
       } catch { return null; }
     }
-    const openingSigTemplate = await getSignTemplate(openingSigTemplateId);
-    const closingSigTemplate = await getSignTemplate(closingSigTemplateId);
+    const openingSigTemplate = openingDoc ? null : await getSignTemplate(openingTemplateId);
+    const closingSigTemplate = closingDoc ? null : await getSignTemplate(closingTemplateId);
     // {{signature.tenant}} = Party 1's own signature, saved in the Forms
     // org-data popup. Block here so the issued link never shows a blank line.
     const needsPartyOneSig = [openingDoc, closingDoc].some((doc) =>
