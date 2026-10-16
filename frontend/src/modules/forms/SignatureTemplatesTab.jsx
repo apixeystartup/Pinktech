@@ -47,17 +47,7 @@ function normalizeFields(list) {
 }
 
 export default function SignatureTemplatesTab({ org }) {
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [localOrg, setLocalOrg] = useState(org || {});
   const { tenantContextId, currentTenant } = useAuth();
-  const orgQuery = useQuery({
-    queryKey: ["tenant-current", String(tenantContextId || "")],
-    queryFn: async () => (await api.get("/tenants/current")).data || null,
-    staleTime: 60000,
-  });
   const mapOrg = (source) => ({
     name: source?.name || "",
     code: source?.code || "",
@@ -67,6 +57,16 @@ export default function SignatureTemplatesTab({ org }) {
     registrationNumber: source?.registrationNumber || source?.registration_number || "",
     signature: source?.signature || "",
     stamp: source?.stamp || "",
+  });
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [localOrg, setLocalOrg] = useState(() => mapOrg(currentTenant || org || {}));
+  const orgQuery = useQuery({
+    queryKey: ["tenant-current", String(tenantContextId || "")],
+    queryFn: async () => (await api.get("/tenants/current")).data || null,
+    staleTime: 60000,
   });
   const [editing, setEditing] = useState(null); // { template, name, fields }
   const [saving, setSaving] = useState(false);
