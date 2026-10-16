@@ -201,7 +201,11 @@ export default function PdfFieldCanvas({
     setError(null);
     (async () => {
       try {
-        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        const response = await fetch(pdfUrl);
+        if (!response.ok) throw new Error(`Agreement could not be loaded (${response.status}).`);
+        const data = await response.arrayBuffer();
+        if (cancelled) return;
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
         if (cancelled) return;
         const out = [];
         for (let i = 1; i <= pdf.numPages; i++) {
