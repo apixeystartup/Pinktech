@@ -38,3 +38,19 @@
 .inlineToggle { display: inline-flex; gap: 4px; margin: 0 0.5rem; }
 .toggleActive, .activeToggle { background: #1c7ed6; color: #fff; border-color: #1c7ed6; }
 .inlineToggle .ioButton--sm { padding: 4px 10px; }
+
+/* Signature template cards */
+.signTemplateGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.signCard { background: #fff; border: 1px solid #e1e7f0; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .15s ease, transform .15s ease; }
+.signCard:hover { box-shadow: 0 4px 14px rgba(28,126,214,.12); transform: translateY(-1px); }
+.signCard__thumb { position: relative; height: 120px; background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%); display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #eef2f8; }
+.signCard__thumbDoc { width: 52px; height: 64px; color: #1c7ed6; background: #fff; border: 1px solid #d6e4f7; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(28,126,214,.10); }
+.signCard__thumbDoc svg { width: 26px; height: 26px; }
+.signCard__thumbCount { position: absolute; top: 8px; right: 8px; background: #1c7ed6; color: #fff; font-size: 11px; font-weight: 700; min-width: 22px; height: 22px; border-radius: 11px; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+.signCard__body { padding: 12px 14px 4px; flex: 1; }
+.signCard__title { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: #1a2233; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.signCard__meta { margin: 0; font-size: 12.5px; color: #4a5568; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.signCard__meta--sub { color: #8a94a6; font-size: 12px; margin-top: 2px; }
+.signCard__actions { display: flex; gap: 8px; padding: 10px 14px 14px; }
+.signCard__actions .ioButton--sm { flex: 1; }
+.signCard__actions .dangerBtn { flex: 0 0 auto; }

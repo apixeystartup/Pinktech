@@ -467,17 +467,31 @@ export default function SignatureTemplatesTab({ org }) {
         {!loading && !templates.length ? (
           <p className="doc-form-note">No signature templates yet - click "+ Add template" to start.</p>
         ) : null}
-        <div className="schema-forms-module-grid" style={{ marginTop: "1rem" }}>
+        <div className="signTemplateGrid">
           {templates.map((t) => (
-            <article key={String(t._id)} className="schema-forms-module-card">
-              <div className="schema-forms-module-card__head">
-                <h3 className="schema-forms-module-card__title">{t.name || "Untitled"}</h3>
+            <article key={String(t._id)} className="signCard">
+              <div className="signCard__thumb">
+                <div className="signCard__thumbDoc">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="8" y1="13" x2="16" y2="13" />
+                    <line x1="8" y1="17" x2="13" y2="17" />
+                  </svg>
+                </div>
+                <span className="signCard__thumbCount">{t.fieldCount || 0}</span>
               </div>
-              <p className="schema-forms-module-card__meta">
-                {t.document ? `Agreement: ${t.document.name}` : "No agreement uploaded"}{" · "}
-                {t.fieldCount || 0} field{Number(t.fieldCount) === 1 ? "" : "s"}
-              </p>
-              <div className="schema-forms-module-card__actions">
+              <div className="signCard__body">
+                <h3 className="signCard__title" title={t.name || "Untitled"}>{t.name || "Untitled"}</h3>
+                <p className="signCard__meta">
+                  {t.document ? t.document.name : "No agreement uploaded"}
+                </p>
+                <p className="signCard__meta signCard__meta--sub">
+                  {t.fieldCount || 0} field{Number(t.fieldCount) === 1 ? "" : "s"} placed
+                  {t.document?.pages ? ` · ${t.document.pages} page${Number(t.document.pages) === 1 ? "" : "s"}` : ""}
+                </p>
+              </div>
+              <div className="signCard__actions">
                 <button type="button" className="ioButton ioButton--sm" onClick={() => openDesign(t)}>Edit</button>
                 <button type="button" className="dangerBtn miniBtn" onClick={() => handleDelete(t._id)}>Delete</button>
               </div>
