@@ -427,27 +427,22 @@ export default function SignatureTemplatesTab({ org }) {
           <h2>Signature templates</h2>
           <button type="button" className="ioButton ioButton--sm" onClick={handleCreate}>+ Add template</button>
         </div>
-        <p className="doc-form-note">
-          Upload an agreement (PDF) and drag signature, party, stamp and text fields onto it — Zoho Sign style. Sending places the saved org-data + signature/stamp, then you pick a doctor (Party 2) and the doctor signs through their link.
-        </p>
         {loading ? <p className="doc-form-note">Loading…</p> : null}
         {!loading && !templates.length ? (
-          <p className="doc-form-note">No signature templates yet — click "+ Add signature template" to start.</p>
+          <p className="doc-form-note">No signature templates yet - click "+ Add template" to start.</p>
         ) : null}
         <div className="schema-forms-module-grid" style={{ marginTop: "1rem" }}>
           {templates.map((t) => (
             <article key={String(t._id)} className="schema-forms-module-card">
               <div className="schema-forms-module-card__head">
                 <h3 className="schema-forms-module-card__title">{t.name || "Untitled"}</h3>
-                <span className="schema-forms-module-card__badge">Sign template</span>
               </div>
               <p className="schema-forms-module-card__meta">
                 {t.document ? `Agreement: ${t.document.name}` : "No agreement uploaded"}{" · "}
                 {t.fieldCount || 0} field{Number(t.fieldCount) === 1 ? "" : "s"}
               </p>
               <div className="schema-forms-module-card__actions">
-                <button type="button" className="ioButton ioButton--sm" onClick={() => openDesign(t)}>Design</button>
-                <button type="button" className="ioButton ioButton--sm" disabled={!t.document} onClick={() => { setSendFor(t); setSendResult(null); setSendError(""); setSendDoctorId(""); setSendTitle(t.name || ""); }}>Send</button>
+                <button type="button" className="ioButton ioButton--sm" onClick={() => openDesign(t)}>Edit</button>
                 <button type="button" className="dangerBtn miniBtn" onClick={() => handleDelete(t._id)}>Delete</button>
               </div>
             </article>
