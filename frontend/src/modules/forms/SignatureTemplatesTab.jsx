@@ -447,6 +447,26 @@ export default function SignatureTemplatesTab({ org }) {
       {notice ? <div className="doc-form-note">{notice}</div> : null}
       <div className="builderCard">
         <div className="adminRow">
+          <h2>Organization data (Party 1)</h2>
+        </div>
+        <div className="org-summary__data org-summary__data--stacked">
+          <span className="org-summary__row">
+            <strong>{localOrg?.name || "—"}</strong>
+            {localOrg?.code ? <span className="org-summary__code">{localOrg.code}</span> : null}
+          </span>
+          <span className="org-summary__row">
+            {localOrg?.email ? <span>{localOrg.email}</span> : null}
+            {localOrg?.phone ? <span>{localOrg.phone}</span> : null}
+          </span>
+          {localOrg?.address ? <span className="org-summary__row">{localOrg.address}</span> : null}
+          {localOrg?.registrationNumber ? <span className="org-summary__row">Reg: {localOrg.registrationNumber}</span> : null}
+          <span className="org-summary__row">
+            Signature: {hasSig ? "on file" : "not saved yet"} · Stamp: {hasStamp ? "on file" : "not uploaded"}
+          </span>
+        </div>
+      </div>
+      <div className="builderCard">
+        <div className="adminRow">
           <h2>Signature templates</h2>
           <button type="button" className="ioButton ioButton--sm" onClick={handleCreate}>+ Add template</button>
         </div>
