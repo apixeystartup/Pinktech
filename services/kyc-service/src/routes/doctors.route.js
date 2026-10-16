@@ -895,12 +895,15 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
       );
     }
 
-    // The form carries opening/closing templates: resolve Party 1 (this tenant)
+    const _fetch = require("node-fetch");
+    // The form carries opening/closing templates resolve Party 1 (this tenant)
     // + the doctor's blanks now and freeze both composed agreements onto the
     // dispatch. Legacy single-template forms keep working via templateId.
     const settings = moduleDoc.formSchema?.settings || {};
     const openingTemplateId = settings.openingTemplateId || settings.templateId || null;
     const closingTemplateId = settings.closingTemplateId || null;
+    const openingSigTemplateId = settings.openingSignatureTemplateId || null;
+    const closingSigTemplateId = settings.closingSignatureTemplateId || null;
     async function loadTemplate(id, side) {
       if (!id) return null;
       if (!mongoose.isValidObjectId(id)) {
@@ -915,6 +918,26 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
     const openingDoc = await loadTemplate(openingTemplateId, "opening");
     const closingDoc = await loadTemplate(closingTemplateId, "closing");
     const templateDoc = openingDoc || closingDoc || null;
+
+    // Sign templates live in sign-service, not Forms. Track them so they can
+    // be /sent/ later to the same doctor (opening + closing agreements).
+    async function getSignTemplate(id) {
+      if (!id) return null;
+      if (!mongoose.isValidObjectId(id)) return null;
+      const _fetch = require("node-fetch");
+      try {
+        const res = await _fetch(`http://127.0.0.1:4009/templates/${id}`, { headers: {
+          "x-auth-user-id": String(req.auth.userId),
+          "x-auth-tenant-id": String(req.tenantId),
+          "x-auth-account-role": String(req.auth.accountRole || (req.auth.isSuperAdmin ? "super_admin" : "tenant_admin")),
+          "x-auth-is-super-admin": req.auth.isSuperAdmin ? "true" : "false",
+        }});
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    }
+    const openingSigTemplate = await getSignTemplate(openingSigTemplateId);
+    const closingSigTemplate = await getSignTemplate(closingSigTemplateId);
     // {{signature.tenant}} = Party 1's own signature, saved in the Forms
     // org-data popup. Block here so the issued link never shows a blank line.
     const needsPartyOneSig = [openingDoc, closingDoc].some((doc) =>
@@ -952,8 +975,42 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
           closingAgreementHtml,
         }
         : {}),
+      ...(openingSigTemplate || closingSigTemplate
+        ? {
+          // Track the sign-template picks on the dispatch so consumers (UI)
+          // can surface them; the actual signature request is issued below.
+          openingSignatureTemplateId: openingSigTemplate?._id || null,
+          closingSignatureTemplateId: closingSigTemplate?._id || null,
+        }
+        : {}),
     });
     const dispatch = dispatches[0];
+
+    // Sign templates are sent (not inlined as HTML) via sign-service.
+    const signatureEnvelopeLinks = [];
+    const signatureActorHeaders = {
+      "x-auth-user-id": String(req.auth.userId),
+      "x-auth-tenant-id": String(req.tenantId),
+      "x-auth-account-role": String(req.auth.accountRole || (req.auth.isSuperAdmin ? "super_admin" : "tenant_admin")),
+      "x-auth-is-super-admin": req.auth.isSuperAdmin ? "true" : "false",
+      "content-type": "application/json",
+    };
+    for (const sigTpl of [openingSigTemplate, closingSigTemplate]) {
+      if (!sigTpl?._id) continue;
+      try {
+        const res = await _fetch(`http://127.0.0.1:4009/templates/${sigTpl._id}/envelopes`, {
+          method: "POST",
+          headers: signatureActorHeaders,
+          body: JSON.stringify({ doctorId: String(doctor._id) }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          signatureEnvelopeLinks.push(...(body.signingLinks || []));
+        }
+      } catch (err) {
+        // Do not block form assignment if signature dispatch fails.
+      }
+    }
 
     await writeAudit({
       tenantId: req.tenantId,

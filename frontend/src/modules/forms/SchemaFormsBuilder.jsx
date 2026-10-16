@@ -1,13 +1,17 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data loading matches pink-form AdminPage */
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   createModule,
   deleteModule,
   getModules,
   updateModule,
 } from "../../lib/schemaFormsApi";
+import { listSignTemplates } from "../../lib/signApi";
 import api from "../../lib/api";
+import useAuth from "../../hooks/useAuth";
+import { fetchTemplates, templatesKey } from "./templatesQuery";
 import "../../styles/schema-forms.css";
 
 const QUESTION_TYPE_OPTIONS = [
@@ -120,6 +124,8 @@ function normalizeModuleDoc(moduleDoc) {
         templateId: settings.templateId || null,
         openingTemplateId: settings.openingTemplateId || settings.templateId || null,
         closingTemplateId: settings.closingTemplateId || null,
+        openingSignatureTemplateId: settings.openingSignatureTemplateId || null,
+        closingSignatureTemplateId: settings.closingSignatureTemplateId || null,
         allowDraft: Boolean(settings.allowDraft),
       },
       fields: Array.isArray(raw.schema?.fields) ? raw.schema.fields.map(normalizeField) : [],
@@ -128,13 +134,24 @@ function normalizeModuleDoc(moduleDoc) {
 }
 
 function SchemaFormsBuilder() {
+  const { tenantContextId } = useAuth();
   const [modules, setModules] = useState([]);
+  const [signatureTemplates, setSignatureTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [builderState, setBuilderState] = useState(normalizeModuleDoc(starterSchema));
   const [schemaText, setSchemaText] = useState(JSON.stringify(normalizeModuleDoc(starterSchema), null, 2));
   const [showRawJson, setShowRawJson] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
-  const [templates, setTemplates] = useState([]);
+  // Same cache as the Templates tab — switching tabs shows the list instantly.
+  const tenantKey = String(tenantContextId || "");
+  const templatesQuery = useQuery({
+    queryKey: templatesKey(tenantKey),
+    queryFn: fetchTemplates,
+    staleTime: 60000,
+    // Templates only feed the picker — the builder works without them.
+    retry: 0,
+  });
+  const templates = Array.isArray(templatesQuery.data) ? templatesQuery.data : [];
   // The editor (second section) only appears when creating or editing a form.
   // Otherwise the tab shows just the form list plus the Add button.
   const [showEditor, setShowEditor] = useState(false);
@@ -149,6 +166,10 @@ function SchemaFormsBuilder() {
   async function refreshModules(targetId = "") {
     const data = await getModules();
     setModules(data);
+    try {
+      const sigs = await listSignTemplates();
+      setSignatureTemplates(Array.isArray(sigs) ? sigs : []);
+    } catch { setSignatureTemplates([]); }
     if (targetId) {
       setSelectedId(targetId);
       const selected = data.find((item) => item._id === targetId);
@@ -180,12 +201,6 @@ function SchemaFormsBuilder() {
 
   useEffect(() => {
     refreshModules().catch((err) => setStatus({ type: "error", message: err.message }));
-    api
-      .get("/forms/templates")
-      .then((res) => setTemplates(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {
-        /* templates only feed the picker — the builder works without them */
-      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -534,8 +549,40 @@ function SchemaFormsBuilder() {
             </select>
           </div>
         </div>
+        <div className="grid">
+          <div className="field">
+            <label htmlFor="setting-opening-sig-template">Opening agreement — signature template</label>
+            <select
+              id="setting-opening-sig-template"
+              value={builderState.schema?.settings?.openingSignatureTemplateId || ""}
+              onChange={(e) => updateSetting("openingSignatureTemplateId", e.target.value || null)}
+            >
+              <option value="">No signature agreement</option>
+              {signatureTemplates.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="setting-closing-sig-template">Closing agreement — signature template</label>
+            <select
+              id="setting-closing-sig-template"
+              value={builderState.schema?.settings?.closingSignatureTemplateId || ""}
+              onChange={(e) => updateSetting("closingSignatureTemplateId", e.target.value || null)}
+            >
+              <option value="">No signature agreement</option>
+              {signatureTemplates.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <p className="doc-form-note">
-          Pick a saved template for each side. {"{{tenant.*}}"} fills from this tenant at setup,{" "}
+          Signature templates are uploaded in the Templates tab. Designer chooses signature, party, stamp, etc. {"{{tenant.*}}"} fills from this tenant at setup,{" "}
           {"{{doctor.*}}"} fills from the doctor when the form is assigned. Design templates in the Templates tab.
         </p>
       </div>
