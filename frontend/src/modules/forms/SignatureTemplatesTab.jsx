@@ -62,7 +62,13 @@ export default function SignatureTemplatesTab({ org }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [localOrg, setLocalOrg] = useState(() => mapOrg(currentTenant || org || {}));
+  const [localOrg, setLocalOrg] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem("pink:org:" + String(tenantContextId || "")) || "null");
+      if (cached) return mapOrg(cached);
+    } catch { /* ignore */ }
+    return mapOrg(currentTenant || org || {});
+  });
   const orgQuery = useQuery({
     queryKey: ["tenant-current", String(tenantContextId || "")],
     queryFn: async () => (await api.get("/tenants/current")).data || null,
@@ -104,8 +110,12 @@ export default function SignatureTemplatesTab({ org }) {
   useEffect(() => {
     const source = currentTenant || orgQuery.data || org;
     if (!source) return;
-    setLocalOrg(mapOrg(source));
-  }, [org, orgQuery.data, currentTenant]);
+    const mapped = mapOrg(source);
+    setLocalOrg(mapped);
+    try {
+      localStorage.setItem("pink:org:" + String(tenantContextId || ""), JSON.stringify(source));
+    } catch { /* ignore quota */ }
+  }, [org, orgQuery.data, currentTenant, tenantContextId]);
 
   useEffect(() => {
     if (!editing?.template?._id) {
