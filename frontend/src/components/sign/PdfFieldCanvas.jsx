@@ -183,6 +183,7 @@ export default function PdfFieldCanvas({
 }) {
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const scrollRef = useRef(null);
 
   const signerSet = useMemo(() => signerFieldIds || new Set(), [signerFieldIds]);
@@ -197,6 +198,7 @@ export default function PdfFieldCanvas({
     if (!pdfUrl) { setPages([]); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
+    setError(null);
     (async () => {
       try {
         const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
@@ -207,9 +209,10 @@ export default function PdfFieldCanvas({
           const viewport = page.getViewport({ scale: 1 });
           out.push({ pageIndex: i - 1, page, viewport });
         }
+        if (out.length === 0) throw new Error("No pages were detected in this PDF.");
         setPages(out);
       } catch (err) {
-        if (!cancelled) { console.error("pdf load failed", err); setPages([]); }
+        if (!cancelled) { console.error("pdf load failed", err); setPages([]); setError(err?.message || "Could not read this PDF."); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -224,7 +227,7 @@ export default function PdfFieldCanvas({
     return <div className="signCanvasEmpty">Loading agreement…</div>;
   }
   if (!pages.length) {
-    return <div className="signCanvasEmpty">No pages detected.</div>;
+    return <div className="signCanvasEmpty">{error || "No pages detected."}</div>;
   }
   return (
     <div className="signCanvasRoot" ref={scrollRef}>

@@ -224,6 +224,8 @@ export default function SignatureTemplatesTab({ org }) {
 
   async function handleUpload(file) {
     if (!file || !editing?.template?._id) return;
+    const localUrl = URL.createObjectURL(file);
+    setDocUrl(localUrl);
     setUploadBusy(true);
     setError("");
     try {
