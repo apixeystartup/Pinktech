@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import useAuth from "../../hooks/useAuth";
+import api from "../../lib/api";
 import {
   createSignTemplate,
   deleteSignTemplate,
@@ -49,6 +52,22 @@ export default function SignatureTemplatesTab({ org }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [localOrg, setLocalOrg] = useState(org || {});
+  const { tenantContextId } = useAuth();
+  const orgQuery = useQuery({
+    queryKey: ["tenant-current", String(tenantContextId || "")],
+    queryFn: async () => (await api.get("/tenants/current")).data || null,
+    staleTime: 60000,
+  });
+  const mapOrg = (source) => ({
+    name: source?.name || "",
+    code: source?.code || "",
+    email: source?.email || "",
+    phone: source?.phone || "",
+    address: source?.address || "",
+    registrationNumber: source?.registrationNumber || source?.registration_number || "",
+    signature: source?.signature || "",
+    stamp: source?.stamp || "",
+  });
   const [editing, setEditing] = useState(null); // { template, name, fields }
   const [saving, setSaving] = useState(false);
   const [selectedCid, setSelectedCid] = useState("");
@@ -82,7 +101,11 @@ export default function SignatureTemplatesTab({ org }) {
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
-  useEffect(() => { setLocalOrg(org || {}); }, [org]);
+  useEffect(() => {
+    const source = orgQuery.data || org;
+    if (!source) return;
+    setLocalOrg(mapOrg(source));
+  }, [org, orgQuery.data]);
 
   useEffect(() => {
     if (!editing?.template?._id) {
