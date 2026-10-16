@@ -8,6 +8,7 @@ const env = require("./config/env");
 const serviceAuth = require("./middlewares/serviceAuth");
 const envelopesRoutes = require("./routes/envelopes.route");
 const ceremonyRoutes = require("./routes/ceremony.route");
+const signTemplatesRoutes = require("./routes/signTemplates.routes");
 
 const app = express();
 
@@ -27,6 +28,9 @@ app.use("/ceremony", ceremonyRoutes);
 
 // Authenticated envelope management.
 app.use("/envelopes", serviceAuth, envelopesRoutes);
+
+// Signature templates (Zoho-style: agreement PDF + drag-dropped fields).
+app.use("/templates", serviceAuth, signTemplatesRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 app.use(errorMiddleware);

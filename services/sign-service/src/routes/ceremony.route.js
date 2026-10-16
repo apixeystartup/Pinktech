@@ -1,4 +1,6 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const { rateLimit } = require("express-rate-limit");
 const ApiError = require("@pink/shared").ApiError;
 const Envelope = require("../models/envelope.model");
@@ -127,6 +129,9 @@ router.get("/:token", async (req, res, next) => {
         name: d.name,
         sourceUrl: d.sourceUrl,
         pages: d.pages,
+        // File-backed docs (uploaded templates) are fetched from
+        // /:token/document/:docId; sourceUrl docs render directly.
+        hasFile: Boolean(d.filePath),
       })),
       recipient: {
         _id: recipient._id,
@@ -141,6 +146,7 @@ router.get("/:token", async (req, res, next) => {
         .filter((f) => String(f.recipientId) === String(recipient._id))
         .map((f) => ({
           _id: f._id,
+          tag: f.tag,
           documentId: f.documentId,
           type: f.type,
           label: f.label,
@@ -156,6 +162,24 @@ router.get("/:token", async (req, res, next) => {
       alreadySigned: recipient.status === "SIGNED",
       waitingOn: envelope.signingOrder === "SEQUENTIAL" && cur && !signable ? cur.name : null,
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// --- Ceremony: document bytes ------------------------------------------------
+
+router.get("/:token/document/:docId", async (req, res, next) => {
+  try {
+    const resolved = await resolveCeremony(req.params.token);
+    if (!resolved) throw new ApiError(404, "This signing link is not valid.");
+    const stored = resolved.envelope.documents.id(req.params.docId);
+    if (!stored?.filePath || !fs.existsSync(stored.filePath)) {
+      throw new ApiError(404, "Document not found.");
+    }
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${stored.name.replace(/"/g, "")}"`);
+    return res.sendFile(path.resolve(stored.filePath));
   } catch (error) {
     return next(error);
   }

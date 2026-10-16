@@ -1,0 +1,40 @@
+.signDesigner { display: flex; flex-direction: column; gap: 0.75rem; }
+.signDesigner__bar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.signDesigner__nameInput { flex: 1 1 300px; padding: 6px 10px; border: 1px solid #cfd6e0; border-radius: 6px; font-size: 14px; }
+.signDesigner__barActions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.signDesigner__body { display: flex; gap: 1rem; flex-wrap: wrap; }
+.signDesigner__palette { flex: 0 0 200px; background: #f7f9fc; border: 1px solid #e1e7f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.signDesigner__palette strong { display: block; margin-bottom: 0.25rem; }
+.signDesigner__canvas { flex: 1 1 600px; min-width: 320px; background: #f2f2f2; border: 1px solid #e1e7f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 1rem; overflow: auto; max-height: calc(100vh - 220px); }
+.signDesigner__props { flex: 0 0 240px; background: #fff; border: 1px solid #e1e7f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.signDesigner__props strong { display: block; }
+.signDesigner__coords { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.signDesigner__stampCard { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 6px; }
+.signDesigner__stampCard strong { font-size: 13px; }
+.signPaletteItem { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #d9e2f1; background: #fff; border-radius: 6px; cursor: grab; font-size: 13px; user-select: none; }
+.signPaletteItem:active { cursor: grabbing; background: #eff3fa; }
+.signPaletteItem__chip { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: #fff; }
+.signPaletteItem__chip--signature { background: #d6336c; }
+.signPaletteItem__chip--image { background: #087f5b; }
+.signPaletteItem__chip--text { background: #1c7ed6; }
+.signPaletteItem__chip--date { background: #f59f00; color: #111; }
+.signPaletteItem__chip--checkbox { background: #845ef7; }
+.signCanvasEmpty { color: #555; text-align: center; padding: 2rem; width: 100%; }
+.signCanvasRoot, .signCanvasRoot .signPdfPage { position: relative; }
+.signPdfPage { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); margin: 0.5rem 0; flex-shrink: 0; }
+.signPdfCanvas { display: block; width: 100%; height: 100%; }
+.signOverlayLayer { position: absolute; inset: 0; }
+.signField { position: absolute; border: 2px solid #1c7ed6; background: rgba(28,126,214,0.10); border-radius: 4px; padding: 2px; box-sizing: border-box; overflow: hidden; cursor: move; }
+.signField.is-draggable:hover { border-color: #f59f00; }
+.signField.is-selected { border-color: #d6336c; background: rgba(214,51,108,0.08); box-shadow: 0 0 0 2px rgba(214,51,108,0.25); }
+.signField.is-editable input, .signField.is-editable textarea { border: none; width: 100%; height: 100%; padding: 2px; }
+.signField__tag { position: absolute; bottom: 0; left: 0; font-size: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 0 4px; border-radius: 0 3px 0 0; pointer-events: none; }
+.signField__delete { position: absolute; top: -10px; right: -10px; width: 20px; height: 20px; border: none; background: #d6336c; color: #fff; border-radius: 10px; cursor: pointer; font-size: 12px; line-height: 1; }
+.signField__resize { position: absolute; bottom: -5px; right: -5px; width: 12px; height: 12px; background: #f59f00; border: 2px solid #fff; border-radius: 8px; cursor: se-resize; }
+.signField img { width: 100%; height: 100%; object-fit: contain; }
+.signField .signPadTrigger { width: 100%; height: 100%; border: none; background: transparent; cursor: pointer; color: #d6336c; font-weight: 600; font-size: 11px; }
+.signField__placeholder { font-size: 11px; color: #555; }
+.signField__text { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inlineToggle { display: inline-flex; gap: 4px; margin: 0 0.5rem; }
+.toggleActive, .activeToggle { background: #1c7ed6; color: #fff; border-color: #1c7ed6; }
+.inlineToggle .ioButton--sm { padding: 4px 10px; }

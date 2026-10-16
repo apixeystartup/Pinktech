@@ -42,10 +42,12 @@ const recipientSchema = new Schema(
   { _id: true },
 );
 
-/** The document(s) to be signed. PDF upload lands in the next increment. */
+/** The document(s) to be signed. Uploaded PDFs land on disk (repo storage/sign). */
 const documentSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 300 },
+    // Absolute disk path — internal only, stripped from API DTOs.
+    filePath: { type: String, default: "", maxlength: 1000 },
     sourceUrl: { type: String, default: "", maxlength: 2000 },
     sha256: { type: String, default: "", maxlength: 64 },
     pages: { type: Number, default: 0, min: 0 },
@@ -54,16 +56,19 @@ const documentSchema = new Schema(
 );
 
 /**
- * A placeholder on a document page, assigned to one recipient. Coordinates are
- * percentages of the page (0–100) so they survive any render size.
+ * A placeholder on a document page, assigned to one recipient. `tag` links the
+ * placement back to the shared placeholder system (tenant., doctor.,
+ * signature., stamp, date, custom.) so template values can auto-resolve at
+ * creation time. Coordinates are percentages of the page (0-100).
  */
 const fieldSchema = new Schema(
   {
+    tag: { type: String, default: "", trim: true, lowercase: true, maxlength: 120 },
     recipientId: { type: Schema.Types.ObjectId, required: true },
     documentId: { type: Schema.Types.ObjectId, default: null },
     type: {
       type: String,
-      enum: ["SIGNATURE", "INITIALS", "DATE", "TEXT", "CHECKBOX"],
+      enum: ["SIGNATURE", "INITIALS", "IMAGE", "TEXT", "DATE", "CHECKBOX"],
       default: "SIGNATURE",
     },
     label: { type: String, default: "", maxlength: 200 },

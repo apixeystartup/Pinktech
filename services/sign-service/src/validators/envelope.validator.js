@@ -14,7 +14,8 @@ const recipientSchema = Joi.object({
 const fieldSchema = Joi.object({
   recipientId: Joi.string().hex().length(24).required(),
   documentId: Joi.string().hex().length(24).allow(null).default(null),
-  type: Joi.string().valid("SIGNATURE", "INITIALS", "DATE", "TEXT", "CHECKBOX").default("SIGNATURE"),
+  tag: Joi.string().trim().lowercase().max(120).allow("").default(""),
+  type: Joi.string().valid("SIGNATURE", "INITIALS", "IMAGE", "TEXT", "DATE", "CHECKBOX").default("SIGNATURE"),
   label: Joi.string().trim().max(200).allow("").default(""),
   page: Joi.number().integer().min(0).max(9999).default(0),
   x: Joi.number().min(0).max(100).default(0),

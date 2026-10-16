@@ -14,6 +14,9 @@ const tenantSchema = new mongoose.Schema(
     // popup (drawn on the pad or an uploaded image). Rendered inline where a
     // template puts {{signature.tenant}}.
     signature: { type: String, default: "" },
+    // Party 1 stamp/seal: same data-URL rules as signature; rendered where a
+    // sign template places the "stamp" field.
+    stamp: { type: String, default: "" },
     adminUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     plan: { type: String, default: "starter" },
     status: {

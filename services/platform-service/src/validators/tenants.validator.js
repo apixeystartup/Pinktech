@@ -51,6 +51,12 @@ const updateOwnTenantSchema = Joi.object({
     .pattern(/^data:image\/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/)
     .allow("", null)
     .optional(),
+  // Party 1 stamp/seal image — same data-URL contract as the signature.
+  stamp: Joi.string()
+    .max(1200000)
+    .pattern(/^data:image\/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/)
+    .allow("", null)
+    .optional(),
 }).min(1);
 
 const assignAccountSchema = Joi.object({

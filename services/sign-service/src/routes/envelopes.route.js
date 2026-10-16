@@ -5,7 +5,8 @@ const Envelope = require("../models/envelope.model");
 const EnvelopeEvent = require("../models/envelopeEvent.model");
 const { appendEvent } = require("../services/eventLog");
 const { assertTransition, blockingRecipients } = require("../services/statusMachine");
-const { issueToken, signingUrlFor } = require("../services/ceremonyToken");
+const { sendEnvelope } = require("../services/sendEnvelope");
+const { toDto } = require("../services/envelopeDto");
 const {
   createEnvelopeSchema,
   addRecipientsSchema,
@@ -31,20 +32,6 @@ function requestActor(req) {
     ip: fwd || req.ip || "",
     ua: String(req.headers["user-agent"] || "").slice(0, 300),
   };
-}
-
-/** Strip ceremony secrets from any outbound representation. */
-function stripTokens(plain) {
-  for (const r of plain.recipients || []) {
-    delete r.tokenHash;
-    delete r.tokenEnc;
-  }
-  return plain;
-}
-
-function toDto(doc) {
-  const plain = typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
-  return stripTokens(plain);
 }
 
 function validate(schema, body) {
@@ -234,38 +221,10 @@ router.post("/:id/send", async (req, res, next) => {
     if (denied) return denied;
     const value = validate(sendSchema, req.body);
     const doc = await loadEnvelope(req, { doc: true });
-    assertTransition(doc.status, "SENT");
-    const signers = blockingRecipients(doc);
-    if (!signers.length) {
-      throw new ApiError(422, "Add at least one signer before sending.");
-    }
-    const expiresAt =
-      value.expiresAt ||
-      doc.expiresAt ||
-      new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    doc.expiresAt = expiresAt;
-    doc.sentAt = new Date();
-
-    // Issue a fresh ceremony token per signer (CC gets none — copy at completion).
-    const signingLinks = [];
-    for (const r of doc.recipients) {
-      if (r.role === "CC") continue;
-      const { token, tokenHash, tokenEnc } = issueToken();
-      r.tokenHash = tokenHash;
-      r.tokenEnc = tokenEnc;
-      r.tokenExpiresAt = expiresAt;
-      r.status = "SENT";
-      r.signedAt = null;
-      r.declinedAt = null;
-      signingLinks.push({ recipientId: r._id, name: r.name, email: r.email, url: signingUrlFor(token) });
-    }
-    doc.status = assertTransition(doc.status, "SENT");
-    await doc.save();
-
-    await appendEvent(doc, {
-      type: "SENT",
+    // Issue tokens, flip DRAFT -> SENT and append the SENT event.
+    const { signingLinks } = await sendEnvelope(doc, {
       actor: requestActor(req),
-      data: { signers: signers.length, expiresAt: expiresAt.toISOString() },
+      expiresAt: value.expiresAt,
     });
 
     // Raw links are returned exactly once — never persisted in plaintext and

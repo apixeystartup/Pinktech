@@ -25,6 +25,7 @@ import AccessDeniedPage from "./pages/AccessDeniedPage";
 import { ROUTE_PERMISSIONS } from "./lib/access-control";
 import PublicKycVerifyPage from "./pages/PublicKycVerifyPage";
 import PublicSchemaFormPage from "./pages/PublicSchemaFormPage";
+import PublicSignPage from "./pages/PublicSignPage";
 import PublicSchemaDispatchPage from "./pages/PublicSchemaDispatchPage";
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
             <Route path="/public/kyc-verify" element={<PublicKycVerifyPage />} />
             <Route path="/public/schema-forms/dispatch/:token" element={<PublicSchemaDispatchPage />} />
             <Route path="/public/schema-forms/:moduleId" element={<PublicSchemaFormPage />} />
+            <Route path="/sign/:token" element={<PublicSignPage />} />
             <Route path="/people" element={<Navigate to="/app/org-employees" replace />} />
             <Route
               path="/app"
