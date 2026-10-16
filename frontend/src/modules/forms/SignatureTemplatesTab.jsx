@@ -425,7 +425,7 @@ export default function SignatureTemplatesTab({ org }) {
       <div className="builderCard">
         <div className="adminRow">
           <h2>Signature templates</h2>
-          <button type="button" className="ioButton ioButton--sm" onClick={handleCreate}>+ Add signature template</button>
+          <button type="button" className="ioButton ioButton--sm" onClick={handleCreate}>+ Add template</button>
         </div>
         <p className="doc-form-note">
           Upload an agreement (PDF) and drag signature, party, stamp and text fields onto it — Zoho Sign style. Sending places the saved org-data + signature/stamp, then you pick a doctor (Party 2) and the doctor signs through their link.

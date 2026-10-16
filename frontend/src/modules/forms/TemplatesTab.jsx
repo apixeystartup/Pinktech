@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { getErrorMessage } from "../../lib/error";
 import useAuth from "../../hooks/useAuth";
+import { fetchTemplates, templatesKey } from "./templatesQuery";
 import { extractTemplateText, fileToAgreementHtml, sanitizeHtml, textToStructuredHtml } from "../../lib/agreementFormatter";
 import { PLACEHOLDER_TAGS, resolvePlaceholdersClient } from "../../lib/placeholders";
+import SignatureTemplatesTab from "./SignatureTemplatesTab.jsx";
 import "../../styles/schema-forms.css";
 import "../../styles/doctors.css";
 
@@ -50,17 +53,6 @@ function scanBodyTags(text) {
   return { auto, party2, signature, unknown };
 }
 
-const TEMPLATE_PROMPT = `Write a tenancy / service agreement as plain text I can paste as a template.
-
-Rules:
-- Use {{tenant.name}}, {{tenant.email}}, {{tenant.phone}}, {{tenant.address}}, {{tenant.registration_number}} for Party 1 (my organization).
-- Use {{doctor.name}}, {{doctor.email}}, {{doctor.phone}}, {{doctor.address}} for Party 2 (the doctor).
-- Use {{date}} for today. Any other fill-in (rent, dates, amounts) stays as {{CAPITAL_WORDS}} — I will fill those in the editor.
-- Use {{signature.tenant}} where my organization (Party 1) signs, and {{signature.doctor}} where the doctor (Party 2) signs.
-- Keep headings with # and plain paragraphs.
-
-Example sections: title, between, purpose, term, rent, obligations, termination, governing law, signatures.`;
-
 function tenantPreviewContext(org) {
   return {
     "tenant.name": org.name || "",
@@ -75,61 +67,33 @@ function tenantPreviewContext(org) {
 
 function TemplatesTab({ org }) {
   const { tenantContextId, isSuperAdmin } = useAuth();
-  const [templates, setTemplates] = useState([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
   const [editor, setEditor] = useState(EMPTY_EDITOR);
   const [showEditor, setShowEditor] = useState(false);
+  const [templateMode, setTemplateMode] = useState("text");
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [promptCopied, setPromptCopied] = useState(false);
   // Detected-field inputs are shown after "Detect required fields" (auto-shown
   // when editing a template that already has saved values).
   const [showFields, setShowFields] = useState(false);
   const bodyRef = useRef(null);
   const fileRef = useRef(null);
 
-  // Save/delete reload the list — setState inside .then callbacks is fine.
-  const loadTemplates = useCallback(async () => {
-    try {
-      const res = await api.get("/forms/templates");
-      setTemplates(Array.isArray(res.data) ? res.data : []);
-      setTemplatesLoading(false);
-    } catch (err) {
-      setBanner(getErrorMessage(err));
-      setTemplatesLoading(false);
-    }
-  }, []);
-
-  // Load on mount + every tenant switch — super admin designs per tenant
-  // via the header override, so templates must follow tenantKey.
-  // The ref guard means the effect body runs at most once per tenant, so the
-  // dep array never changes size between renders.
+  const queryClient = useQueryClient();
+  // Super admin designs per tenant via the header override, so templates follow
+  // tenantKey. Cached data renders immediately on tab switches/remounts and
+  // revalidates in the background instead of blocking on a fresh request.
   const tenantKey = String(tenantContextId || "");
-  const loadedFor = useRef("");
-  useEffect(() => {
-    if (loadedFor.current === tenantKey) return;
-    loadedFor.current = tenantKey;
-    let active = true;
-    setTemplatesLoading(true);
-    setBanner("");
-    setEditor(EMPTY_EDITOR);
-    api
-      .get("/forms/templates")
-      .then((res) => {
-        if (!active) return;
-        setTemplates(Array.isArray(res.data) ? res.data : []);
-        setTemplatesLoading(false);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setBanner(getErrorMessage(err));
-        setTemplatesLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [tenantKey]);
+  const templatesQuery = useQuery({
+    queryKey: templatesKey(tenantKey),
+    queryFn: fetchTemplates,
+    staleTime: 60000,
+  });
+  const templates = Array.isArray(templatesQuery.data) ? templatesQuery.data : [];
+  const templatesLoading = templatesQuery.isPending;
+  const queryError = templatesQuery.isError ? getErrorMessage(templatesQuery.error) : "";
+
+  const reloadTemplates = () => queryClient.invalidateQueries({ queryKey: templatesKey(tenantKey) });
 
   const onTemplateFile = async (event) => {
     const file = event.target.files?.[0];
@@ -162,16 +126,6 @@ function TemplatesTab({ org }) {
     }
   };
 
-  const copyPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(TEMPLATE_PROMPT);
-      setPromptCopied(true);
-      setTimeout(() => setPromptCopied(false), 2000);
-    } catch {
-      setBanner("Unable to copy (clipboard permission). Select the prompt text manually.");
-    }
-  };
-
   const saveTemplate = async (event) => {
     event.preventDefault();
     if (!editor.name.trim()) {
@@ -201,7 +155,7 @@ function TemplatesTab({ org }) {
       }
       setEditor(EMPTY_EDITOR);
       setShowEditor(false);
-      await loadTemplates();
+      await reloadTemplates();
     } catch (err) {
       setBanner(getErrorMessage(err));
     } finally {
@@ -227,7 +181,7 @@ function TemplatesTab({ org }) {
         setEditor(EMPTY_EDITOR);
         setShowEditor(false);
       }
-      await loadTemplates();
+      await reloadTemplates();
     } catch (err) {
       setBanner(getErrorMessage(err));
     }
@@ -291,196 +245,7 @@ function TemplatesTab({ org }) {
     setShowFields(true);
   };
 
-  return (
-    <div className="schema-forms">
-      <div className="builderCard">
-        <div className="adminRow">
-          <h2>Templates</h2>
-          <button type="button" className="ioButton ioButton--sm" onClick={addTemplate}>
-            + Add Template
-          </button>
-        </div>
-        {banner ? <div className="fieldError">{banner}</div> : null}
-        {templatesLoading ? (
-          <p className="doc-form-note">Loading templates…</p>
-        ) : templates.length ? (
-          <div className="schema-forms-module-grid" style={{ marginTop: "1rem" }}>
-            {templates.map((t) => {
-              const customCount = (t.fieldValues || []).length;
-              const active = Boolean(editor._id) && editor._id === String(t._id);
-              return (
-                <article
-                  key={String(t._id)}
-                  className={`schema-forms-module-card${active ? " schema-forms-module-card--active" : ""}`}
-                >
-                  <div className="schema-forms-module-card__head">
-                    <h3 className="schema-forms-module-card__title">{t.name || "Untitled"}</h3>
-                    <span className="schema-forms-module-card__badge">Template</span>
-                  </div>
-                  <p className="schema-forms-module-card__meta">
-                    {customCount ? `${customCount} filled field${customCount === 1 ? "" : "s"} · ` : ""}updated{" "}
-                    {t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : "—"}
-                  </p>
-                  <div className="schema-forms-module-card__actions">
-                    <button
-                      type="button"
-                      className="ioButton ioButton--sm"
-                      onClick={() => editTemplate(t)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="dangerBtn miniBtn"
-                      onClick={() => deleteTemplate(t._id, t.name)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="doc-form-note">No templates yet — use + Add Template to design the first one.</p>
-        )}
-      </div>
-
-      <div className="builderCard">
-        <h2>Standard prompt — generate an agreement anywhere</h2>
-        <p className="doc-form-note">
-          Copy this prompt into ChatGPT or any writer, get the agreement back, then paste it
-          above and save. That is the whole flow.
-        </p>
-        <textarea rows={8} readOnly value={TEMPLATE_PROMPT} onFocus={(e) => e.target.select()} />
-        <div className="adminRow" style={{ marginTop: 8 }}>
-          <button type="button" className="btn-secondary" onClick={copyPrompt}>
-            {promptCopied ? "Copied!" : "Copy prompt"}
-          </button>
-        </div>
-      </div>
-
-      {/* Portal to body like the builder editor: backdrop-blur containers would
-          otherwise trap the fixed overlay at their own height. */}
-      {showEditor
-        ? createPortal(
-          <div className="form-editor-backdrop" onClick={() => setShowEditor(false)}>
-            <div className="form-editor-modal schema-forms" onClick={(e) => e.stopPropagation()}>
-              <div className="builderCard">
-                <div className="adminRow">
-                  <h2>{editor._id ? `Edit template — ${editor.name}` : "New template"}</h2>
-                  <button type="button" className="ghostBtn" onClick={() => setShowEditor(false)}>
-                    Close
-                  </button>
-                </div>
-                {banner ? <div className="fieldError">{banner}</div> : null}
-                <form onSubmit={saveTemplate}>
-          <label>Template name *</label>
-          <input
-            value={editor.name}
-            onChange={(e) => setEditor((p) => ({ ...p, name: e.target.value }))}
-            placeholder="e.g. Service Agreement"
-          />
-
-          <label htmlFor="template-body">Agreement text — paste or upload a document</label>
-          <div className="adminRow" style={{ gap: 8, marginBottom: 8 }}>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".txt,.md,.docx,.pdf,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={onTemplateFile}
-              disabled={uploading}
-            />
-            {uploading ? <span className="doc-form-note" style={{ margin: 0 }}>Reading document…</span> : null}
-          </div>
-          <textarea
-            id="template-body"
-            ref={bodyRef}
-            rows={10}
-            value={editor.bodyText}
-            onChange={(e) => setEditor((p) => ({ ...p, bodyText: e.target.value }))}
-            placeholder={"Paste the agreement here, e.g. BASIC TENANCY AGREEMENT with blanks like {{AGREEMENT_DATE}}, {{tenant.name}} and {{doctor.name}}. Upload a .txt, .md, .docx or .pdf above to fill this in."}
-          />
-
-          <div className="adminRow" style={{ marginTop: 8, gap: 8 }}>
-            <button type="button" className="btn-secondary" onClick={detectFields}>
-              Detect required fields
-            </button>
-            {tagScan.unknown.length ? (
-              <span className="doc-form-note" style={{ margin: 0 }}>
-                {tagScan.unknown.length} field{tagScan.unknown.length === 1 ? "" : "s"} need{tagScan.unknown.length === 1 ? "s" : ""} a value
-              </span>
-            ) : null}
-          </div>
-
-          {showFields ? (
-            <div className="detectedFields">
-              {tagScan.unknown.length ? (
-                tagScan.unknown.map((tag) => (
-                  <div className="field" key={tag}>
-                    <label htmlFor={`field-value-${tag}`}>{KNOWN_LABELS[tag] || tag}</label>
-                    <input
-                      id={`field-value-${tag}`}
-                      value={editor.fieldValues[tag] || ""}
-                      onChange={(e) =>
-                        setEditor((p) => ({ ...p, fieldValues: { ...p.fieldValues, [tag]: e.target.value } }))
-                      }
-                      placeholder={`Value for {{${tag}}}`}
-                    />
-                  </div>
-                ))
-              ) : (
-                <p className="doc-form-note" style={{ margin: 0 }}>
-                  No unknown fields — everything resolves from organization data or the doctor's profile.
-                </p>
-              )}
-              {tagScan.party2.length ? (
-                <p className="doc-form-note" style={{ margin: 0 }}>
-                  Party 2 fields ({tagScan.party2.map((t) => `{{${t}}}`).join(", ")}) fill in when the doctor
-                  opens the link — nothing to enter here.
-                </p>
-              ) : null}
-              {tagScan.signature.includes("signature.tenant") && !org?.signature ? (
-                <p className="fieldError" style={{ margin: 0 }}>
-                  This template needs your organization's Party 1 signature — save it first via the pencil
-                  icon in the header, or forms can't be assigned until then.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <h3>Preview</h3>
-          <div className="agreementPreview">
-            <div className="templateAgreement">
-              <div className="templateBody">
-                {previewBody.trim() ? (
-                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                ) : (
-                  <p className="doc-form-note" style={{ margin: 0 }}>Body preview appears here.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="adminRow" style={{ marginTop: 12 }}>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? "Saving…" : editor._id ? "Save template" : "Create template"}
-            </button>
-            {editor._id ? (
-              <button type="button" className="btn-secondary" onClick={() => setEditor(EMPTY_EDITOR)}>
-                New template
-              </button>
-            ) : null}
-          </div>
-        </form>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-        : null}
-    </div>
-  );
+  return <SignatureTemplatesTab org={org} />;
 }
 
 export default TemplatesTab;
