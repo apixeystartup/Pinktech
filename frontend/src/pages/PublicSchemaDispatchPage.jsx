@@ -66,7 +66,12 @@ function PublicSchemaDispatchPage() {
             </p>
           ) : null}
         </header>
-        <DynamicFormRenderer moduleDoc={payload.module} dispatchToken={payload.token || token} templateAgreement={payload.templateAgreement || null} />
+        <DynamicFormRenderer
+          moduleDoc={payload.module}
+          dispatchToken={payload.token || token}
+          templateAgreement={payload.templateAgreement || null}
+          openingAgreement={payload.openingAgreement || null}
+        />
       </div>
     </div>
   );

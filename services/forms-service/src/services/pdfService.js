@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 
 // puppeteer is ESM-only, so it is required lazily inside generateSubmissionPdf.
 // That keeps the pure HTML builders above importable from CommonJS tests.
@@ -14,7 +15,7 @@ function escapeHtml(input) {
 }
 
 // Mirrors frontend/src/lib/agreementFormatter.js ALLOWED_TAGS so the PDF looks
-// exactly like the Opening/Closing Agreement cards in the form.
+// exactly like the Opening Agreement card in the form.
 const AGREEMENT_ALLOWED_TAGS = new Set([
   "h1", "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "br", "hr", "blockquote", "img"
 ]);
@@ -156,10 +157,16 @@ function toDisplayValue(value) {
   return String(value ?? "");
 }
 
-const SIG_MARKER_RES = {
-  pre: /{{\s*signature\.opening\s*}}/i,
-  post: /{{\s*signature\.closing\s*}}/i,
-};
+function toDisplayLabel(value) {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+const SIG_MARKER_RES = /{{\s*signature\.opening\s*}}/i;
 
 function signatureImageHtml(dataUrl, label) {
   if (!dataUrl) return '<div class="muted">No signature provided</div>';
@@ -168,13 +175,13 @@ function signatureImageHtml(dataUrl, label) {
 }
 
 /**
- * Signature-position markers ({{signature.opening}} / {{signature.closing}})
- * placed anywhere in the template text: the signature image renders exactly
+ * The signature-position marker ({{signature.opening}}) lets the signature
+ * image render exactly
  * there. Without a marker the image renders below the agreement as before.
  */
 function renderAgreementSection({ title, text, accepted, acceptedAt, signatureDataUrl, markerRe, signatureLabel }) {
   const raw = String(text ?? "");
-  const match = raw.match(markerRe);
+  const match = raw.match(markerRe || SIG_MARKER_RES);
   let bodyHtml;
   let trailingSigHtml = signatureImageHtml(signatureDataUrl, signatureLabel);
   if (match && match.index !== undefined) {
@@ -195,12 +202,16 @@ function renderAgreementSection({ title, text, accepted, acceptedAt, signatureDa
     </div>`;
 }
 
-function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
-  const rows = Object.entries(submissionData || {})
-    .map(
-      ([key, value]) =>
-        `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(toDisplayValue(value))}</td></tr>`
-    )
+function buildSubmissionPdfHtml({ moduleName, submissionData, agreements, includeAgreements = true }) {
+  const entries = Object.entries(submissionData || {});
+  const responseCards = entries
+    .map(([key, value]) => {
+      const displayValue = toDisplayValue(value).trim();
+      return `<article class="responseCard">
+        <div class="responseLabel">${escapeHtml(toDisplayLabel(key))}</div>
+        <div class="responseValue">${escapeHtml(displayValue || "No response")}</div>
+      </article>`;
+    })
     .join("");
 
   return `<!doctype html>
@@ -212,9 +223,16 @@ function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
       body { font-family: Arial, sans-serif; color: #222; padding: 20px; }
       h1, h2 { color: #b01257; margin-bottom: 8px; }
       .section { margin-bottom: 24px; }
-      table { width: 100%; border-collapse: collapse; }
-      td, th { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
-      th { background: #fdf0f7; }
+      .responseSection { margin: 26px 0; }
+      .responseHeader { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #f4d5e3; }
+      .responseHeader h2 { margin: 0 0 4px; }
+      .responseIntro { margin: 0; color: #687386; font-size: 12px; }
+      .responseCount { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #fdf0f7; color: #9c255c; font-size: 11px; font-weight: 700; }
+      .responseGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .responseCard { min-width: 0; padding: 12px 13px; border: 1px solid #e7eaf0; border-left: 3px solid #d8588c; border-radius: 7px; background: #fbfcfe; break-inside: avoid; page-break-inside: avoid; }
+      .responseLabel { margin-bottom: 6px; color: #647087; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+      .responseValue { color: #202b3c; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .responseEmpty { padding: 18px; border: 1px dashed #d7dce5; border-radius: 7px; color: #687386; text-align: center; }
       .signature { max-width: 280px; border: 1px solid #ddd; padding: 6px; border-radius: 6px; background: #fff; }
       .small { font-size: 12px; color: #666; }
       .agreementBox { border: 1px solid #eee; border-radius: 8px; padding: 12px; background: #fafafa; }
@@ -232,6 +250,7 @@ function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
       .agreementBody li { margin: 3px 0; }
       .agreementBody hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
       .agreementBody blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid #eee; color: #555; }
+      @media print { .responseSection { break-inside: auto; } .responseHeader { break-after: avoid; page-break-after: avoid; } }
     </style>
   </head>
   <body>
@@ -242,44 +261,40 @@ function buildSubmissionPdfHtml({ moduleName, submissionData, agreements }) {
       <div>${escapeHtml(moduleName)}</div>
     </div>
 
-    ${renderAgreementSection({
+    ${includeAgreements ? renderAgreementSection({
       title: "Opening Agreement",
       text: agreements.pre?.text,
       accepted: agreements.pre?.accepted,
       acceptedAt: agreements.pre?.acceptedAt,
       signatureDataUrl: agreements.pre?.signatureDataUrl,
-      markerRe: SIG_MARKER_RES.pre,
+      markerRe: SIG_MARKER_RES,
       signatureLabel: "Opening signature",
-    })}
+    }) : ""}
 
-    <div class="section">
-      <h2>Submitted Form Data</h2>
-      <table>
-        <thead><tr><th>Field</th><th>Value</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
+    <section class="responseSection">
+      <div class="responseHeader">
+        <div>
+          <h2>Submitted Form Data</h2>
+          <p class="responseIntro">Responses recorded with this submission</p>
+        </div>
+        <span class="responseCount">${entries.length} ${entries.length === 1 ? "response" : "responses"}</span>
+      </div>
+      ${entries.length
+        ? `<div class="responseGrid">${responseCards}</div>`
+        : '<div class="responseEmpty">No form responses were submitted.</div>'}
+    </section>
 
-    ${renderAgreementSection({
-      title: "Closing Agreement",
-      text: agreements.post?.text,
-      accepted: agreements.post?.accepted,
-      acceptedAt: agreements.post?.acceptedAt,
-      signatureDataUrl: agreements.post?.signatureDataUrl,
-      markerRe: SIG_MARKER_RES.post,
-      signatureLabel: "Closing signature",
-    })}
   </body>
 </html>`;
 }
 
-async function generateSubmissionPdf({ submissionId, moduleName, submissionData, agreements }) {
+async function generateSubmissionPdf({ submissionId, moduleName, submissionData, agreements, includeAgreements = true }) {
   const storageDir = path.join(process.cwd(), "storage", "pdfs");
   fs.mkdirSync(storageDir, { recursive: true });
 
   const fileName = `submission-${submissionId}.pdf`;
   const filePath = path.join(storageDir, fileName);
-  const html = buildSubmissionPdfHtml({ moduleName, submissionData, agreements });
+  const html = buildSubmissionPdfHtml({ moduleName, submissionData, agreements, includeAgreements });
 
   const puppeteer = require("puppeteer");
   const browser = await puppeteer.launch({ headless: true });
@@ -299,4 +314,100 @@ async function generateSubmissionPdf({ submissionId, moduleName, submissionData,
   return { fileName, filePath };
 }
 
-module.exports = { generateSubmissionPdf, buildSubmissionPdfHtml, renderAgreementHtml, renderAgreementSection };
+function decodeImageDataUrl(value) {
+  const match = String(value || "").match(/^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=]+)$/i);
+  if (!match) return null;
+  return { type: match[1].toLowerCase() === "png" ? "png" : "jpg", bytes: Buffer.from(match[2], "base64") };
+}
+
+async function renderAgreementPdf({ documentFileName, fields, signatureDataUrl, signerValues = {} }) {
+  const fileName = path.basename(String(documentFileName || ""));
+  if (!fileName || fileName !== documentFileName) throw new Error("Agreement snapshot document is invalid.");
+  const storageDir = path.resolve(__dirname, "../../../../storage/form-agreements");
+  const inputPath = path.join(storageDir, fileName);
+  const pdfBytes = await fs.promises.readFile(inputPath);
+  const pdf = await PDFDocument.load(pdfBytes);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const pages = pdf.getPages();
+  const missing = [];
+
+  for (const field of fields || []) {
+    const fieldId = String(field._id || field.id || "");
+    const tag = String(field.tag || "").toLowerCase();
+    const type = String(field.type || "").toUpperCase();
+    let value = field.value == null ? "" : String(field.value);
+    if (tag === "signature.doctor" || (["SIGNATURE", "INITIALS"].includes(type) && tag !== "signature.tenant")) {
+      value = signatureDataUrl || "";
+    } else if (Object.prototype.hasOwnProperty.call(signerValues, fieldId)) {
+      value = String(signerValues[fieldId] ?? "");
+    }
+
+    if (field.required !== false && !String(value).trim()) {
+      missing.push(field.label || field.tag || "Required agreement field");
+      continue;
+    }
+    if (!value) continue;
+
+    const page = pages[Number(field.page) || 0];
+    if (!page) throw new Error(`Agreement field "${field.label || field.tag}" refers to a missing PDF page.`);
+    const pageWidth = page.getWidth();
+    const pageHeight = page.getHeight();
+    const x = Math.max(0, Math.min(pageWidth, (Number(field.x) || 0) * pageWidth / 100));
+    const width = Math.max(1, Math.min(pageWidth - x, (Number(field.w) || 0) * pageWidth / 100));
+    const height = Math.max(1, Math.min(pageHeight, (Number(field.h) || 0) * pageHeight / 100));
+    const top = Math.max(0, Math.min(pageHeight - height, (Number(field.y) || 0) * pageHeight / 100));
+    const y = pageHeight - top - height;
+
+    if (["IMAGE", "SIGNATURE", "INITIALS"].includes(type)) {
+      const image = decodeImageDataUrl(value);
+      if (!image) throw new Error(`Agreement field "${field.label || field.tag}" has an unsupported image.`);
+      const embedded = image.type === "png" ? await pdf.embedPng(image.bytes) : await pdf.embedJpg(image.bytes);
+      const scale = Math.min(width / embedded.width, height / embedded.height);
+      const drawWidth = embedded.width * scale;
+      const drawHeight = embedded.height * scale;
+      page.drawImage(embedded, { x, y: y + (height - drawHeight) / 2, width: drawWidth, height: drawHeight });
+    } else if (type === "CHECKBOX") {
+      page.drawRectangle({ x, y, width: Math.min(width, height), height: Math.min(width, height), borderWidth: 1, borderColor: rgb(0.15, 0.15, 0.15) });
+      if (value === "checked" || value === "true") {
+        page.drawLine({ start: { x: x + 2, y: y + 2 }, end: { x: x + Math.min(width, height) - 2, y: y + Math.min(width, height) - 2 }, thickness: 1.5 });
+        page.drawLine({ start: { x: x + 2, y: y + Math.min(width, height) - 2 }, end: { x: x + Math.min(width, height) - 2, y: y + 2 }, thickness: 1.5 });
+      }
+    } else {
+      let size = Math.max(6, Math.min(24, height * 0.68));
+      while (size > 6 && font.widthOfTextAtSize(value, size) > width - 4) size -= 0.5;
+      page.drawText(value, {
+        x: x + 2,
+        y: y + Math.max(0, (height - size) / 2),
+        size,
+        font,
+        maxWidth: Math.max(1, width - 4),
+        color: rgb(0.08, 0.08, 0.08),
+      });
+    }
+  }
+
+  if (missing.length) throw new Error(`Complete required agreement fields: ${missing.join(", ")}.`);
+  return Buffer.from(await pdf.save());
+}
+
+async function combineSubmissionPdf({ submissionFilePath, openingAgreementPdf }) {
+  const sourceBytes = await fs.promises.readFile(submissionFilePath);
+  const sources = [openingAgreementPdf, sourceBytes].filter(Boolean);
+  const combined = await PDFDocument.create();
+  for (const source of sources) {
+    const document = await PDFDocument.load(source);
+    const pages = await combined.copyPages(document, document.getPageIndices());
+    pages.forEach((page) => combined.addPage(page));
+  }
+  await fs.promises.writeFile(submissionFilePath, await combined.save());
+  return submissionFilePath;
+}
+
+module.exports = {
+  generateSubmissionPdf,
+  buildSubmissionPdfHtml,
+  renderAgreementHtml,
+  renderAgreementSection,
+  renderAgreementPdf,
+  combineSubmissionPdf,
+};

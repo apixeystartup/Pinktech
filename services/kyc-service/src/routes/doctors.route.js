@@ -1,6 +1,9 @@
 const express = require("express");
 const Joi = require("joi");
 const mongoose = require("mongoose");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
 const ApiError = require("@pink/shared").ApiError;
 const ExternalUser = require("../models/externalUser.model");
 const KycRecord = require("../models/kycRecord.model");
@@ -25,6 +28,7 @@ const { dispatchPublicPath, createDispatchesForRecipients } = require("../servic
  * copies it from GET /my-links and shares it with the doctor themselves.
  */
 const router = express.Router();
+const AGREEMENT_SNAPSHOT_DIR = path.resolve(__dirname, "../../../../storage/form-agreements");
 
 function hasPermission(req, code) {
   const codes = req.auth?.permissionCodes || [];
@@ -827,6 +831,8 @@ router.post("/id-extract", async (req, res, next) => {
  * themselves.
  */
 router.post("/:doctorId/compliance", async (req, res, next) => {
+  const agreementSnapshotFiles = [];
+  let snapshotsPersisted = false;
   try {
     if (!mongoose.isValidObjectId(req.params.doctorId)) throw new ApiError(404, "Doctor not found");
 
@@ -895,13 +901,10 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
       );
     }
 
-    const _fetch = require("node-fetch");
-    // The form carries opening/closing templates resolve Party 1 (this tenant)
-    // + the doctor's blanks now and freeze both composed agreements onto the
-    // dispatch. Legacy single-template forms keep working via templateId.
+    // A form uses one opening agreement, frozen with this doctor's resolved
+    // Party 1 and profile values at assignment time.
     const settings = moduleDoc.formSchema?.settings || {};
-    const openingTemplateId = settings.openingTemplateId || settings.templateId || null;
-    const closingTemplateId = settings.closingTemplateId || null;
+    const openingTemplateId = settings.openingTemplateId || settings.templateId || settings.closingTemplateId || null;
     async function loadTemplate(id, side) {
       if (!id) return null;
       if (!mongoose.isValidObjectId(id)) {
@@ -913,40 +916,44 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
       return doc || null;
     }
     const openingDoc = await loadTemplate(openingTemplateId, "opening");
-    const closingDoc = await loadTemplate(closingTemplateId, "closing");
-    const templateDoc = openingDoc || closingDoc || null;
+    const templateDoc = openingDoc || null;
 
-    // Sign templates live in sign-service, not Forms. Track them so they can
-    // be /sent/ later to the same doctor (opening + closing agreements).
+    // Uploaded-PDF agreement templates live in sign-service. Snapshot the
+    // selected document and its resolved fields onto this doctor's one-use link.
     async function getSignTemplate(id) {
       if (!id) return null;
-      if (!mongoose.isValidObjectId(id)) return null;
+      if (!mongoose.isValidObjectId(id)) {
+        throw new ApiError(422, "The form has an invalid agreement template selection.");
+      }
       const _fetch = require("node-fetch");
-      try {
-        const res = await _fetch(`http://127.0.0.1:4009/templates/${id}`, { headers: {
-          "x-auth-user-id": String(req.auth.userId),
-          "x-auth-tenant-id": String(req.tenantId),
-          "x-auth-account-role": String(req.auth.accountRole || (req.auth.isSuperAdmin ? "super_admin" : "tenant_admin")),
-          "x-auth-is-super-admin": req.auth.isSuperAdmin ? "true" : "false",
-        }});
-        if (!res.ok) return null;
-        return await res.json();
-      } catch { return null; }
+      const res = await _fetch(`http://127.0.0.1:4009/templates/${id}`, { headers: {
+        "x-auth-user-id": String(req.auth.userId),
+        "x-auth-tenant-id": String(req.tenantId),
+        "x-auth-account-role": String(req.auth.accountRole || (req.auth.isSuperAdmin ? "super_admin" : "tenant_admin")),
+        "x-auth-is-super-admin": req.auth.isSuperAdmin ? "true" : "false",
+      }});
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw new ApiError(502, `Could not load the selected agreement template (${res.status}).`);
+      }
+      return res.json();
     }
-    const openingSigTemplate = openingDoc ? null : await getSignTemplate(openingTemplateId);
-    const closingSigTemplate = closingDoc ? null : await getSignTemplate(closingTemplateId);
+    const openingSignTemplateId = settings.openingSignTemplateId || settings.closingSignTemplateId || null;
+    if (openingSignTemplateId && openingTemplateId) {
+      throw new ApiError(422, "Choose either one uploaded PDF agreement or a legacy text agreement for this form, not both.");
+    }
+    const openingSigTemplate = await getSignTemplate(openingSignTemplateId);
 
     // A selected template that exists in neither service is a real error.
     if (openingTemplateId && !openingDoc && !openingSigTemplate) {
       throw new ApiError(422, `The form's opening template no longer exists — pick another template on the form`);
     }
-    if (closingTemplateId && !closingDoc && !closingSigTemplate) {
-      throw new ApiError(422, `The form's closing template no longer exists — pick another template on the form`);
+    if (openingSignTemplateId && !openingSigTemplate) {
+      throw new ApiError(422, "The selected opening agreement no longer exists — choose another template on the form.");
     }
     // {{signature.tenant}} = Party 1's own signature, saved in the Forms
     // org-data popup. Block here so the issued link never shows a blank line.
-    const needsPartyOneSig = [openingDoc, closingDoc].some((doc) =>
-      /{{\s*signature\.tenant\s*}}/i.test(String(doc?.bodyText || "")));
+    const needsPartyOneSig = /{{\s*signature\.tenant\s*}}/i.test(String(openingDoc?.bodyText || ""));
     if (needsPartyOneSig && !String(tenantDoc?.signature || "").trim()) {
       throw new ApiError(422,
         "This form's template needs your organization's Party 1 signature — add it first in Forms → Organization data (pencil icon), then assign again.");
@@ -954,11 +961,79 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
     const openingAgreementHtml = openingDoc
       ? composeTemplateAgreementHtml({ template: openingDoc, tenant: tenantDoc, doctor, side: "opening" })
       : "";
-    const closingAgreementHtml = closingDoc
-      ? composeTemplateAgreementHtml({ template: closingDoc, tenant: tenantDoc, doctor, side: "closing" })
-      : "";
-    // Legacy single-agreement field keeps the opening side so older readers work.
-    const agreementHtml = openingAgreementHtml || closingAgreementHtml || "";
+    const agreementHtml = openingAgreementHtml;
+
+    async function snapshotSignTemplate(template, side) {
+      if (!template) return null;
+      if (!template.document) {
+        throw new ApiError(422, `The ${side} agreement "${template.name}" has no uploaded PDF.`);
+      }
+      const context = placeholderContext({ doctor: doctor || {}, tenant: tenantDoc || {} });
+      const fields = (template.fields || []).map((field) => {
+        const tag = String(field.tag || "").trim().toLowerCase();
+        let value = "";
+        if (tag === "signature.tenant") value = tenantDoc?.signature || "";
+        else if (tag === "stamp") value = tenantDoc?.stamp || "";
+        else if (tag === "tenant.custom") value = field.value || "";
+        else if (tag !== "signature.doctor" && !tag.startsWith("custom.")) {
+          const resolved = context[tag];
+          value = resolved == null ? "" : String(resolved);
+        }
+        return { ...field, value };
+      });
+      if (!fields.some((field) => {
+        const tag = String(field.tag || "").toLowerCase();
+        return ["SIGNATURE", "INITIALS"].includes(String(field.type || "").toUpperCase()) && tag !== "signature.tenant";
+      })) {
+        throw new ApiError(422, `The ${side} agreement needs a Party 2 signature field. Add one in Templates first.`);
+      }
+      const missingPartyData = fields.filter((field) => {
+        const tag = String(field.tag || "").toLowerCase();
+        if (tag.startsWith("tenant.") || tag === "signature.tenant" || tag === "stamp" || tag.startsWith("doctor.")) {
+          return !String(field.value || "").trim();
+        }
+        if (field.required === false) return false;
+        if (tag === "signature.doctor" || tag.startsWith("custom.")) return false;
+        return !String(field.value || "").trim();
+      });
+      if (missingPartyData.length) {
+        throw new ApiError(
+          422,
+          `${side} agreement needs Party 1 / Party 2 data: ${missingPartyData.map((field) => `${field.label || field.tag} (${field.tag})`).join(", ")}.`,
+        );
+      }
+
+      const _fetch = require("node-fetch");
+      const documentResponse = await _fetch(`http://127.0.0.1:4009/templates/${template._id}/document`, {
+        headers: {
+          "x-auth-user-id": String(req.auth.userId),
+          "x-auth-tenant-id": String(req.tenantId),
+          "x-auth-account-role": String(req.auth.accountRole || (req.auth.isSuperAdmin ? "super_admin" : "tenant_admin")),
+          "x-auth-is-super-admin": req.auth.isSuperAdmin ? "true" : "false",
+        },
+      });
+      if (!documentResponse.ok) {
+        throw new ApiError(502, `Could not snapshot the ${side} agreement PDF (${documentResponse.status}).`);
+      }
+      const bytes = Buffer.from(await documentResponse.arrayBuffer());
+      if (bytes.length < 5 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
+        throw new ApiError(502, `The ${side} agreement service returned an invalid PDF.`);
+      }
+      await fs.promises.mkdir(AGREEMENT_SNAPSHOT_DIR, { recursive: true });
+      const fileName = `${crypto.randomBytes(24).toString("hex")}.pdf`;
+      await fs.promises.writeFile(path.join(AGREEMENT_SNAPSHOT_DIR, fileName), bytes, { flag: "wx" });
+      agreementSnapshotFiles.push(fileName);
+      return {
+        templateId: String(template._id),
+        name: template.name || `${side} agreement`,
+        documentName: template.document.name || `${side}-agreement.pdf`,
+        documentFileName: fileName,
+        documentSha256: template.document.sha256 || "",
+        pages: Number(template.document.pages) || 0,
+        fields,
+      };
+    }
+    const openingAgreementSnapshot = await snapshotSignTemplate(openingSigTemplate, "opening");
 
     const { dispatches } = await createDispatchesForRecipients({
       tenantId: req.tenantId,
@@ -970,52 +1045,26 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
       delivery: "MANUAL",
       handlerUserId: handler._id,
       ...(approvalChainOids ? { approvalChainUserIds: approvalChainOids } : {}),
+      openingSignatureTemplateId: openingSigTemplate?._id || null,
+      openingAgreementSnapshot,
       ...(templateDoc
         ? {
-          templateId: openingDoc?._id || closingDoc?._id || null,
+          templateId: openingDoc?._id || null,
           openingTemplateId: openingDoc?._id || null,
-          closingTemplateId: closingDoc?._id || null,
           agreementHtml,
           openingAgreementHtml,
-          closingAgreementHtml,
         }
         : {}),
-      ...(openingSigTemplate || closingSigTemplate
+      ...(openingSigTemplate
         ? {
-          // Track the sign-template picks on the dispatch so consumers (UI)
-          // can surface them; the actual signature request is issued below.
+          // Track the selected sign-template on the dispatch for consumers.
           openingSignatureTemplateId: openingSigTemplate?._id || null,
-          closingSignatureTemplateId: closingSigTemplate?._id || null,
         }
         : {}),
     });
     const dispatch = dispatches[0];
-
-    // Sign templates are sent (not inlined as HTML) via sign-service.
-    const signatureEnvelopeLinks = [];
-    const signatureActorHeaders = {
-      "x-auth-user-id": String(req.auth.userId),
-      "x-auth-tenant-id": String(req.tenantId),
-      "x-auth-account-role": String(req.auth.accountRole || (req.auth.isSuperAdmin ? "super_admin" : "tenant_admin")),
-      "x-auth-is-super-admin": req.auth.isSuperAdmin ? "true" : "false",
-      "content-type": "application/json",
-    };
-    for (const sigTpl of [openingSigTemplate, closingSigTemplate]) {
-      if (!sigTpl?._id) continue;
-      try {
-        const res = await _fetch(`http://127.0.0.1:4009/templates/${sigTpl._id}/envelopes`, {
-          method: "POST",
-          headers: signatureActorHeaders,
-          body: JSON.stringify({ doctorId: String(doctor._id) }),
-        });
-        if (res.ok) {
-          const body = await res.json();
-          signatureEnvelopeLinks.push(...(body.signingLinks || []));
-        }
-      } catch (err) {
-        // Do not block form assignment if signature dispatch fails.
-      }
-    }
+    if (!dispatch) throw new ApiError(500, "The form dispatch could not be created.");
+    snapshotsPersisted = true;
 
     await writeAudit({
       tenantId: req.tenantId,
@@ -1028,6 +1077,7 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
         dispatchId: String(dispatch._id),
         ...(approvalChainOids ? { approvalChainUserIds: approvalChainOids.map(String) } : {}),
         ...(templateDoc ? { templateId: String(templateDoc._id) } : {}),
+        ...(openingSigTemplate ? { openingSignatureTemplateId: String(openingSigTemplate._id) } : {}),
       },
     });
 
@@ -1044,10 +1094,9 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
       // field provides — surfaced in the UI instead of silently blanking.
       ...(templateDoc
         ? {
-            templateId: openingDoc?._id || closingDoc?._id,
-            templateName: (openingDoc || closingDoc)?.name || null,
+            templateId: openingDoc?._id,
+            templateName: openingDoc.name || null,
             openingTemplateId: openingDoc?._id || null,
-            closingTemplateId: closingDoc?._id || null,
           }
         : {}),
       warnings: dispatchWarnings(
@@ -1055,11 +1104,22 @@ router.post("/:doctorId/compliance", async (req, res, next) => {
         value.instructions,
         doctor,
         tenantDoc,
-        [openingDoc?.bodyText, closingDoc?.bodyText].filter(Boolean).join("\n"),
-        [openingDoc, closingDoc].filter(Boolean).flatMap((d) => (d.fieldValues || []).map((p) => p.tag)),
+        openingDoc?.bodyText || "",
+        (openingDoc?.fieldValues || []).map((placeholder) => placeholder.tag),
       ),
     });
   } catch (error) {
+    if (!snapshotsPersisted) {
+      for (const fileName of agreementSnapshotFiles) {
+        try {
+          await fs.promises.unlink(path.join(AGREEMENT_SNAPSHOT_DIR, fileName));
+        } catch (cleanupError) {
+          if (cleanupError.code !== "ENOENT") {
+            console.error("schema form agreement snapshot cleanup failed", cleanupError);
+          }
+        }
+      }
+    }
     next(error);
   }
 });

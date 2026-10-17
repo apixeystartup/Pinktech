@@ -2,6 +2,8 @@ const express = require("express");
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 const Joi = require("joi");
+const fs = require("fs");
+const path = require("path");
 const KycRecord = require("../models/kycRecord.model");
 const FormTemplate = require("../models/formTemplate.model");
 const ExternalUser = require("../models/externalUser.model");
@@ -18,6 +20,7 @@ const { toApiModule } = require("./kyc.schemaDispatch");
 const PinkFormModule = require("../models/module.model");
 
 const router = express.Router();
+const AGREEMENT_SNAPSHOT_DIR = path.resolve(__dirname, "../../../../storage/form-agreements");
 
 function hashValue(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -381,18 +384,20 @@ router.get("/schema-dispatch/:token", async (req, res, next) => {
     const apiModule = toApiModule(moduleDoc);
     if (apiModule?.schema?.settings) {
       const settings = { ...apiModule.schema.settings };
-      for (const key of ["description", "preAgreementText", "postAgreementText"]) {
-        if (typeof settings[key] === "string") settings[key] = resolvePlaceholders(settings[key], phContext);
+      if (!settings.preAgreementText) settings.preAgreementText = settings.postAgreementText || "";
+      settings.postAgreementText = "";
+      for (const key of ["description", "preAgreementText"]) {
+        if (typeof settings[key] === "string") {
+          settings[key] = resolvePlaceholders(settings[key], phContext);
+        }
       }
       apiModule.schema = { ...apiModule.schema, settings };
     }
-    // A form with templates uses the agreements frozen at assign time (Party 1
-    // + this doctor's blanks resolved) instead of the opening/closing texts.
+    // A form uses the agreement frozen at assign time instead of its generic text.
     let templateAgreement = null;
-    const openingHtml = dispatch.openingAgreementHtml || dispatch.agreementHtml || "";
-    const closingHtml = dispatch.closingAgreementHtml || "";
-    if (openingHtml || closingHtml) {
-      const openingId = dispatch.openingTemplateId || dispatch.templateId || null;
+    const openingHtml = dispatch.openingAgreementHtml || dispatch.agreementHtml || dispatch.closingAgreementHtml || "";
+    if (openingHtml) {
+      const openingId = dispatch.openingTemplateId || dispatch.templateId || dispatch.closingTemplateId || null;
       const templateName = openingId
         ? (await FormTemplate.findById(openingId).select("name").lean())?.name || null
         : null;
@@ -400,23 +405,53 @@ router.get("/schema-dispatch/:token", async (req, res, next) => {
         name: templateName,
         html: openingHtml,
         openingHtml,
-        closingHtml,
-        openingTemplateId: dispatch.openingTemplateId || dispatch.templateId || null,
-        closingTemplateId: dispatch.closingTemplateId || null,
+        openingTemplateId: dispatch.openingTemplateId || dispatch.templateId || dispatch.closingTemplateId || null,
       };
     }
+    const agreementSnapshot = dispatch.openingAgreementSnapshot || dispatch.closingAgreementSnapshot;
     res.status(200).json({
       token: dispatch.token,
       moduleId: dispatch.moduleId,
       module: apiModule,
       tenantName,
       templateAgreement,
+      openingAgreement: agreementSnapshot
+        ? {
+            name: agreementSnapshot.name,
+            fields: agreementSnapshot.fields || [],
+            documentUrl: `/api/v1/public/schema-dispatch/${encodeURIComponent(dispatch.token)}/agreements/opening`,
+          }
+        : null,
       instructions: resolvePlaceholders(dispatch.instructions || "", phContext),
       dueDate: dispatch.dueDate || null,
       status: dispatch.status,
     });
   } catch (error) {
     next(error);
+  }
+});
+
+router.get("/schema-dispatch/:token/agreements/:side", async (req, res, next) => {
+  try {
+    if (req.params.side !== "opening") {
+      throw new ApiError(404, "Agreement not found.");
+    }
+    const dispatch = await SchemaFormDispatch.findOne({ token: req.params.token }).lean();
+    if (!dispatch || dispatch.status !== "SENT") {
+      throw new ApiError(404, "Agreement not found or link no longer active.");
+    }
+    const snapshot = dispatch.openingAgreementSnapshot || dispatch.closingAgreementSnapshot;
+    const fileName = path.basename(String(snapshot?.documentFileName || ""));
+    if (!fileName || fileName !== snapshot.documentFileName) {
+      throw new ApiError(404, "Agreement document not found.");
+    }
+    const filePath = path.join(AGREEMENT_SNAPSHOT_DIR, fileName);
+    if (!fs.existsSync(filePath)) throw new ApiError(404, "Agreement document not found.");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline");
+    return res.sendFile(filePath);
+  } catch (error) {
+    return next(error);
   }
 });
 

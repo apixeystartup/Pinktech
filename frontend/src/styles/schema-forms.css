@@ -317,6 +317,10 @@
   gap: 1rem;
 }
 
+.schema-forms .agreement-template-previews {
+  grid-template-columns: 1fr;
+}
+
 .schema-forms .field.full,
 .schema-forms .full {
   grid-column: 1 / -1;
@@ -1101,4 +1105,3 @@
   max-height: 60px;
   width: auto;
 }
-

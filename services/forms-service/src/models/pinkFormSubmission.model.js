@@ -8,17 +8,20 @@ const submissionSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    dispatchToken: { type: String, unique: true, sparse: true },
     agreements: {
       pre: {
         accepted: { type: Boolean, default: false },
         text: { type: String, default: "" },
         signatureDataUrl: { type: String, default: "" },
+        templateFieldValues: { type: mongoose.Schema.Types.Mixed, default: {} },
         acceptedAt: { type: Date }
       },
       post: {
         accepted: { type: Boolean, default: false },
         text: { type: String, default: "" },
         signatureDataUrl: { type: String, default: "" },
+        templateFieldValues: { type: mongoose.Schema.Types.Mixed, default: {} },
         acceptedAt: { type: Date }
       }
     },

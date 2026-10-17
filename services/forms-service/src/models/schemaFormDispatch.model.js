@@ -18,6 +18,10 @@ const schemaFormDispatchSchema = new mongoose.Schema(
     agreementHtml: { type: String, default: "" },
     openingAgreementHtml: { type: String, default: "" },
     closingAgreementHtml: { type: String, default: "" },
+    openingSignatureTemplateId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    closingSignatureTemplateId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    openingAgreementSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+    closingAgreementSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
     // EMAIL = the service mails the link. MANUAL = no email is sent at all; the
     // handler shares the link manually.
     delivery: { type: String, enum: ["EMAIL", "MANUAL"], default: "EMAIL" },
@@ -30,6 +34,7 @@ const schemaFormDispatchSchema = new mongoose.Schema(
       default: "SENT",
       index: true,
     },
+    submissionInProgressAt: { type: Date, default: null },
     pinkSubmissionId: { type: mongoose.Schema.Types.ObjectId, default: null },
     pdfRelativeUrl: { type: String, default: "" },
     approvalChainUserIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

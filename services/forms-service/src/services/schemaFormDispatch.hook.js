@@ -38,6 +38,7 @@ async function completeDispatchAfterSubmission({ dispatchToken, submissionId, mo
   });
   dispatch.pinkSubmissionId = submissionId;
   dispatch.pdfRelativeUrl = pdfDownloadUrl || "";
+  dispatch.submissionInProgressAt = null;
   if (isCorrection) {
     dispatch.rejection = { reason: "", byUserId: null, at: null, stepIndex: -1 };
   }

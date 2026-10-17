@@ -7,12 +7,25 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const PAGE_WIDTH = 800;
 
-function PageCanvas({ pageObj, overlays, selectedId, mode, onSelect, onChange, onDelete, onSign, onAdd }) {
+function fieldsOverlap(candidate, other) {
+  return (
+    candidate.x < other.x + other.w &&
+    candidate.x + candidate.w > other.x &&
+    candidate.y < other.y + other.h &&
+    candidate.y + candidate.h > other.y
+  );
+}
+
+function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, onChange, onDelete, onSign, onAdd, onCollision }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const [drag, setDrag] = useState(null);
+  const dragRef = useRef(null);
+  const placedRef = useRef([]);
+  const onChangeRef = useRef(onChange);
+  const onCollisionRef = useRef(onCollision);
   const viewport = pageObj.viewport;
-  const scale = PAGE_WIDTH / viewport.width;
+  const scale = pageWidth / viewport.width;
   const wPx = Math.round(viewport.width * scale);
   const hPx = Math.round(viewport.height * scale);
 
@@ -32,38 +45,84 @@ function PageCanvas({ pageObj, overlays, selectedId, mode, onSelect, onChange, o
     };
   }, [pageObj.page, viewport, scale]);
 
+  const placed = (overlays || []).filter((f) => f.page === pageObj.pageIndex);
   useEffect(() => {
-    if (!drag) return;
+    placedRef.current = placed;
+    onChangeRef.current = onChange;
+    onCollisionRef.current = onCollision;
+  }, [placed, onChange, onCollision]);
+
+  useEffect(() => {
+    if (!drag) return undefined;
+    let collisionNotified = false;
     const handleMove = (e) => {
+      const currentDrag = dragRef.current;
+      if (!currentDrag) return;
       const el = wrapRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       const rx = 100 / r.width;
       const ry = 100 / r.height;
-      const dx = (e.clientX - drag.startClientX) * rx;
-      const dy = (e.clientY - drag.startClientY) * ry;
-      let nx = drag.startX + dx;
-      let ny = drag.startY + dy;
-      if (drag.resize) {
-        const rw = Math.max(3, drag.startW + dx);
-        const rh = Math.max(3, drag.startH + dy);
-        onChange(drag.id, { w: rw, h: rh });
+      const dx = (e.clientX - currentDrag.startClientX) * rx;
+      const dy = (e.clientY - currentDrag.startClientY) * ry;
+      let nx = currentDrag.startX + dx;
+      let ny = currentDrag.startY + dy;
+      const lastValid = currentDrag.lastValid;
+      let candidate;
+      if (currentDrag.resize) {
+        const rw = Math.max(3, currentDrag.startW + dx);
+        const rh = Math.max(3, currentDrag.startH + dy);
+        candidate = {
+          ...lastValid,
+          w: Math.min(rw, 100 - lastValid.x),
+          h: Math.min(rh, 100 - lastValid.y),
+        };
       } else {
-        nx = Math.max(0, Math.min(100 - drag.startW, nx));
-        ny = Math.max(0, Math.min(100 - drag.startH, ny));
-        onChange(drag.id, { x: nx, y: ny });
+        nx = Math.max(0, Math.min(100 - currentDrag.startW, nx));
+        ny = Math.max(0, Math.min(100 - currentDrag.startH, ny));
+        candidate = { ...lastValid, x: nx, y: ny };
       }
+      const collides = placedRef.current.some((field) => field.cid !== currentDrag.id && fieldsOverlap(candidate, field));
+      if (collides) {
+        if (!collisionNotified) {
+          onCollisionRef.current?.();
+          collisionNotified = true;
+        }
+        return;
+      }
+      collisionNotified = false;
+      currentDrag.lastValid = candidate;
+      onChangeRef.current(currentDrag.id, currentDrag.resize ? { w: candidate.w, h: candidate.h } : { x: candidate.x, y: candidate.y });
     };
-    const handleUp = () => setDrag(null);
+    const handleUp = () => {
+      dragRef.current = null;
+      setDrag(null);
+    };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
     return () => {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
     };
-  }, [drag, onChange]);
+  }, [drag]);
 
-  const placed = (overlays || []).filter((f) => f.page === pageObj.pageIndex);
+  const beginDrag = (field, event, resize = false) => {
+    const nextDrag = {
+      id: field.cid,
+      startX: field.x,
+      startY: field.y,
+      startW: field.w,
+      startH: field.h,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      resize,
+      lastValid: { x: field.x, y: field.y, w: field.w, h: field.h },
+    };
+    dragRef.current = nextDrag;
+    setDrag(nextDrag);
+  };
 
   return (
     <div
@@ -84,14 +143,21 @@ function PageCanvas({ pageObj, overlays, selectedId, mode, onSelect, onChange, o
         const y = Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100));
         const defaultW = payload.type === "SIGNATURE" || payload.type === "IMAGE" ? 25 : 30;
         const defaultH = payload.type === "SIGNATURE" || payload.type === "IMAGE" ? 10 : 5;
-        onSelect?.(null);
-        // Hand placement back to parent with a transient shape.
-        onAdd?.({
+        const candidate = {
           page: pageObj.pageIndex,
           x: Math.max(0, Math.min(100 - defaultW, x - defaultW / 2)),
           y: Math.max(0, Math.min(100 - defaultH, y - defaultH / 2)),
           w: defaultW,
           h: defaultH,
+        };
+        if (placed.some((field) => fieldsOverlap(candidate, field))) {
+          onCollision?.();
+          return;
+        }
+        onSelect?.(null);
+        // Hand placement back to parent with a transient shape.
+        onAdd?.({
+          ...candidate,
           type: payload.type,
           tag: payload.tag,
           label: payload.label,
@@ -115,16 +181,14 @@ function PageCanvas({ pageObj, overlays, selectedId, mode, onSelect, onChange, o
               key={f.cid}
               className={cls}
               style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
-              onClick={(e) => { e.stopPropagation(); onSelect?.(f.cid); if (mode === "sign" && f.type === "SIGNATURE" && signerOwned) onSign?.(f.cid); }}
+              onClick={(e) => { e.stopPropagation(); onSelect?.(f.cid); if (mode === "sign" && ["SIGNATURE", "INITIALS"].includes(f.type) && signerOwned) onSign?.(f.cid); }}
               onPointerDown={
                 mode === "design"
                   ? (e) => {
                       e.stopPropagation(); e.preventDefault();
                       onSelect?.(f.cid);
-                      const wrap = wrapRef.current;
-                      if (!wrap) return;
-                      const r = wrap.getBoundingClientRect();
-                      setDrag({ id: f.cid, startX: f.x, startY: f.y, startW: f.w, startH: f.h, startClientX: e.clientX, startClientY: e.clientY, resize: false });
+                      if (!wrapRef.current) return;
+                      beginDrag(f, e);
                     }
                   : undefined
               }
@@ -145,8 +209,8 @@ function PageCanvas({ pageObj, overlays, selectedId, mode, onSelect, onChange, o
               {f.type === "CHECKBOX" ? (
                 <input type="checkbox" checked={Boolean(f.value)} onChange={(e) => mode === "sign" && signerOwned && onChange(f.cid, { value: e.target.checked ? "checked" : "" })} disabled={!(mode === "sign" && signerOwned)} />
               ) : null}
-              {f.type === "SIGNATURE" ? (
-                signerOwned ? <button type="button" className="signPadTrigger">Draw here</button> : <span className="signField__placeholder">{f.value ? "Signed" : "Signature"}</span>
+              {f.type === "SIGNATURE" || f.type === "INITIALS" ? (
+                signerOwned ? <button type="button" className="signPadTrigger">{f.type === "INITIALS" ? "Add initials" : "Draw here"}</button> : <span className="signField__placeholder">{f.value ? "Signed" : f.type === "INITIALS" ? "Initials" : "Signature"}</span>
               ) : null}
               {mode === "design" && sel ? (
                 <>
@@ -156,7 +220,7 @@ function PageCanvas({ pageObj, overlays, selectedId, mode, onSelect, onChange, o
                     className="signField__resize"
                     onPointerDown={(e) => {
                       e.stopPropagation(); e.preventDefault();
-                      setDrag({ id: f.cid, startX: f.x, startY: f.y, startW: f.w, startH: f.h, startClientX: e.clientX, startClientY: e.clientY, resize: true });
+                      beginDrag(f, e, true);
                     }}
                   />
                 </>
@@ -180,11 +244,15 @@ export default function PdfFieldCanvas({
   onChange,
   onDelete,
   onSignatureRequest,
+  fitToContainer = false,
 }) {
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const scrollRef = useRef(null);
+  const [pageWidth, setPageWidth] = useState(PAGE_WIDTH);
+  const [collisionNotice, setCollisionNotice] = useState("");
+  const collisionTimer = useRef(null);
 
   const signerSet = useMemo(() => signerFieldIds || new Set(), [signerFieldIds]);
 
@@ -193,6 +261,36 @@ export default function PdfFieldCanvas({
     cid: f.cid || f._id || f.id || `${f.tag}-${f.x}-${f.y}`,
     canSign: signerSet.has(f.cid || f._id || f.id),
   }));
+
+  const notifyCollision = () => {
+    setCollisionNotice("Placeholders cannot overlap. Move this field to a clear area.");
+    if (collisionTimer.current) clearTimeout(collisionTimer.current);
+    collisionTimer.current = setTimeout(() => {
+      setCollisionNotice("");
+      collisionTimer.current = null;
+    }, 2000);
+  };
+
+  useEffect(() => () => {
+    if (collisionTimer.current) clearTimeout(collisionTimer.current);
+  }, []);
+
+  useEffect(() => {
+    if (!fitToContainer) return undefined;
+    const root = scrollRef.current;
+    const container = root?.parentElement;
+    if (!container) return undefined;
+    const updateWidth = () => {
+      const styles = window.getComputedStyle(container);
+      const horizontalPadding = Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
+      const availableWidth = container.clientWidth - horizontalPadding;
+      setPageWidth(Math.max(280, Math.min(PAGE_WIDTH, Math.floor(availableWidth))));
+    };
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(container);
+    updateWidth();
+    return () => observer.disconnect();
+  }, [fitToContainer, pages.length]);
 
   useEffect(() => {
     if (!pdfUrl) { setPages([]); setLoading(false); return; }
@@ -235,10 +333,12 @@ export default function PdfFieldCanvas({
   }
   return (
     <div className="signCanvasRoot" ref={scrollRef}>
+      {collisionNotice ? <div className="signCanvasCollisionToast" role="status">{collisionNotice}</div> : null}
       {pages.map((p) => (
         <PageCanvas
           key={p.pageIndex}
           pageObj={p}
+          pageWidth={pageWidth}
           overlays={augmented}
           selectedId={selectedId}
           mode={mode}
@@ -247,6 +347,7 @@ export default function PdfFieldCanvas({
           onDelete={onDelete}
           onSign={onSignatureRequest}
           onAdd={onAdd}
+          onCollision={notifyCollision}
         />
       ))}
     </div>

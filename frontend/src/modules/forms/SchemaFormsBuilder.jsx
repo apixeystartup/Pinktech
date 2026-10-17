@@ -1,17 +1,16 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data loading matches pink-form AdminPage */
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
   createModule,
   deleteModule,
   getModules,
   updateModule,
 } from "../../lib/schemaFormsApi";
-import { listSignTemplates } from "../../lib/signApi";
+import { fetchSignTemplateDocument, listSignTemplates } from "../../lib/signApi";
 import api from "../../lib/api";
 import useAuth from "../../hooks/useAuth";
-import { fetchTemplates, templatesKey } from "./templatesQuery";
+import PdfFieldCanvas from "../../components/sign/PdfFieldCanvas";
 import "../../styles/schema-forms.css";
 
 const QUESTION_TYPE_OPTIONS = [
@@ -36,6 +35,7 @@ const starterSchema = {
       description: "Please fill this form.",
       submitLabel: "Submit",
       successMessage: "Thanks. Your response has been received.",
+      openingSignTemplateId: null,
       allowDraft: false,
     },
     fields: [
@@ -109,6 +109,10 @@ function stripBuilderMetaForApi(doc) {
 function normalizeModuleDoc(moduleDoc) {
   const raw = moduleDoc || starterSchema;
   const settings = raw.schema?.settings || {};
+  const openingSignTemplateId = settings.openingSignTemplateId || settings.closingSignTemplateId || null;
+  const legacyAgreementTemplateId = openingSignTemplateId
+    ? null
+    : settings.openingTemplateId || settings.templateId || settings.closingTemplateId || null;
   return {
     ...raw,
     moduleType: "FORM",
@@ -117,13 +121,14 @@ function normalizeModuleDoc(moduleDoc) {
         description: settings.description || "",
         submitLabel: settings.submitLabel || "Submit",
         successMessage: settings.successMessage || "Thanks. Your response has been received.",
-        preAgreementText: settings.preAgreementText || "",
-        postAgreementText: settings.postAgreementText || "",
-        // Opening/closing agreements are template picks (Templates tab).
-        // Legacy single-template forms keep working via templateId.
-        templateId: settings.templateId || null,
-        openingTemplateId: settings.openingTemplateId || settings.templateId || null,
-        closingTemplateId: settings.closingTemplateId || null,
+        preAgreementText: settings.preAgreementText || settings.postAgreementText || "",
+        postAgreementText: "",
+        // Forms use one opening agreement. Promote old closing-only selections
+        // so existing forms keep their agreement when their layout is edited.
+        templateId: openingSignTemplateId ? null : settings.templateId || null,
+        openingTemplateId: legacyAgreementTemplateId,
+        closingTemplateId: null,
+        openingSignTemplateId,
         allowDraft: Boolean(settings.allowDraft),
       },
       fields: Array.isArray(raw.schema?.fields) ? raw.schema.fields.map(normalizeField) : [],
@@ -131,7 +136,92 @@ function normalizeModuleDoc(moduleDoc) {
   };
 }
 
-function SchemaFormsBuilder() {
+function resolvePartyOneField(field, org) {
+  const tag = String(field?.tag || "").toLowerCase();
+  const values = {
+    "tenant.name": org?.name,
+    "tenant.code": org?.code,
+    "tenant.email": org?.email,
+    "tenant.phone": org?.phone,
+    "tenant.address": org?.address,
+    "tenant.registration_number": org?.registrationNumber || org?.registration_number,
+    "tenant.custom": field?.value,
+    "signature.tenant": org?.signature,
+    stamp: org?.stamp,
+    date: new Date().toISOString().slice(0, 10),
+  };
+  return values[tag] == null ? "" : String(values[tag]);
+}
+
+function missingPartyOneFields(template, org, side) {
+  if (!template) return [];
+  if (!template.document) return [`${side} agreement "${template.name}" has no uploaded PDF.`];
+  return (template.fields || [])
+    .filter((field) => {
+      const tag = String(field.tag || "").toLowerCase();
+      if (tag.startsWith("tenant.")) return true;
+      if (tag === "signature.tenant" || tag === "stamp") return true;
+      if (field.required === false) return false;
+      return (
+        (!tag.startsWith("doctor.") && !tag.startsWith("custom.") && tag !== "date" && !tag.startsWith("signature."))
+      );
+    })
+    .filter((field) => !resolvePartyOneField(field, org).trim())
+    .map((field) => {
+      const tag = String(field.tag || "").toLowerCase();
+      const source = tag === "tenant.custom" ? "the Party 1 text value" : "organization data";
+      return `${side}: ${field.label || field.tag} (${field.tag}) is missing from ${source}.`;
+    });
+}
+
+function AgreementTemplatePreview({ template, org, side }) {
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!template?._id || !template.document) {
+      setPdfUrl("");
+      setError("");
+      return undefined;
+    }
+    let objectUrl = "";
+    let active = true;
+    fetchSignTemplateDocument(template._id)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (active) setError(err?.response?.data?.message || err.message || "Could not load agreement preview.");
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [template?._id, template?.document]);
+
+  if (!template) return null;
+  const fields = (template.fields || []).map((field) => ({
+    ...field,
+    cid: String(field._id || field.tag),
+    value: resolvePartyOneField(field, org) || (String(field.tag || "").startsWith("doctor.") ? `[${field.tag}]` : field.value || ""),
+  }));
+
+  return (
+    <div className="agreementTemplatePreview">
+      <p className="doc-form-note">{side} agreement preview: {template.name}</p>
+      {error ? <p className="fieldError">{error}</p> : null}
+      {pdfUrl ? (
+        <PdfFieldCanvas pdfUrl={pdfUrl} fields={fields} selectedId={null} mode="preview" />
+      ) : (
+        <p className="doc-form-note">{template.document ? "Loading preview…" : "Upload a PDF to this template before selecting it."}</p>
+      )}
+    </div>
+  );
+}
+
+function SchemaFormsBuilder({ org }) {
   const { tenantContextId } = useAuth();
   const [modules, setModules] = useState([]);
   const [signatureTemplates, setSignatureTemplates] = useState([]);
@@ -142,14 +232,6 @@ function SchemaFormsBuilder() {
   const [status, setStatus] = useState({ type: "", message: "" });
   // Same cache as the Templates tab — switching tabs shows the list instantly.
   const tenantKey = String(tenantContextId || "");
-  const templatesQuery = useQuery({
-    queryKey: templatesKey(tenantKey),
-    queryFn: fetchTemplates,
-    staleTime: 60000,
-    // Templates only feed the picker — the builder works without them.
-    retry: 0,
-  });
-  const templates = Array.isArray(templatesQuery.data) ? templatesQuery.data : [];
   // The editor (second section) only appears when creating or editing a form.
   // Otherwise the tab shows just the form list plus the Add button.
   const [showEditor, setShowEditor] = useState(false);
@@ -239,6 +321,20 @@ function SchemaFormsBuilder() {
     syncTextWithBuilder(next);
   }
 
+  function updateSettings(patch) {
+    const next = {
+      ...builderState,
+      schema: {
+        ...builderState.schema,
+        settings: {
+          ...builderState.schema.settings,
+          ...patch,
+        },
+      },
+    };
+    syncTextWithBuilder(next);
+  }
+
   function addQuestion() {
     const nextFields = [
       ...fields,
@@ -317,6 +413,20 @@ function SchemaFormsBuilder() {
   async function onSave() {
     try {
       const parsed = stripBuilderMetaForApi(normalizeModuleDoc(JSON.parse(schemaText)));
+      const settings = parsed.schema?.settings || {};
+      const openingTemplate = signatureTemplates.find((item) => String(item._id) === String(settings.openingSignTemplateId));
+      const missing = missingPartyOneFields(openingTemplate, org, "Opening");
+      if (
+        settings.openingSignTemplateId &&
+        (settings.openingTemplateId || settings.closingTemplateId || settings.templateId)
+      ) {
+        missing.push("Use an uploaded PDF agreement or a legacy text agreement, not both.");
+      }
+      if (settings.openingSignTemplateId && !openingTemplate) missing.push("The selected opening agreement could not be found in this tenant's Templates list.");
+      if (missing.length) {
+        setStatus({ type: "error", message: missing.join(" ") });
+        return;
+      }
       const result = parsed._id ? await updateModule(parsed._id, parsed) : await createModule(parsed);
       try {
         await api.post("/kyc/schema-modules/scope", { moduleId: result._id });
@@ -513,32 +623,23 @@ function SchemaFormsBuilder() {
         />
         <div className="grid">
           <div className="field">
-            <label htmlFor="setting-opening-template">Opening Agreement — template</label>
+            <label htmlFor="setting-opening-template">Agreement — template</label>
             <select
               id="setting-opening-template"
-              value={builderState.schema?.settings?.openingTemplateId || ""}
+              value={builderState.schema?.settings?.openingSignTemplateId || ""}
               onChange={(e) => {
                 const v = e.target.value || null;
-                updateSetting("openingTemplateId", v);
-                if (v) updateSetting("templateId", v);
+                updateSettings({
+                  openingSignTemplateId: v,
+                  closingSignTemplateId: null,
+                  openingTemplateId: null,
+                  closingTemplateId: null,
+                  templateId: null,
+                  postAgreementText: "",
+                });
               }}
             >
-              <option value="">No opening agreement</option>
-              {signatureTemplates.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="setting-closing-template">Closing Agreement — template</label>
-            <select
-              id="setting-closing-template"
-              value={builderState.schema?.settings?.closingTemplateId || ""}
-              onChange={(e) => updateSetting("closingTemplateId", e.target.value || null)}
-            >
-              <option value="">No closing agreement</option>
+              <option value="">No agreement</option>
               {signatureTemplates.map((t) => (
                 <option key={t._id} value={t._id}>
                   {t.name}
@@ -549,9 +650,15 @@ function SchemaFormsBuilder() {
         </div>
 
         <p className="doc-form-note">
-          Pick a signature template from the Templates tab for each side. {"{{tenant.*}}"} fills from this tenant at setup,{" "}
-          {"{{doctor.*}}"} fills from the doctor when the form is assigned.
+          Choose one opening agreement. Organization fields preview here; doctor fields are filled when this form is assigned.
         </p>
+        <div className="grid agreement-template-previews">
+          <AgreementTemplatePreview
+            side="Agreement"
+            org={org}
+            template={signatureTemplates.find((item) => String(item._id) === String(builderState.schema?.settings?.openingSignTemplateId))}
+          />
+        </div>
       </div>
 
       <div className="builderCard">

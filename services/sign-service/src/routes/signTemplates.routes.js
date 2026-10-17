@@ -94,6 +94,7 @@ function resolveFieldValue(tag, context, tenant) {
   const t = String(tag || "").toLowerCase();
   if (t === "signature.tenant") return tenant?.signature || "";
   if (t === "stamp") return tenant?.stamp || "";
+  if (t === "tenant.custom") return "";
   if (t.startsWith("custom.")) return "";
   const v = context[t];
   return v === undefined || v === null ? "" : String(v);
@@ -236,6 +237,16 @@ router.post("/:id/envelopes", async (req, res, next) => {
     const value = validate(envelopeFromTemplateSchema, req.body);
     const template = await loadTemplate(req);
 
+    const missingPartyOneText = (template.fields || []).find(
+      (field) => field.tag === "tenant.custom" && !String(field.value || "").trim(),
+    );
+    if (missingPartyOneText) {
+      throw new ApiError(
+        422,
+        `Enter the Party 1 text value for "${missingPartyOneText.label || missingPartyOneText.tag}" before sending.`,
+      );
+    }
+
     const stored = template.documents && template.documents[0];
     if (!stored?.filePath || !fs.existsSync(stored.filePath)) {
       throw new ApiError(422, "Upload the agreement PDF on this template first.");
@@ -293,7 +304,7 @@ router.post("/:id/envelopes", async (req, res, next) => {
       h: f.h,
       required: f.required,
       recipientId: signer._id,
-      value: resolveFieldValue(f.tag, context, tenant),
+      value: f.tag === "tenant.custom" ? f.value || "" : resolveFieldValue(f.tag, context, tenant),
     }));
     await doc.save();
 

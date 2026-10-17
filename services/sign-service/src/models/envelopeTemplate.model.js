@@ -38,6 +38,7 @@ const templateFieldSchema = new Schema(
       default: "TEXT",
     },
     label: { type: String, default: "", maxlength: 200 },
+    value: { type: String, default: "", maxlength: 4000 },
     page: { type: Number, default: 0, min: 0 },
     x: { type: Number, default: 0, min: 0, max: 100 },
     y: { type: Number, default: 0, min: 0, max: 100 },

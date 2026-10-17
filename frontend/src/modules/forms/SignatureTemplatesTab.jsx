@@ -19,12 +19,19 @@ const PALETTE = [
   { key: "p2sig", tag: "signature.doctor", type: "SIGNATURE", label: "Party 2 signature" },
   { key: "p1name", tag: "tenant.name", type: "TEXT", label: "Party 1 name" },
   { key: "p1addr", tag: "tenant.address", type: "TEXT", label: "Party 1 address" },
+  { key: "p1text", tag: "tenant.custom", type: "TEXT", label: "Party 1 text field" },
   { key: "p1sig", tag: "signature.tenant", type: "IMAGE", label: "Party 1 signature" },
   { key: "p1stamp", tag: "stamp", type: "IMAGE", label: "Party 1 stamp" },
   { key: "p2name", tag: "doctor.name", type: "TEXT", label: "Party 2 name" },
   { key: "p2addr", tag: "doctor.address", type: "TEXT", label: "Party 2 address" },
+  { key: "p2text", tag: "custom.party2_text", type: "TEXT", label: "Party 2 text field" },
   { key: "date", tag: "date", type: "DATE", label: "Date" },
-  { key: "custom", tag: "custom.notes", type: "TEXT", label: "Text (custom)" },
+];
+
+const PALETTE_SECTIONS = [
+  { key: "party2", label: "Party 2", hint: "Signer fields", fieldKeys: ["p2sig", "p2name", "p2addr", "p2text"] },
+  { key: "party1", label: "Party 1", hint: "Organization fields", fieldKeys: ["p1name", "p1addr", "p1text", "p1sig", "p1stamp"] },
+  { key: "other", label: "Other", hint: "Shared agreement details", fieldKeys: ["date"] },
 ];
 
 function genCid() {
@@ -37,6 +44,7 @@ function normalizeFields(list) {
     tag: String(f.tag || "").toLowerCase(),
     type: f.type || "TEXT",
     label: f.label || "",
+    value: f.value || "",
     page: f.page || 0,
     x: f.x ?? 0,
     y: f.y ?? 0,
@@ -204,6 +212,7 @@ export default function SignatureTemplatesTab({ org }) {
           tag: payload.tag,
           type: payload.type,
           label: payload.label,
+          value: payload.value || "",
           page: payload.page || 0,
           x: payload.x,
           y: payload.y,
@@ -241,6 +250,14 @@ export default function SignatureTemplatesTab({ org }) {
 
   async function handleSaveDesign() {
     if (!editing) return;
+    const missingPartyOneText = (editing.fields || []).find(
+      (field) => field.tag === "tenant.custom" && !String(field.value || "").trim(),
+    );
+    if (missingPartyOneText) {
+      setSelectedCid(missingPartyOneText.cid);
+      setError(`Enter a value for the Party 1 text field "${missingPartyOneText.label || missingPartyOneText.tag}" before saving this agreement.`);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -305,22 +322,27 @@ export default function SignatureTemplatesTab({ org }) {
   }
 
   if (editing) {
-    const signingReadyPalette = PALETTE.map((p) => ({
-      ...p,
-      payload: { tag: p.tag, type: p.type, label: p.label },
-    }));
+    const paletteByKey = Object.fromEntries(PALETTE.map((field) => [field.key, field]));
     return (
       <div className="signDesigner">
         <div className="signDesigner__bar">
-          <input
-            className="signDesigner__nameInput"
-            value={editing.name}
-            onChange={(e) => updateEditing((p) => ({ ...p, name: e.target.value }))}
-            placeholder="Template name"
-          />
           <div className="signDesigner__barActions">
-            <label className="ioButton ioButton--sm" style={{ display: "inline-block" }}>
-              {uploadBusy ? "Uploading…" : "Upload agreement (PDF)"}
+            <button type="button" className="ghostBtn signDesigner__close" onClick={() => setEditing(null)}>
+              Back to templates
+            </button>
+          </div>
+          <label className="signDesigner__nameField">
+            <span>Agreement name</span>
+            <input
+              className="signDesigner__nameInput"
+              value={editing.name}
+              onChange={(e) => updateEditing((p) => ({ ...p, name: e.target.value }))}
+              placeholder="e.g. Doctor onboarding agreement"
+            />
+          </label>
+          <div className="signDesigner__barActions signDesigner__actions">
+            <label className="ioButton ioButton--sm signDesigner__uploadButton">
+              {uploadBusy ? "Uploading…" : editing.template.document ? "Replace document" : "Upload agreement"}
               <input
                 ref={fileRef}
                 type="file"
@@ -334,37 +356,57 @@ export default function SignatureTemplatesTab({ org }) {
                 }}
               />
             </label>
-            <button type="button" className="ioButton ioButton--sm" disabled={saving} onClick={handleSaveDesign}>
+            <button type="button" className="ioButton ioButton--sm signDesigner__saveButton" disabled={saving || uploadBusy} onClick={handleSaveDesign}>
               {saving ? "Saving…" : "Save layout"}
-            </button>
-            <button type="button" className="ghostBtn" onClick={() => setEditing(null)}>
-              Close
             </button>
           </div>
         </div>
         {error ? <div className="fieldError">{error}</div> : null}
         {notice ? <div className="doc-form-note">{notice}</div> : null}
-        <div className="signDesigner__body">
+        <div className={`signDesigner__body${selectedField ? " signDesigner__body--editing" : ""}`}>
           <aside className="signDesigner__palette">
-            <strong>Drag fields onto the document</strong>
-            <p className="doc-form-note">Position them where the signer needs to fill.</p>
-            {signingReadyPalette.map((p) => (
-              <div
-                key={p.key}
-                className="signPaletteItem"
-                draggable
-                onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify(p.payload))}
-              >
-                <span className={`signPaletteItem__chip signPaletteItem__chip--${p.type.toLowerCase()}`}>{p.type.slice(0, 3)}</span>
-                {p.label}
+            <div className="signDesigner__panelHeading">
+              <div>
+                <h3>Field library</h3>
+                <p>Drag a field onto the document.</p>
               </div>
+              <span className="signDesigner__count">{editing.fields.length}</span>
+            </div>
+            {PALETTE_SECTIONS.map((section) => (
+              <section className="signDesigner__paletteSection" key={section.key}>
+                <div className="signDesigner__sectionHeading">
+                  <strong>{section.label}</strong>
+                  <span>{section.hint}</span>
+                </div>
+                {section.fieldKeys.map((key) => {
+                  const field = paletteByKey[key];
+                  return (
+                    <div
+                      key={field.key}
+                      className="signPaletteItem"
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({
+                        tag: field.tag,
+                        type: field.type,
+                        label: field.label,
+                      }))}
+                    >
+                      <span className={`signPaletteItem__chip signPaletteItem__chip--${field.type.toLowerCase()}`}>{field.type.slice(0, 3)}</span>
+                      <span className="signPaletteItem__details">
+                        <span>{field.label}</span>
+                        <code>{field.tag}</code>
+                      </span>
+                    </div>
+                  );
+                })}
+              </section>
             ))}
             <div className="signDesigner__stampCard">
-              <strong>Party 1 (organization)</strong>
-              <p className="doc-form-note" style={{ margin: "0.25rem 0" }}>
-                {hasSig ? "Signature on file" : "Add the org signature in the Templates tab first."}
+              <strong>Organization signature & stamp</strong>
+              <p className="doc-form-note">
+                {hasSig ? "Organization signature is ready." : "Add an organization signature in profile settings before using this field."}
               </p>
-              <label className="ioButton ioButton--sm" style={{ display: "inline-block" }}>
+              <label className="signDesigner__stampUpload">
                 {hasStamp ? "Replace stamp" : "Upload stamp"}
                 <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -375,6 +417,12 @@ export default function SignatureTemplatesTab({ org }) {
             </div>
           </aside>
           <main className="signDesigner__canvas">
+            <div className="signDesigner__canvasHeader">
+              <div>
+                <h3>{editing.template.document ? "Agreement preview" : "Your agreement document"}</h3>
+              </div>
+              {editing.template.document?.pages ? <span className="signDesigner__pageCount">{editing.template.document.pages} pages</span> : null}
+            </div>
             {editing.template.document ? (docUrl ? (
               <PdfFieldCanvas
                 pdfUrl={docUrl}
@@ -388,29 +436,54 @@ export default function SignatureTemplatesTab({ org }) {
                   updateEditing((p) => ({ ...p, fields: p.fields.filter((f) => f.cid !== cid) }));
                   if (selectedCid === cid) setSelectedCid("");
                 }}
+                fitToContainer
               />
             ) : (
-              <div className="signCanvasEmpty">Loading document…</div>
-            )) : (
               <div className="signCanvasEmpty">
-                <p>No agreement uploaded yet.</p>
-                <label className="ioButton ioButton--sm">
-                  {uploadBusy ? "Uploading…" : "Upload agreement (PDF)"}
+                <span className="signCanvasEmpty__icon" aria-hidden="true">…</span>
+                <strong>Preparing your document</strong>
+                <p>The agreement preview will appear here in a moment.</p>
+              </div>
+            )) : (
+              <div className="signCanvasEmpty signCanvasEmpty--upload">
+                <span className="signCanvasEmpty__icon" aria-hidden="true">PDF</span>
+                <strong>Start with your agreement</strong>
+                <p>Upload the PDF or DOCX you want to prepare. You can then drag fields from the library onto the right places.</p>
+                <label className="ioButton signCanvasEmpty__upload">
+                  {uploadBusy ? "Uploading…" : "Choose agreement file"}
                   <input type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx" style={{ display: "none" }} disabled={uploadBusy} onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleUpload(f);
                     e.target.value = "";
                   }} />
                 </label>
+                <span className="signCanvasEmpty__formats">PDF or DOCX</span>
               </div>
             )}
-            <p className="doc-form-note">
-              Coordinates are stored as page percentages, so placement scales to any screen.
-            </p>
+            <div className="signDesigner__canvasTip">
+              <span aria-hidden="true">i</span>
+              Drag fields onto the document. Select a placed field to edit its label, value, or position.
+            </div>
           </main>
-          <aside className="signDesigner__props">
-            <strong>Field properties</strong>
-            {selectedField ? (
+          {selectedField ? (
+            <aside className="signDesigner__props">
+              <div className="signDesigner__propsHeader">
+                <div className="signDesigner__panelHeading">
+                  <div>
+                    <h3>Field properties</h3>
+                    <p>Fine-tune the selected field.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="signDesigner__propsClose"
+                  aria-label="Close field properties"
+                  title="Close field properties"
+                  onClick={() => setSelectedCid("")}
+                >
+                  ×
+                </button>
+              </div>
               <>
                 <label>Tag</label>
                 <input value={selectedField.tag} disabled />
@@ -418,8 +491,25 @@ export default function SignatureTemplatesTab({ org }) {
                 <input value={selectedField.type} disabled />
                 <label>Label</label>
                 <input value={selectedField.label} onChange={(e) => handleFieldChange(selectedField.cid, { label: e.target.value })} />
+                {selectedField.tag === "tenant.custom" ? (
+                  <>
+                    <label>Party 1 text value</label>
+                    <p className="doc-form-note">Enter the value here before saving this agreement.</p>
+                    <textarea
+                      value={selectedField.value || ""}
+                      maxLength={4000}
+                      onChange={(e) => handleFieldChange(selectedField.cid, { value: e.target.value })}
+                      placeholder="Enter the value to print for Party 1"
+                    />
+                  </>
+                ) : null}
                 <label>
-                  <input type="checkbox" checked={selectedField.required} onChange={(e) => handleFieldChange(selectedField.cid, { required: e.target.checked })} />
+                  <input
+                    type="checkbox"
+                    checked={selectedField.required || selectedField.tag.startsWith("tenant.") || selectedField.tag.startsWith("custom.")}
+                    disabled={selectedField.tag.startsWith("tenant.") || selectedField.tag.startsWith("custom.")}
+                    onChange={(e) => handleFieldChange(selectedField.cid, { required: e.target.checked })}
+                  />
                   Required
                 </label>
                 <div className="signDesigner__coords">
@@ -443,12 +533,13 @@ export default function SignatureTemplatesTab({ org }) {
                   value={selectedField.page}
                   onChange={(e) => handleFieldChange(selectedField.cid, { page: Number(e.target.value) || 0 })}
                 />
-                <button type="button" className="dangerBtn miniBtn" onClick={handleDeleteSelected}>Delete field</button>
+                <button type="button" className="signDesigner__deleteField" onClick={handleDeleteSelected}>
+                  <span aria-hidden="true">×</span>
+                  Delete field
+                </button>
               </>
-            ) : (
-              <p className="doc-form-note">Click a placed field to edit its properties. Drag fields from the left palette onto the document.</p>
-            )}
-          </aside>
+            </aside>
+          ) : null}
         </div>
       </div>
     );

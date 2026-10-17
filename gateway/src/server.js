@@ -100,6 +100,7 @@ const SERVICE_MAP = {
   kyc: "http://127.0.0.1:4006",
   documents: "http://127.0.0.1:4007",
   notifications: "http://127.0.0.1:4008",
+  sign: "http://127.0.0.1:4009",
 };
 
 const ROUTE_SERVICE_MAP = [
@@ -119,6 +120,7 @@ const ROUTE_SERVICE_MAP = [
   { prefix: "/api/v1/workflows", service: "workflow", servicePath: "/" },
   { prefix: "/api/v1/kyc", service: "kyc", servicePath: "/" },
   { prefix: "/api/v1/documents", service: "documents", servicePath: "/documents" },
+  { prefix: "/api/v1/sign-templates", service: "sign", servicePath: "/templates" },
   { prefix: "/api/v1/signatures", service: "documents", servicePath: "/signatures" },
   { prefix: "/api/v1/notifications", service: "notifications", servicePath: "/" },
   { prefix: "/api/v1/submissions", service: "forms", servicePath: "/submissions" },
@@ -395,11 +397,11 @@ app.post("/api/v1/webhooks/resend", (req, res) => {
   return res.status(200).json({ received: true });
 });
 
-app.use(authMiddleware);
-
 app.get("/api/v1/health", (req, res) => {
   res.json({ status: "ok", service: "gateway" });
 });
+
+app.use(authMiddleware);
 
 app.all("/api/v1/{*path}", (req, res) => {
   const route = resolveRoute(req.originalUrl);

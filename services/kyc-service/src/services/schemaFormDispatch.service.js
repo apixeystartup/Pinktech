@@ -157,6 +157,8 @@ async function createDispatchesForRecipients({
   templateId = null,
   /** Composed agreement frozen at assign time (Party 1 + doctor blanks). */
   agreementHtml = "",
+  openingSignatureTemplateId = null,
+  openingAgreementSnapshot = null,
 }) {
   const manualDelivery = delivery === "MANUAL";
   const handlerOid =
@@ -200,6 +202,8 @@ async function createDispatchesForRecipients({
       handlerUserId: handlerOid,
       templateId: templateId || null,
       agreementHtml: agreementHtml || "",
+      openingSignatureTemplateId: openingSignatureTemplateId || null,
+      openingAgreementSnapshot,
       delivery: manualDelivery ? "MANUAL" : "EMAIL",
       token,
       instructions: instructions || "",

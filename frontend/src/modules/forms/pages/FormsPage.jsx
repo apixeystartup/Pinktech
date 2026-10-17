@@ -250,7 +250,7 @@ function FormsPage() {
     >
       {/* key=tenant: a tenant switch remounts the tab, so the editor, banner,
           and detected fields reset instead of carrying the old tenant's work. */}
-      {tab === "builder" ? <SchemaFormsBuilder /> : <TemplatesTab key={tenantKey || "home"} org={org} />}
+      {tab === "builder" ? <SchemaFormsBuilder org={org} /> : <TemplatesTab key={tenantKey || "home"} org={org} />}
       {showOrgEdit
         ? createPortal(
           <div className="form-editor-backdrop" onClick={() => setShowOrgEdit(false)}>
@@ -390,5 +390,4 @@ function FormsPage() {
 }
 
 export default FormsPage;
-
 

@@ -30,7 +30,7 @@ npm run build:frontend
 
 # Restart services
 echo -e "${GREEN}[4/5] Restarting services...${NC}"
-pm2 restart all
+pm2 startOrReload deploy/ecosystem.config.js --update-env
 
 # Reload Nginx (in case config changed)
 echo -e "${GREEN}[5/5] Reloading Nginx...${NC}"

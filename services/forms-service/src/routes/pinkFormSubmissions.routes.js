@@ -34,11 +34,11 @@ router.post("/", submissionLimiter, async (req, res, next) => {
     if (!moduleId || typeof data !== "object") {
       return res.status(400).json({ error: "moduleId and data are required." });
     }
-    if (!agreements?.pre?.accepted || !agreements?.post?.accepted) {
-      return res.status(400).json({ error: "Both opening and closing agreements must be accepted." });
+    if (!agreements?.pre?.accepted) {
+      return res.status(400).json({ error: "The opening agreement must be accepted." });
     }
-    if (!agreements?.pre?.signatureDataUrl || !agreements?.post?.signatureDataUrl) {
-      return res.status(400).json({ error: "Both agreement signatures are required." });
+    if (!agreements?.pre?.signatureDataUrl) {
+      return res.status(400).json({ error: "A signature for the opening agreement is required." });
     }
 
     const moduleDoc = await Module.findById(moduleId).lean();
@@ -62,12 +62,6 @@ router.post("/", submissionLimiter, async (req, res, next) => {
           text: agreementTexts.pre,
           signatureDataUrl: agreements.pre.signatureDataUrl,
           acceptedAt: agreements.pre.acceptedAt ? new Date(agreements.pre.acceptedAt) : new Date()
-        },
-        post: {
-          accepted: Boolean(agreements.post.accepted),
-          text: agreementTexts.post,
-          signatureDataUrl: agreements.post.signatureDataUrl,
-          acceptedAt: agreements.post.acceptedAt ? new Date(agreements.post.acceptedAt) : new Date()
         }
       },
       meta: {
@@ -87,12 +81,6 @@ router.post("/", submissionLimiter, async (req, res, next) => {
           text: agreementTexts.pre,
           signatureDataUrl: agreements.pre.signatureDataUrl,
           acceptedAt: agreements.pre.acceptedAt || new Date().toISOString()
-        },
-        post: {
-          accepted: true,
-          text: agreementTexts.post,
-          signatureDataUrl: agreements.post.signatureDataUrl,
-          acceptedAt: agreements.post.acceptedAt || new Date().toISOString()
         }
       }
     });
@@ -149,7 +137,6 @@ router.get("/module/:moduleId", async (req, res, next) => {
         data: row.data,
         agreements: {
           preAcceptedAt: row.agreements?.pre?.acceptedAt || null,
-          postAcceptedAt: row.agreements?.post?.acceptedAt || null
         },
         pdfDownloadUrl: row.pdf?.downloadUrl || ""
       }))

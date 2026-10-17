@@ -18,7 +18,10 @@ const SETTING_KEYS = {
  */
 function resolveAgreementText(moduleDoc, phase) {
   const settingKey = SETTING_KEYS[phase];
-  const stored = settingKey ? moduleDoc?.formSchema?.settings?.[settingKey] : "";
+  const settings = moduleDoc?.formSchema?.settings || {};
+  const stored = settingKey
+    ? settings[settingKey] || (phase === "pre" ? settings.postAgreementText : "")
+    : "";
   if (typeof stored === "string" && stored.trim()) {
     return stored;
   }

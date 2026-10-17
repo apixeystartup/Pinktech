@@ -99,5 +99,16 @@ module.exports = {
       max_memory_restart: "100M",
       env: { NODE_ENV: "production", PORT: 4008, NODE_OPTIONS: "--max-old-space-size=80" },
     },
+    {
+      name: "sign",
+      script: "npm",
+      args: "start --prefix services/sign-service",
+      cwd: "/home/ubuntu/Pinktech",
+      autorestart: true,
+      max_restarts: 15,
+      restart_delay: 3000,
+      max_memory_restart: "100M",
+      env: { NODE_ENV: "production", PORT: 4009, NODE_OPTIONS: "--max-old-space-size=80" },
+    },
   ],
 };

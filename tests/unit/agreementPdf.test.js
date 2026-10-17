@@ -1,12 +1,40 @@
 const {
   buildSubmissionPdfHtml,
-  renderAgreementHtml
+  renderAgreementHtml,
+  renderAgreementPdf,
+  combineSubmissionPdf
 } = require("../../services/forms-service/src/services/pdfService");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { PDFDocument } = require("pdf-lib");
 const {
   resolveAgreementText,
   resolveAgreementTexts,
   FALLBACKS
 } = require("../../services/forms-service/src/services/agreementText");
+const { agreementSignerValues } = require("../../services/forms-service/src/services/agreementSignerValues");
+
+describe("agreementSignerValues", () => {
+  const signature = "data:image/png;base64,YQ==";
+
+  it("requires every Party 2 custom field even if the template marked it optional", () => {
+    expect(() => agreementSignerValues({
+      fields: [{ _id: "party2-custom", tag: "custom.party2_text", type: "TEXT", required: false, label: "Party 2 text" }]
+    }, {}, signature, "opening")).toThrow('Complete the required opening agreement field "Party 2 text".');
+  });
+
+  it("accepts completed Party 2 custom fields and preserves resolved Party 1 fields", () => {
+    const result = agreementSignerValues({
+      fields: [
+        { _id: "party1", tag: "tenant.custom", type: "TEXT", value: "Fixed Party 1 value" },
+        { _id: "party2", tag: "custom.party2_text", type: "TEXT", required: false, label: "Party 2 text" }
+      ]
+    }, { party2: "Doctor-provided value" }, signature, "closing");
+
+    expect(result).toEqual({ party2: "Doctor-provided value" });
+  });
+});
 
 const HONORARIUM =
   "<h1>HONORARIUM AGREEMENT</h1><p>Entered into on <strong>25 August 2026</strong>, by and " +
@@ -68,9 +96,10 @@ describe("buildSubmissionPdfHtml", () => {
     }
   });
 
-  it("embeds both agreements as rendered markup", () => {
-    expect(html.match(/<h1>HONORARIUM AGREEMENT<\/h1>/g)).toHaveLength(2);
-    expect(html.match(/<div class="agreementBody">/g)).toHaveLength(2);
+  it("renders only the opening agreement, even if legacy closing data exists", () => {
+    expect(html.match(/<h1>HONORARIUM AGREEMENT<\/h1>/g)).toHaveLength(1);
+    expect(html.match(/<div class="agreementBody">/g)).toHaveLength(1);
+    expect(html).not.toContain("Closing Agreement");
   });
 
   it("styles the agreement body so headings and lists print correctly", () => {
@@ -91,6 +120,107 @@ describe("buildSubmissionPdfHtml", () => {
     expect(escaped).not.toContain("<script>alert(2)</script>");
     expect(escaped).toContain("&lt;script&gt;");
   });
+
+  it("can generate a data-only response section for an agreement packet", () => {
+    const html = buildSubmissionPdfHtml({
+      moduleName: "Form",
+      submissionData: { Name: "Dr. Example" },
+      includeAgreements: false,
+      agreements: {
+        pre: { accepted: true, text: "Opening text" },
+        post: { accepted: true, text: "Closing text" }
+      }
+    });
+
+    expect(html).toContain("Submitted Form Data");
+    expect(html).not.toContain("Opening text");
+    expect(html).not.toContain("Closing text");
+  });
+
+  it("renders form responses as printable cards with readable field labels", () => {
+    const html = buildSubmissionPdfHtml({
+      moduleName: "Consent Form",
+      submissionData: { fullName: "MR", email: "mrinnocent2209@gmail.com", notes: "" },
+      includeAgreements: false,
+      agreements: {}
+    });
+
+    expect(html).toContain('<span class="responseCount">3 responses</span>');
+    expect(html).toContain('<div class="responseLabel">Full Name</div>');
+    expect(html).toContain('<div class="responseLabel">Email</div>');
+    expect(html).toContain('<div class="responseValue">No response</div>');
+    expect(html).toContain(".responseGrid { display: grid;");
+    expect(html).toContain("break-inside: avoid");
+    expect(html).not.toContain("<table>");
+  });
+
+  it("shows an empty state when a submission has no form responses", () => {
+    const html = buildSubmissionPdfHtml({
+      moduleName: "Consent Form",
+      submissionData: {},
+      includeAgreements: false,
+      agreements: {}
+    });
+
+    expect(html).toContain('<div class="responseEmpty">No form responses were submitted.</div>');
+    expect(html).toContain('<span class="responseCount">0 responses</span>');
+  });
+});
+
+describe("uploaded agreement packet PDFs", () => {
+  it("stamps required signer values into the snapshotted agreement", async () => {
+    const storageDir = path.resolve(__dirname, "../../storage/form-agreements");
+    const fileName = `agreement-test-${Date.now()}-${Math.random().toString(16).slice(2)}.pdf`;
+    const inputPath = path.join(storageDir, fileName);
+    const source = await PDFDocument.create();
+    source.addPage([612, 792]);
+    await fs.promises.mkdir(storageDir, { recursive: true });
+    await fs.promises.writeFile(inputPath, await source.save());
+    try {
+      const output = await renderAgreementPdf({
+        documentFileName: fileName,
+        fields: [
+          { _id: "custom-name", tag: "custom.name", type: "TEXT", x: 10, y: 10, w: 30, h: 5, required: true },
+          { _id: "doctor-signature", tag: "signature.doctor", type: "SIGNATURE", x: 10, y: 20, w: 30, h: 10, required: true }
+        ],
+        signatureDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+        signerValues: { "custom-name": "Dr. Example" }
+      });
+      const rendered = await PDFDocument.load(output);
+      expect(rendered.getPageCount()).toBe(1);
+      await expect(renderAgreementPdf({
+        documentFileName: fileName,
+        fields: [
+          { _id: "custom-name", tag: "custom.name", type: "TEXT", x: 10, y: 10, w: 30, h: 5, required: true }
+        ],
+        signatureDataUrl: "",
+        signerValues: {}
+      })).rejects.toThrow('Complete required agreement fields:');
+    } finally {
+      await fs.promises.unlink(inputPath);
+    }
+  });
+
+  it("combines the opening agreement before the form response without a closing agreement", async () => {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pink-form-packet-"));
+    const submissionPath = path.join(directory, "submission.pdf");
+    const makePdf = async (size) => {
+      const pdf = await PDFDocument.create();
+      pdf.addPage([size, size]);
+      return pdf.save();
+    };
+    try {
+      await fs.promises.writeFile(submissionPath, await makePdf(200));
+      await combineSubmissionPdf({
+        submissionFilePath: submissionPath,
+        openingAgreementPdf: await makePdf(100)
+      });
+      const combined = await PDFDocument.load(await fs.promises.readFile(submissionPath));
+      expect(combined.getPages().map((page) => page.getWidth())).toEqual([100, 200]);
+    } finally {
+      await fs.promises.rm(directory, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("resolveAgreementText", () => {
@@ -108,6 +238,12 @@ describe("resolveAgreementText", () => {
 
     expect(resolveAgreementText(moduleDoc, "pre")).toBe(FALLBACKS.pre);
     expect(resolveAgreementText(moduleDoc, "post")).toBe(FALLBACKS.post);
+  });
+
+  it("promotes the legacy post agreement into the single opening agreement", () => {
+    const moduleDoc = { formSchema: { settings: { postAgreementText: "Legacy agreement" } } };
+
+    expect(resolveAgreementText(moduleDoc, "pre")).toBe("Legacy agreement");
   });
 
   it("survives a missing or malformed module", () => {

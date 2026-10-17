@@ -58,6 +58,8 @@ const moduleSchema = new mongoose.Schema(
         templateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
         openingTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
         closingTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "FormTemplate", default: null },
+        openingSignTemplateId: { type: mongoose.Schema.Types.ObjectId, default: null },
+        closingSignTemplateId: { type: mongoose.Schema.Types.ObjectId, default: null },
         allowDraft: { type: Boolean, default: false }
       }
     }

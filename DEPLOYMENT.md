@@ -136,16 +136,16 @@ Open browser: `http://YOUR_VM_IP`
 | Setting | Value |
 |---------|-------|
 | Framework preset | Vite |
-| Build command | `cd frontend && npm install && npm run build` |
+| Build command | `npm ci && npm run build:frontend` |
 | Output directory | `frontend/dist` |
 
 5. Add environment variable:
 
 | Key | Value |
 |-----|-------|
-| VITE_API_BASE_URL | `http://YOUR_VM_IP/api/v1` |
+| VITE_API_BASE_URL | `https://backend.approveit.online/api/v1` |
 
-6. **Save and Deploy**
+6. Set the production branch to `main`, then **Save and Deploy**. Cloudflare Pages will build each pushed commit on that branch.
 
 ### 2.3 Get Cloudflare URL
 
@@ -196,6 +196,8 @@ ssh -i your-key.key ubuntu@YOUR_VM_IP
 cd ~/Pinktech
 bash deploy/deploy.sh
 ```
+
+The update script pulls `main`, installs workspace dependencies, builds the frontend, and applies `deploy/ecosystem.config.js` with PM2. Applying the ecosystem file also starts newly configured services, including Sign on port 4009. Cloudflare Pages deploys the frontend separately from GitHub.
 
 ### Check Service Status
 
