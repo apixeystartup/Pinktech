@@ -18,11 +18,17 @@ cd ~/Pinktech
 
 # Pull latest changes
 echo -e "${GREEN}[1/5] Pulling latest code...${NC}"
+# npm on Linux and npm on Windows disagree about the lockfile's optional
+# "libc" metadata, so a stray install can leave the lock modified and block
+# the pull. The lock is committed as-is; restore it before pulling.
+git checkout -- package-lock.json 2>/dev/null || true
 git pull origin main
 
-# Install dependencies
+# Install dependencies from the committed lockfile. `npm ci` installs exactly
+# what package-lock.json pins and never rewrites it, so the tree stays clean
+# for the next deploy (npm install used to strip the "libc" entries on Linux).
 echo -e "${GREEN}[2/5] Installing dependencies...${NC}"
-npm install
+npm ci
 
 # Build frontend
 echo -e "${GREEN}[3/5] Building frontend...${NC}"
