@@ -1,6 +1,6 @@
 const express = require("express");
 const permissionMiddleware = require("../middlewares/permission.middleware");
-const orgAdminMiddleware = require("../middlewares/orgAdmin.middleware");
+const { orgAdminMiddleware, superAdminMiddleware } = require("../middlewares/orgAdmin.middleware");
 const upload = require("../middlewares/upload");
 const orgExplorerReadMiddleware = require("../middlewares/orgExplorerRead.middleware");
 const controller = require("../services/orgExplorer.controller");
@@ -8,16 +8,19 @@ const controller = require("../services/orgExplorer.controller");
 const router = express.Router();
 
 // Reads are available to everyone (an employee's snapshot is scoped to their own
-// team by the controller). Writes are admin-only: `orgAdminMiddleware` checks the
-// gateway-classified account role, since access control is disabled.
+// team by the controller). Day-to-day writes — adding and editing people,
+// imports, reload — are open to an org admin: the platform super admin or the
+// tenant's own admin, which the gateway keeps inside its own tenant. The
+// platform-wide sweeps and the role catalog need `superAdminMiddleware`.
 const canWriteOrg = [permissionMiddleware("user.update"), orgAdminMiddleware];
-const canWriteRoles = [permissionMiddleware("role.assign"), orgAdminMiddleware];
+const canWriteRoles = [permissionMiddleware("role.assign"), superAdminMiddleware];
+const platformOnly = [permissionMiddleware("user.update"), superAdminMiddleware];
 
 router.get("/stats", orgExplorerReadMiddleware, controller.getStats);
 router.get("/filters", orgExplorerReadMiddleware, controller.getFilters);
 router.get("/roots", orgExplorerReadMiddleware, controller.getRoots);
 router.get("/hierarchy/removed", orgExplorerReadMiddleware, controller.getRemoved);
-router.post("/hierarchy/reset", canWriteOrg, controller.postHierarchyReset);
+router.post("/hierarchy/reset", platformOnly, controller.postHierarchyReset);
 
 router.get("/employees", orgExplorerReadMiddleware, controller.listEmployees);
 router.post("/employees", canWriteOrg, controller.postEmployee);
@@ -41,7 +44,7 @@ router.post("/roles/:id/reset", canWriteRoles, controller.postRoleReset);
 
 router.post("/reload", canWriteOrg, controller.postReload);
 router.post("/imports", canWriteOrg, upload.single("file"), controller.postOrgWorkbookImport);
-router.post("/rollback", canWriteOrg, controller.postRollback);
+router.post("/rollback", platformOnly, controller.postRollback);
 router.get("/rollback/status", permissionMiddleware("user.update"), controller.getRollbackStatus);
 
 module.exports = router;

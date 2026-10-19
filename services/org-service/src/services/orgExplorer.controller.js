@@ -184,9 +184,14 @@ async function postEmployee(req, res, next) {
   try {
     // A person is always created inside the tenant they belong to. From the Home
     // roll-up the row's tenant arrives in the body (the UI knows which branch the
-    // "+ Add" was clicked from); otherwise the request's own tenant is used.
+    // "+ Add" was clicked from); otherwise the request's own tenant is used. Only
+    // the platform super admin may name a tenant other than the request's own —
+    // a tenant admin can never create a person outside its own organization.
     const body = req.body || {};
     const tenantId = asStr(body.tenant_id) || req.tenantId;
+    if (String(tenantId) !== String(req.tenantId) && !req.auth?.isSuperAdmin) {
+      throw new ApiError(403, "Tenant admins can only add people to their own organization");
+    }
     const payload = { ...body };
     delete payload.tenant_id;
     const emp = await orgMutations.addEmployee(tenantId, payload, req.auth);

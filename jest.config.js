@@ -17,6 +17,7 @@ module.exports = {
     "services/org-service/src/services/hierarchy.service.js",
     "services/org-service/src/services/assignments.controller.js",
     "services/org-service/src/middlewares/permission.middleware.js",
+    "services/org-service/src/middlewares/orgAdmin.middleware.js",
     "services/org-service/src/middlewares/hierarchy.middleware.js",
     "services/org-service/src/middlewares/serviceAuth.js",
     "!**/node_modules/**",

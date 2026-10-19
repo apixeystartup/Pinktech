@@ -81,10 +81,18 @@ function useIsOrgAdmin() {
   return Boolean(isSuperAdmin) || accountRole === "tenant_admin";
 }
 
-// Full management powers (every button, upload, reload, roles) belong to the
-// platform super admin alone. A tenant admin sees their whole org read-only
-// under the Pinktech root; everyone else sees only their own team.
+// Management powers (upload, reload, add & edit people, leave, restore) follow
+// the same line as the read view: an org admin — Pinktech's super admin, or a
+// tenant's own admin, which the backend scopes to its own organization.
+// Platform-wide surfaces are narrower — see useIsPlatformSuperAdmin.
 function useCanManageOrg() {
+  return useIsOrgAdmin();
+}
+
+// The Roles tab, the all-tenants Home roll-up and the platform-wide sweeps
+// reshape every tenant's data, so they stay super-admin-only even for a
+// tenant admin.
+function useIsPlatformSuperAdmin() {
   const { isSuperAdmin } = useAuth();
   return Boolean(isSuperAdmin);
 }
@@ -280,6 +288,7 @@ function OrgExplorerPage() {
   const { tenantContextId } = useAuth();
   const isAdmin = useIsOrgAdmin();
   const canManage = useCanManageOrg();
+  const isSuperAdmin = useIsPlatformSuperAdmin();
   const { data: stats, isLoading: statsLoading } = useOrgStats();
   // Reset the focused person when the super admin switches tenant context so the
   // tree never keeps a stale selection from another tenant.
@@ -290,10 +299,11 @@ function OrgExplorerPage() {
       setSelectedId(null);
     }
   }, [tenantContextId, setSelectedId]);
-  // The Roles sub-tab is a management surface; never leave a non-super user on it.
+  // The Roles sub-tab reshapes the role catalog, so it is a platform surface:
+  // never leave anyone but the super admin on it.
   useEffect(() => {
-    if (!canManage && tab === "roles") setTab("org-tree");
-  }, [canManage, tab, setTab]);
+    if (!isSuperAdmin && tab === "roles") setTab("org-tree");
+  }, [isSuperAdmin, tab, setTab]);
   // Everyone else only ever sees themselves + their reports, so an employee with
   // nobody reporting to them has nothing to explore.
   const noTeam = !isAdmin && !statsLoading && Number(stats?.total ?? 0) <= 1;
@@ -313,7 +323,7 @@ function OrgExplorerPage() {
           <ExplorerView variant="tree" />
         ) : tab === "org-explorer" ? (
           <ExplorerView variant="explorer" />
-        ) : canManage ? (
+        ) : isSuperAdmin ? (
           <RolesView />
         ) : (
           <ExplorerView variant="tree" />
@@ -334,6 +344,7 @@ function OrgTopBar() {
   const openDialog = useOrgStore((s) => s.openDialog);
   const refresh = useRefreshAll();
   const canManage = useCanManageOrg();
+  const isSuperAdmin = useIsPlatformSuperAdmin();
   const fileInputRef = useRef(null);
 
   const uploadMut = useMutation({
@@ -377,7 +388,7 @@ function OrgTopBar() {
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 flex-wrap">
-          {(canManage
+          {(isSuperAdmin
             ? [["org-tree", "Org tree"], ["org-explorer", "Org explorer"], ["roles", "Roles"]]
             : [["org-tree", "Org tree"], ["org-explorer", "Org explorer"]]
           ).map(([k, label]) => (
