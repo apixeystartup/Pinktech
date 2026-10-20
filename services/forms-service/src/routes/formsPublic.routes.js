@@ -88,6 +88,25 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
     if (!moduleId || !data || typeof data !== "object" || Array.isArray(data)) {
       return res.status(400).json({ error: "moduleId and data are required." });
     }
+
+    const rawDispatchToken = typeof dispatchToken === "string" ? dispatchToken.trim() : "";
+    if (rawDispatchToken) {
+      const previousSubmission = await Submission.findOne({
+        dispatchToken: rawDispatchToken,
+        moduleId,
+      }).select("_id pdf").lean();
+      if (previousSubmission) {
+        if (previousSubmission.pdf?.downloadUrl) {
+          return res.status(200).json({
+            id: previousSubmission._id,
+            pdfDownloadUrl: previousSubmission.pdf.downloadUrl,
+            message: "Submission successful.",
+          });
+        }
+        throw new ApiError(409, "Your submission is still being processed. Please wait a moment and retry.");
+      }
+    }
+
     if (!agreements?.pre?.accepted) {
       return res.status(400).json({ error: "The opening agreement must be accepted." });
     }
@@ -104,9 +123,7 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
     if (Object.keys(errors).length) {
       return res.status(422).json({ error: "Validation failed.", fieldErrors: errors });
     }
-
     const agreementTexts = resolveAgreementTexts(moduleDoc);
-    const rawDispatchToken = typeof dispatchToken === "string" ? dispatchToken.trim() : "";
     const settings = moduleDoc.formSchema?.settings || {};
     const hasPdfAgreementTemplates = Boolean(settings.openingSignTemplateId || settings.closingSignTemplateId);
     if (hasPdfAgreementTemplates && !rawDispatchToken) {
@@ -115,10 +132,6 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
 
     let dispatch = null;
     if (rawDispatchToken) {
-      const previousSubmission = await Submission.findOne({ dispatchToken: rawDispatchToken }).select("_id").lean();
-      if (previousSubmission) {
-        throw new ApiError(409, "This one-time form link has already been submitted.");
-      }
       const claimTime = new Date();
       dispatch = await SchemaFormDispatch.findOneAndUpdate(
         {

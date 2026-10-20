@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import DynamicFormRenderer from "../components/schema-forms/DynamicFormRenderer";
-import { getPublicSchemaDispatch } from "../lib/schemaFormsPublic";
+import { getPublicSchemaDispatch, resolveSchemaFormAssetUrl } from "../lib/schemaFormsPublic";
 import "../styles/schema-forms.css";
 function PublicSchemaDispatchPage() {
   const { token } = useParams();
@@ -25,6 +25,25 @@ function PublicSchemaDispatchPage() {
         <div className="schema-forms__public-card">
           <h1>Loading…</h1>
           <p className="hint">Fetching your form.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (payload?.completed && payload.pdfDownloadUrl) {
+    return (
+      <div className="schema-forms schema-forms--public">
+        <div className="schema-forms__public-card">
+          <h1>Form submitted</h1>
+          <p className="hint">Your response has been recorded. You can download a copy of your submission below.</p>
+          <a
+            className="ioButton"
+            href={resolveSchemaFormAssetUrl(payload.pdfDownloadUrl)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download submission PDF
+          </a>
         </div>
       </div>
     );

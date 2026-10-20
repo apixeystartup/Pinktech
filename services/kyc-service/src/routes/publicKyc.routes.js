@@ -370,6 +370,16 @@ router.get("/schema-dispatch/:token", async (req, res, next) => {
     const dispatch = await SchemaFormDispatch.findOne({ token: req.params.token }).lean();
     if (!dispatch) throw new ApiError(404, "Link not found or expired.");
     if (dispatch.status !== "SENT") {
+      const pdfDownloadUrl = dispatch.pdfRelativeUrl || (
+        dispatch.pinkSubmissionId ? `/api/v1/submissions/${dispatch.pinkSubmissionId}/pdf` : ""
+      );
+      if (pdfDownloadUrl) {
+        return res.status(200).json({
+          completed: true,
+          status: dispatch.status,
+          pdfDownloadUrl,
+        });
+      }
       throw new ApiError(409, "This form was already submitted or is no longer available.");
     }
     const moduleDoc = await PinkFormModule.findById(dispatch.moduleId).lean();
