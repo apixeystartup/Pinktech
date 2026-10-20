@@ -378,12 +378,14 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
     });
     const token = rawDispatchToken || "";
     if (token) {
-      void SchemaFormDispatch.updateOne(
-        { token, status: "SENT", submissionInProgressAt: claimTimestamp },
-        { $set: { pinkSubmissionId: submission._id } },
-      ).catch((updateError) => {
+      try {
+        await SchemaFormDispatch.updateOne(
+          { token, status: "SENT", submissionInProgressAt: claimTimestamp },
+          { $set: { pinkSubmissionId: submission._id } },
+        );
+      } catch (updateError) {
         console.error("schemaFormDispatch submission reference update failed", updateError);
-      });
+      }
     }
     enqueueSubmissionPdf({
       submission: submission.toObject(),

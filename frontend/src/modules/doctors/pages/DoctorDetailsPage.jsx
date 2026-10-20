@@ -420,7 +420,7 @@ function DoctorDetailsPage() {
                       </button>
                     </>
                   ) : null}
-                  {form.status?.key !== "PENDING_SUBMISSION" ? (
+                  {form.status?.key !== "PENDING_SUBMISSION" || form.submissionReceived ? (
                     <button
                       type="button"
                       className="doc-mini-btn"

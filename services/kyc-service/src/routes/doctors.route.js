@@ -448,6 +448,7 @@ async function loadCompliance(tenantId, doctor, authUserId) {
       assignedAt: dispatch.createdAt,
       dueDate: dispatch.dueDate || null,
       revision: dispatch.revision || 1,
+      submissionReceived: Boolean(dispatch.pinkSubmissionId),
       submittedAt: lastEntry?.submittedAt || null,
       progress: progressOf(fields, submission?.data),
       agreement: buildAgreement(dispatch, submission, lastEntry),

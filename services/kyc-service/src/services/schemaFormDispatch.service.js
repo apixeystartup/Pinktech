@@ -611,6 +611,7 @@ async function regenerateDispatchLink({ dispatch, actorUserId, linkOrigin }) {
   dispatch.linkHistory.push({
     token: dispatch.token,
     version: dispatch.linkVersion || 1,
+    revision: dispatch.revision || 1,
     createdAt: dispatch.createdAt || new Date(),
     revokedAt: new Date(),
     usedAt: null,

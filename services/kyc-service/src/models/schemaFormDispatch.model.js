@@ -46,6 +46,7 @@ const schemaFormDispatchSchema = new mongoose.Schema(
       {
         token: { type: String, required: true },
         version: { type: Number, required: true },
+        revision: { type: Number, default: 1 },
         createdAt: { type: Date, default: Date.now },
         revokedAt: { type: Date, default: null },
         usedAt: { type: Date, default: null },

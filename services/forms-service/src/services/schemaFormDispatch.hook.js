@@ -10,12 +10,24 @@ async function completeDispatchAfterSubmission({ dispatchToken, submissionId, mo
   const token = String(dispatchToken || "").trim();
   if (!token) return;
 
-  const dispatch = await SchemaFormDispatch.findOne({ token });
+  const dispatch = await SchemaFormDispatch.findOne({
+    $or: [{ token }, { "linkHistory.token": token }],
+  });
   if (!dispatch) return;
   if (String(dispatch.moduleId) !== String(moduleId)) return;
-  if (dispatch.status !== "SENT" && dispatch.status !== "CORRECTION_REQUIRED") return;
+  const isCurrentLink = dispatch.token === token;
+  if (isCurrentLink && dispatch.status !== "SENT" && dispatch.status !== "CORRECTION_REQUIRED") return;
+  if (
+    dispatch.submissions?.some((entry) => String(entry.submissionId) === String(submissionId))
+  ) {
+    return;
+  }
 
-  const revision = dispatch.revision || 1;
+  const previousLink = isCurrentLink
+    ? null
+    : dispatch.linkHistory.find((entry) => entry.token === token);
+  if (!isCurrentLink && !previousLink) return;
+  const revision = previousLink?.revision || dispatch.revision || 1;
   const isCorrection = dispatch.status === "CORRECTION_REQUIRED";
 
   // Freeze the definition used for this response: later edits by the Super Admin
@@ -36,6 +48,17 @@ async function completeDispatchAfterSubmission({ dispatchToken, submissionId, mo
     submittedAt: new Date(),
     formSnapshot,
   });
+  if (!isCurrentLink) {
+    previousLink.usedAt = new Date();
+    await dispatch.save();
+    await pushDispatchEvent(
+      dispatch._id,
+      "FORM_SUBMITTED",
+      `Submission for revision ${revision} completed after a fresh link was issued; retained in history.`,
+    );
+    return;
+  }
+
   dispatch.pinkSubmissionId = submissionId;
   dispatch.pdfRelativeUrl = pdfDownloadUrl || "";
   dispatch.submissionInProgressAt = null;
