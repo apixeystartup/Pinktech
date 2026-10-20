@@ -420,15 +420,17 @@ function DoctorDetailsPage() {
                       </button>
                     </>
                   ) : null}
-                  <button
-                    type="button"
-                    className="doc-mini-btn"
-                    onClick={() => regenerateLink(form)}
-                    disabled={regeneratingId === form.dispatchId}
-                    title="The link is single-use: once the doctor submits it, only regenerating issues a working one again"
-                  >
-                    {regeneratingId === form.dispatchId ? "Regenerating…" : "Regenerate link"}
-                  </button>
+                  {form.status?.key !== "PENDING_SUBMISSION" ? (
+                    <button
+                      type="button"
+                      className="doc-mini-btn"
+                      onClick={() => regenerateLink(form)}
+                      disabled={regeneratingId === form.dispatchId}
+                      title="Issue a fresh link and restart this workflow for another submission"
+                    >
+                      {regeneratingId === form.dispatchId ? "Regenerating…" : "Regenerate link"}
+                    </button>
+                  ) : null}
                   {form.pdfPath && form.status?.key !== "PENDING_SUBMISSION" ? (
                     <button
                       type="button"

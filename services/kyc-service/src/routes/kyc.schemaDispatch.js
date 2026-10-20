@@ -283,7 +283,7 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
           chain[idx] === String(req.auth.userId);
         const isOwner = String(row.dispatchedByUserId?._id || row.dispatchedByUserId) === String(req.auth.userId);
         const canRegenerate =
-          (isAdmin || isOwner) && (row.status === "CORRECTION_REQUIRED" || row.status === "REJECTED");
+          (isAdmin || isOwner) && (row.status !== "SENT" || Boolean(row.pinkSubmissionId));
         return {
           ...row,
           moduleName: modNameById.get(String(row.moduleId)) || "—",
@@ -425,7 +425,7 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
       // Any spent state — submitted, in approval, correction requested, or
       // already approved (e.g. the doctor submitted wrong data) — gets a new
       // token and a new revision; previous submissions stay in history.
-      if (dispatch.status === "SENT") {
+      if (dispatch.status === "SENT" && !dispatch.pinkSubmissionId) {
         throw new ApiError(
           400,
           "The current link is still active — the doctor has not submitted yet.",

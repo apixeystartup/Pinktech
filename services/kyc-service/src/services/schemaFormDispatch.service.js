@@ -621,6 +621,9 @@ async function regenerateDispatchLink({ dispatch, actorUserId, linkOrigin }) {
   dispatch.revision = (dispatch.revision || 1) + 1;
   dispatch.status = "SENT";
   dispatch.currentApprovalIndex = -1;
+  dispatch.pinkSubmissionId = null;
+  dispatch.pdfRelativeUrl = "";
+  dispatch.submissionInProgressAt = null;
   await dispatch.save();
   await pushDispatchEvent(
     dispatch._id,
