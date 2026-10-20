@@ -150,31 +150,39 @@ function NotificationsPage() {
             ))
           )}
         </div>
-        <label htmlFor="notif-subject">Subject</label>
-        <input
-          id="notif-subject"
-          value={form.subject}
-          onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
-          placeholder="Optional subject"
-        />
-        <label htmlFor="notif-channel">Channel</label>
-        <select
-          id="notif-channel"
-          value={form.channel}
-          onChange={(e) => setForm((p) => ({ ...p, channel: e.target.value }))}
-        >
-          <option value="IN_APP">In-app</option>
-          <option value="EMAIL">Email</option>
-        </select>
-        <label htmlFor="notif-message">Message</label>
-        <textarea
-          id="notif-message"
-          rows={4}
-          value={form.message}
-          onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))}
-          required
-          placeholder="Your message"
-        />
+        <div className="notifications-compose-fields">
+          <label htmlFor="notif-subject">
+            Subject
+            <input
+              id="notif-subject"
+              value={form.subject}
+              onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
+              placeholder="Optional subject"
+            />
+          </label>
+          <label htmlFor="notif-channel">
+            Channel
+            <select
+              id="notif-channel"
+              value={form.channel}
+              onChange={(e) => setForm((p) => ({ ...p, channel: e.target.value }))}
+            >
+              <option value="IN_APP">In-app</option>
+              <option value="EMAIL">Email</option>
+            </select>
+          </label>
+          <label htmlFor="notif-message">
+            Message
+            <textarea
+              id="notif-message"
+              rows={4}
+              value={form.message}
+              onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))}
+              required
+              placeholder="Your message"
+            />
+          </label>
+        </div>
         <div className="notifications-compose-actions">
           <button className="btn-primary" type="submit">
             Send to selected

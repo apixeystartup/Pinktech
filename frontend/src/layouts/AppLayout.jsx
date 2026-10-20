@@ -165,16 +165,17 @@ function AppLayout() {
       <div className="shell-body">
         {navOpen ? <div className="sidebar-scrim" onClick={() => setNavOpen(false)} aria-hidden="true" /> : null}
         <aside className={`sidebar${navOpen ? " sidebar--open" : ""}`}>
-          {navSections.map((section) => (
-            <div key={section.title} className="sidebar-section">
-              <h3>{section.title}</h3>
-              {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end onClick={() => setNavOpen(false)}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          <nav aria-label="Main navigation">
+            {navSections.map((section) => (
+              <div key={section.title} className="sidebar-section">
+                {section.items.map((item) => (
+                  <NavLink key={item.to} to={item.to} end onClick={() => setNavOpen(false)}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </nav>
         </aside>
         <main className="content">
           <div className="content-inner">

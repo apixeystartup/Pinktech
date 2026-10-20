@@ -6,6 +6,11 @@ const logger = require("@pink/shared").logger;
 // puppeteer is ESM-only, so it is required lazily inside generateSubmissionPdf.
 // That keeps the pure HTML builders above importable from CommonJS tests.
 
+let pdfBrowser = null;
+let pdfBrowserLaunch = null;
+let pdfBrowserIdleTimer = null;
+let activePdfPages = 0;
+
 async function launchPdfBrowser(puppeteer) {
   try {
     return await puppeteer.launch({ headless: true });
@@ -22,6 +27,54 @@ async function launchPdfBrowser(puppeteer) {
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
   }
+}
+
+async function getPdfBrowser(puppeteer) {
+  if (pdfBrowserIdleTimer) {
+    clearTimeout(pdfBrowserIdleTimer);
+    pdfBrowserIdleTimer = null;
+  }
+  if (pdfBrowser && pdfBrowser.connected !== false) return pdfBrowser;
+  if (!pdfBrowserLaunch) {
+    pdfBrowserLaunch = launchPdfBrowser(puppeteer)
+      .then((browser) => {
+        pdfBrowser = browser;
+        browser.on?.("disconnected", () => {
+          if (pdfBrowser === browser) pdfBrowser = null;
+        });
+        return browser;
+      })
+      .finally(() => {
+        pdfBrowserLaunch = null;
+      });
+  }
+  return pdfBrowserLaunch;
+}
+
+function schedulePdfBrowserClose(browser) {
+  if (activePdfPages !== 0 || pdfBrowser !== browser) return;
+  if (pdfBrowserIdleTimer) clearTimeout(pdfBrowserIdleTimer);
+  pdfBrowserIdleTimer = setTimeout(async () => {
+    pdfBrowserIdleTimer = null;
+    if (activePdfPages !== 0 || pdfBrowser !== browser) return;
+    pdfBrowser = null;
+    try {
+      await browser.close();
+    } catch (error) {
+      logger.warn({ error }, "Failed to close idle PDF Chromium browser.");
+    }
+  }, 30_000);
+  pdfBrowserIdleTimer.unref?.();
+}
+
+async function closePdfBrowser() {
+  if (pdfBrowserIdleTimer) {
+    clearTimeout(pdfBrowserIdleTimer);
+    pdfBrowserIdleTimer = null;
+  }
+  const browser = pdfBrowser;
+  pdfBrowser = null;
+  if (browser) await browser.close();
 }
 
 function escapeHtml(input) {
@@ -332,9 +385,11 @@ async function generateSubmissionPdf({ submissionId, moduleName, submissionData,
   const html = buildSubmissionPdfHtml({ moduleName, submissionData, agreements, includeAgreements });
 
   const puppeteer = require("puppeteer");
-  const browser = await launchPdfBrowser(puppeteer);
+  const browser = await getPdfBrowser(puppeteer);
+  activePdfPages += 1;
+  let page;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
     await page.pdf({
       path: filePath,
@@ -343,7 +398,12 @@ async function generateSubmissionPdf({ submissionId, moduleName, submissionData,
       margin: { top: "18mm", right: "18mm", bottom: "18mm", left: "18mm" }
     });
   } finally {
-    await browser.close();
+    try {
+      if (page) await page.close();
+    } finally {
+      activePdfPages -= 1;
+      schedulePdfBrowserClose(browser);
+    }
   }
 
   return { fileName, filePath };
@@ -440,6 +500,7 @@ async function combineSubmissionPdf({ submissionFilePath, openingAgreementPdf })
 
 module.exports = {
   generateSubmissionPdf,
+  closePdfBrowser,
   buildSubmissionPdfHtml,
   renderAgreementHtml,
   renderAgreementSection,

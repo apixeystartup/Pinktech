@@ -169,6 +169,32 @@ function TasteLandingPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
+    if (!("IntersectionObserver" in window)) return undefined;
+
+    const revealTargets = document.querySelectorAll(
+      ".taste-section-heading > *, .taste-capability-list, .taste-capability-preview, .taste-workflow-copy > *, .taste-workflow-preview, .taste-close > *",
+    );
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -36px 0px" });
+
+    revealTargets.forEach((target) => {
+      const siblingIndex = Array.prototype.indexOf.call(target.parentElement.children, target);
+      target.classList.add("taste-reveal");
+      target.style.setProperty("--taste-reveal-delay", `${Math.min(siblingIndex, 3) * 70}ms`);
+      observer.observe(target);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   const closeMenu = () => setMenuOpen(false);
   const feature = FEATURES[featureIndex];
 
@@ -266,7 +292,7 @@ function TasteLandingPage() {
               aria-label={`${feature.label} workflow preview`}
               aria-live="polite"
             >
-              <FeatureFragment feature={feature} />
+              <FeatureFragment feature={feature} key={feature.label} />
             </div>
           </div>
         </section>

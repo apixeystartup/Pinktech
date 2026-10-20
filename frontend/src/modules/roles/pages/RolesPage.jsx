@@ -297,8 +297,8 @@ function RolesPage() {
         </p>
       ) : (
       <>
-      <form className="stacked-form" onSubmit={submitRole}>
-        <div className="inline-form">
+      <form className="stacked-form roles-create-form" onSubmit={submitRole}>
+        <div className="inline-form roles-create-fields">
           {editingRoleId ? <span className="small-note form-editing-hint">Editing role</span> : null}
           <input
             placeholder="Role name (e.g. Payroll Approver)"

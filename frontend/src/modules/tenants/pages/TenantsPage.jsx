@@ -143,16 +143,29 @@ function TenantsPage() {
 
   return (
     <ModulePage title="Tenants" description="Create and manage tenant lifecycle.">
-      <form className="inline-form" onSubmit={createTenant}>
-        <input placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-        <input placeholder="Code" value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} required />
-        <input placeholder="Admin Email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} required />
-        <label style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-          <input type="checkbox" checked={form.plan === "starter"} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.checked ? "starter" : "basic" }))} />
-          Starter
-        </label>
-        <button className="btn-primary" type="submit">Create</button>
-        <button className="btn-secondary" type="button" onClick={createAndSendCreds}>Create &amp; Send Creds</button>
+      <form className="tenants-create-form" onSubmit={createTenant}>
+        <div className="tenants-create-fields">
+          <label>
+            Name
+            <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+          </label>
+          <label>
+            Code
+            <input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} required />
+          </label>
+          <label>
+            Admin Email
+            <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} required />
+          </label>
+        </div>
+        <div className="tenants-create-actions">
+          <label className="tenants-create-plan">
+            <input type="checkbox" checked={form.plan === "starter"} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.checked ? "starter" : "basic" }))} />
+            Starter
+          </label>
+          <button className="btn-primary" type="submit">Create</button>
+          <button className="btn-secondary" type="button" onClick={createAndSendCreds}>Create &amp; Send Creds</button>
+        </div>
       </form>
 
       <DataTable

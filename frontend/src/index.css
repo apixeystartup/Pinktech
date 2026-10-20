@@ -647,17 +647,7 @@ a:hover {
 }
 
 .sidebar-section {
-  margin-bottom: 22px;
-}
-
-.sidebar-section h3 {
-  margin: 0 0 10px;
-  padding: 0 10px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--text-faint);
-  text-transform: uppercase;
+  margin-bottom: 14px;
 }
 
 .sidebar a {
@@ -1814,10 +1804,6 @@ a.btn-ghost:hover {
 
   .sidebar-scrim {
     display: none;
-  }
-
-  .sidebar-section h3 {
-    grid-column: auto;
   }
 }
 
