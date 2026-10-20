@@ -1,9 +1,28 @@
 const fs = require("fs");
 const path = require("path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const logger = require("@pink/shared").logger;
 
 // puppeteer is ESM-only, so it is required lazily inside generateSubmissionPdf.
 // That keeps the pure HTML builders above importable from CommonJS tests.
+
+async function launchPdfBrowser(puppeteer) {
+  try {
+    return await puppeteer.launch({ headless: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (process.platform !== "linux" || !/No usable sandbox/i.test(message)) throw error;
+
+    logger.warn(
+      { error: message },
+      "Chromium sandbox is unavailable; retrying PDF generation without the sandbox.",
+    );
+    return puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+  }
+}
 
 function escapeHtml(input) {
   return String(input ?? "")
@@ -313,7 +332,7 @@ async function generateSubmissionPdf({ submissionId, moduleName, submissionData,
   const html = buildSubmissionPdfHtml({ moduleName, submissionData, agreements, includeAgreements });
 
   const puppeteer = require("puppeteer");
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await launchPdfBrowser(puppeteer);
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });

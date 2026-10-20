@@ -183,6 +183,73 @@ describe("buildSubmissionPdfHtml", () => {
   });
 });
 
+describe("generateSubmissionPdf", () => {
+  it("retries on Linux without Chromium sandbox when sandbox initialization is unavailable", async () => {
+    const fileName = `submission-sandbox-test-${Date.now()}.pdf`;
+    const outputPath = path.resolve(process.cwd(), "storage", "pdfs", fileName);
+    const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { ...platformDescriptor, value: "linux" });
+    const page = { setContent: jest.fn(), pdf: jest.fn() };
+    const browser = { newPage: jest.fn().mockResolvedValue(page), close: jest.fn() };
+    const mockLaunch = jest.fn()
+      .mockRejectedValueOnce(new Error("Failed to launch: No usable sandbox!"))
+      .mockResolvedValueOnce(browser);
+    let generate;
+
+    jest.resetModules();
+    jest.doMock("puppeteer", () => ({ launch: mockLaunch }));
+    try {
+      jest.isolateModules(() => {
+        ({ generateSubmissionPdf: generate } = require("../../services/forms-service/src/services/pdfService"));
+      });
+      const result = await generate({
+        submissionId: fileName.replace(/^submission-/, "").replace(/\.pdf$/, ""),
+        moduleName: "Onboarding",
+        submissionData: { name: "Dr. Example" },
+        agreements: {},
+      });
+
+      expect(result.fileName).toBe(fileName);
+      expect(mockLaunch).toHaveBeenNthCalledWith(1, { headless: true });
+      expect(mockLaunch).toHaveBeenNthCalledWith(2, {
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      expect(page.setContent).toHaveBeenCalledWith(expect.stringContaining("Onboarding"), { waitUntil: "networkidle0" });
+      expect(page.pdf).toHaveBeenCalledWith(expect.objectContaining({ path: outputPath, format: "A4" }));
+      expect(browser.close).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.dontMock("puppeteer");
+      jest.resetModules();
+      await fs.promises.rm(outputPath, { force: true });
+      Object.defineProperty(process, "platform", platformDescriptor);
+    }
+  });
+
+  it("does not disable the sandbox for unrelated Chromium launch failures", async () => {
+    const mockLaunch = jest.fn().mockRejectedValue(new Error("Browser executable not found."));
+    let generate;
+
+    jest.resetModules();
+    jest.doMock("puppeteer", () => ({ launch: mockLaunch }));
+    try {
+      jest.isolateModules(() => {
+        ({ generateSubmissionPdf: generate } = require("../../services/forms-service/src/services/pdfService"));
+      });
+      await expect(generate({
+        submissionId: `sandbox-failure-${Date.now()}`,
+        moduleName: "Onboarding",
+        submissionData: {},
+        agreements: {},
+      })).rejects.toThrow("Browser executable not found.");
+      expect(mockLaunch).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.dontMock("puppeteer");
+      jest.resetModules();
+    }
+  });
+});
+
 describe("uploaded agreement packet PDFs", () => {
   it("stamps required signer values into the snapshotted agreement", async () => {
     const storageDir = path.resolve(__dirname, "../../storage/form-agreements");
