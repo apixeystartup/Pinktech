@@ -382,6 +382,15 @@ router.get("/schema-dispatch/:token", async (req, res, next) => {
       }
       throw new ApiError(409, "This form was already submitted or is no longer available.");
     }
+    if (
+      dispatch.pinkSubmissionId ||
+      (
+        dispatch.submissionInProgressAt &&
+        Date.now() - new Date(dispatch.submissionInProgressAt).getTime() < 10 * 60 * 1000
+      )
+    ) {
+      return res.status(200).json({ processing: true, token: dispatch.token });
+    }
     const moduleDoc = await PinkFormModule.findById(dispatch.moduleId).lean();
     if (!moduleDoc || moduleDoc.moduleType !== "FORM") throw new ApiError(404, "Form not found.");
     const tenant = await Tenant.findById(dispatch.tenantId).lean();

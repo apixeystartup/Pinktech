@@ -2,7 +2,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import DynamicFormRenderer from "../components/schema-forms/DynamicFormRenderer";
-import { getPublicSchemaDispatch, resolveSchemaFormAssetUrl } from "../lib/schemaFormsPublic";
+import {
+  getPublicSchemaDispatch,
+  resolveSchemaFormAssetUrl,
+  waitForSchemaFormSubmission,
+} from "../lib/schemaFormsPublic";
 import "../styles/schema-forms.css";
 function PublicSchemaDispatchPage() {
   const { token } = useParams();
@@ -18,6 +22,27 @@ function PublicSchemaDispatchPage() {
       .catch((err) => setError(err.message || "Invalid or expired link."))
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!payload?.processing || !token) return undefined;
+    let cancelled = false;
+    waitForSchemaFormSubmission(token)
+      .then((result) => {
+        if (!cancelled) {
+          setPayload({
+            completed: true,
+            pdfDownloadUrl: result.pdfDownloadUrl,
+            message: result.message,
+          });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "Could not confirm your submission.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [payload?.processing, token]);
 
   if (loading) {
     return (
@@ -49,11 +74,22 @@ function PublicSchemaDispatchPage() {
     );
   }
 
+  if (payload?.processing && !error) {
+    return (
+      <div className="schema-forms schema-forms--public">
+        <div className="schema-forms__public-card">
+          <h1>Submission received</h1>
+          <p className="hint">Your response is saved. Your PDF is being prepared.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (error || !payload?.module) {
     return (
       <div className="schema-forms schema-forms--public">
         <div className="schema-forms__public-card">
-          <h1>Form unavailable</h1>
+          <h1>{payload?.processing ? "Submission received" : "Form unavailable"}</h1>
           <p className="hint">{error || "This link is not valid."}</p>
         </div>
       </div>

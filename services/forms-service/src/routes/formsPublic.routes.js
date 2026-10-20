@@ -20,6 +20,149 @@ const { placeholderContext, resolvePlaceholders } = require("@pink/shared");
 const ApiError = require("@pink/shared").ApiError;
 
 const router = express.Router();
+let submissionPdfQueue = Promise.resolve();
+
+function enqueueSubmissionPdf(options) {
+  submissionPdfQueue = submissionPdfQueue
+    .then(() => generateAndSaveSubmissionPdf(options))
+    .catch((error) => {
+      console.error("schema form PDF job failed unexpectedly", error);
+    });
+}
+
+async function generateAndSaveSubmissionPdf({
+  submission,
+  moduleName,
+  agreementSnapshot,
+  dispatchToken,
+  moduleId,
+  claimTimestamp,
+}) {
+  let generatedPdfPath = null;
+  try {
+    const pdfArtifact = await generateSubmissionPdf({
+      submissionId: submission._id,
+      moduleName,
+      submissionData: submission.data,
+      includeAgreements: !agreementSnapshot,
+      agreements: {
+        pre: {
+          accepted: true,
+          text: submission.agreements.pre.text,
+          signatureDataUrl: submission.agreements.pre.signatureDataUrl,
+          acceptedAt: submission.agreements.pre.acceptedAt || new Date().toISOString(),
+        },
+      },
+    });
+    generatedPdfPath = pdfArtifact.filePath;
+
+    if (agreementSnapshot) {
+      const openingAgreementPdf = await renderAgreementPdf({
+        documentFileName: agreementSnapshot.documentFileName,
+        fields: agreementSnapshot.fields,
+        signatureDataUrl: submission.agreements.pre.signatureDataUrl,
+        signerValues: submission.agreements.pre.templateFieldValues,
+      });
+      await combineSubmissionPdf({
+        submissionFilePath: pdfArtifact.filePath,
+        openingAgreementPdf,
+      });
+    }
+
+    const downloadUrl = `/api/v1/submissions/${submission._id}/pdf`;
+    await Submission.findByIdAndUpdate(submission._id, {
+      $set: {
+        "pdf.fileName": pdfArtifact.fileName,
+        "pdf.filePath": pdfArtifact.filePath,
+        "pdf.downloadUrl": downloadUrl,
+        "pdf.status": "completed",
+        "pdf.error": "",
+        "pdf.generatedAt": new Date(),
+      },
+    });
+
+    if (dispatchToken) {
+      completeDispatchAfterSubmission({
+        dispatchToken,
+        submissionId: submission._id,
+        moduleId,
+        pdfDownloadUrl: downloadUrl,
+      }).catch((hookError) => {
+        console.error("schemaFormDispatch hook failed", hookError);
+      });
+    }
+  } catch (error) {
+    console.error("schema form PDF generation failed", error);
+    if (generatedPdfPath) {
+      try {
+        const fs = require("fs");
+        await fs.promises.unlink(generatedPdfPath);
+      } catch (unlinkError) {
+        if (unlinkError.code !== "ENOENT") {
+          console.error("schema form failed PDF cleanup failed", unlinkError);
+        }
+      }
+    }
+    try {
+      await Submission.findByIdAndUpdate(submission._id, {
+        $set: {
+          "pdf.status": "failed",
+          "pdf.error": "Your response was saved, but its PDF could not be prepared. Please contact support.",
+        },
+      });
+    } catch (updateError) {
+      console.error("schema form PDF failure status update failed", updateError);
+    }
+    if (dispatchToken && claimTimestamp) {
+      try {
+        await SchemaFormDispatch.updateOne(
+          { token: dispatchToken, status: "SENT", submissionInProgressAt: claimTimestamp },
+          { $set: { submissionInProgressAt: null } },
+        );
+      } catch (releaseError) {
+        console.error("schemaFormDispatch PDF failure claim release failed", releaseError);
+      }
+    }
+  }
+}
+
+async function resumePendingSubmissionPdfs() {
+  const pendingSubmissions = await Submission.find({
+    "pdf.downloadUrl": { $in: ["", null] },
+    "pdf.status": { $ne: "failed" },
+    createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+  }).lean();
+  for (const submission of pendingSubmissions) {
+    const [moduleDoc, dispatch] = await Promise.all([
+      Module.findById(submission.moduleId).select("name").lean(),
+      submission.dispatchToken
+        ? SchemaFormDispatch.findOne({ token: submission.dispatchToken }).lean()
+        : Promise.resolve(null),
+    ]);
+    if (!moduleDoc || (submission.dispatchToken && !dispatch)) {
+      await Submission.findByIdAndUpdate(submission._id, {
+        $set: {
+          "pdf.status": "failed",
+          "pdf.error": "Your response was saved, but its PDF could not be prepared. Please contact support.",
+        },
+      });
+      console.error("schema form PDF recovery could not load submission context", {
+        submissionId: submission._id,
+      });
+      continue;
+    }
+    const agreementSnapshot = dispatch?.openingAgreementSnapshot || dispatch?.closingAgreementSnapshot || null;
+    enqueueSubmissionPdf({
+      submission,
+      moduleName: moduleDoc.name,
+      agreementSnapshot,
+      dispatchToken: submission.dispatchToken,
+      moduleId: submission.moduleId,
+      claimTimestamp: dispatch?.submissionInProgressAt || null,
+    });
+  }
+  await submissionPdfQueue;
+}
 
 router.get("/form/:token", async (req, res, next) => {
   try {
@@ -74,11 +217,35 @@ router.get("/schema-forms/modules/:id", async (req, res, next) => {
   }
 });
 
+router.get("/schema-forms/submissions/:dispatchToken/status", async (req, res, next) => {
+  try {
+    const identifier = req.params.dispatchToken;
+    let submission = await Submission.findOne({ dispatchToken: identifier })
+      .select("_id pdf")
+      .lean();
+    if (!submission && /^[a-f\d]{24}$/i.test(identifier)) {
+      submission = await Submission.findById(identifier).select("_id pdf").lean();
+    }
+    if (!submission) {
+      return res.status(404).json({ error: "Submission is not available yet." });
+    }
+    const pdfStatus = submission.pdf?.downloadUrl ? "completed" : submission.pdf?.status || "processing";
+    return res.status(200).json({
+      id: submission._id,
+      pdfStatus,
+      pdfDownloadUrl: pdfStatus === "completed" ? submission.pdf.downloadUrl : "",
+      message: pdfStatus === "failed"
+        ? submission.pdf?.error || "Your response was saved, but its PDF could not be prepared. Please contact support."
+        : "Submission successful.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post("/schema-forms/submissions", async (req, res, next) => {
   let claimedDispatchId = null;
   let claimTimestamp = null;
-  let submissionId = null;
-  let generatedPdfPath = null;
   try {
     const { moduleId, data, website, agreements, dispatchToken } = req.body;
 
@@ -103,7 +270,17 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
             message: "Submission successful.",
           });
         }
-        throw new ApiError(409, "Your submission is still being processed. Please wait a moment and retry.");
+        if (previousSubmission.pdf?.status === "failed") {
+          throw new ApiError(
+            503,
+            previousSubmission.pdf.error || "Your response was saved, but its PDF could not be prepared. Please contact support.",
+          );
+        }
+        return res.status(202).json({
+          id: previousSubmission._id,
+          pdfStatus: "processing",
+          message: "Your response was received. Preparing your PDF.",
+        });
       }
     }
 
@@ -196,71 +373,34 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
         ip: req.ip,
         userAgent: req.headers["user-agent"] || "",
         source: "public-form"
-      }
+      },
+      pdf: { status: "processing" },
     });
-    submissionId = submission._id;
-
-    const pdfArtifact = await generateSubmissionPdf({
-      submissionId: submission._id,
-      moduleName: moduleDoc.name,
-      submissionData: normalized,
-      includeAgreements: !agreementSnapshot,
-      agreements: {
-        pre: { accepted: true, text: agreementTexts.pre, signatureDataUrl: agreements.pre.signatureDataUrl, acceptedAt: agreements.pre.acceptedAt || new Date().toISOString() },
-      }
-    });
-    generatedPdfPath = pdfArtifact.filePath;
-    if (agreementSnapshot) {
-      const openingAgreementPdf = await renderAgreementPdf({
-        documentFileName: agreementSnapshot.documentFileName,
-        fields: agreementSnapshot.fields,
-        signatureDataUrl: agreements.pre.signatureDataUrl,
-        signerValues: openingTemplateFieldValues,
-      });
-      await combineSubmissionPdf({
-        submissionFilePath: pdfArtifact.filePath,
-        openingAgreementPdf,
-      });
-    }
-
-    const downloadUrl = `/api/v1/submissions/${submission._id}/pdf`;
-    await Submission.findByIdAndUpdate(submission._id, {
-      pdf: { fileName: pdfArtifact.fileName, filePath: pdfArtifact.filePath, downloadUrl, generatedAt: new Date() }
-    });
-
-    const token = typeof dispatchToken === "string" ? dispatchToken.trim() : "";
+    const token = rawDispatchToken || "";
     if (token) {
-      // Dispatch bookkeeping + notification emails run in the background. The
-      // SMTP legs can outlast the gateway timeout while the submission and
-      // PDF are already safely stored, so never hold the 201 for them.
-      completeDispatchAfterSubmission({ dispatchToken: token, submissionId: submission._id, moduleId, pdfDownloadUrl: downloadUrl }).catch(
-        (hookErr) => {
-          console.error("schemaFormDispatch hook failed", hookErr);
-        },
-      );
+      void SchemaFormDispatch.updateOne(
+        { token, status: "SENT", submissionInProgressAt: claimTimestamp },
+        { $set: { pinkSubmissionId: submission._id } },
+      ).catch((updateError) => {
+        console.error("schemaFormDispatch submission reference update failed", updateError);
+      });
     }
+    enqueueSubmissionPdf({
+      submission: submission.toObject(),
+      moduleName: moduleDoc.name,
+      agreementSnapshot,
+      dispatchToken: token,
+      moduleId,
+      claimTimestamp,
+    });
 
-    return res.status(201).json({
+    return res.status(202).json({
       id: submission._id,
-      pdfDownloadUrl: downloadUrl,
-      message: moduleDoc.formSchema?.settings?.successMessage || "Submission successful."
+      pdfStatus: "processing",
+      statusUrl: `/api/v1/public/forms/schema-forms/submissions/${encodeURIComponent(token || submission._id)}/status`,
+      message: "Your response was received. Preparing your PDF.",
     });
   } catch (error) {
-    if (submissionId) {
-      try {
-        await Submission.deleteOne({ _id: submissionId });
-      } catch (deleteError) {
-        console.error("schema form failed submission cleanup failed", deleteError);
-      }
-    }
-    if (generatedPdfPath) {
-      try {
-        const fs = require("fs");
-        await fs.promises.unlink(generatedPdfPath);
-      } catch (unlinkError) {
-        if (unlinkError.code !== "ENOENT") console.error("schema form failed PDF cleanup failed", unlinkError);
-      }
-    }
     if (claimedDispatchId && claimTimestamp) {
       try {
         await SchemaFormDispatch.updateOne(
@@ -274,5 +414,7 @@ router.post("/schema-forms/submissions", async (req, res, next) => {
     return next(error);
   }
 });
+
+router.resumePendingSubmissionPdfs = resumePendingSubmissionPdfs;
 
 module.exports = router;

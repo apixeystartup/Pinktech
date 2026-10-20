@@ -43,6 +43,11 @@ async function bootstrap() {
   await connectMongo(env.MONGO_URI);
   logger.info("Forms service connected to MongoDB");
   app.listen(env.PORT, () => logger.info(`Forms service listening on port ${env.PORT}`));
+  void Promise.resolve()
+    .then(() => formsPublicRoutes.resumePendingSubmissionPdfs())
+    .catch((error) => {
+      logger.error({ error }, "Forms service failed to resume pending submission PDFs");
+    });
 }
 
 bootstrap().catch((error) => {

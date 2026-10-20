@@ -29,6 +29,8 @@ const submissionSchema = new mongoose.Schema(
       fileName: { type: String, default: "" },
       filePath: { type: String, default: "" },
       downloadUrl: { type: String, default: "" },
+      status: { type: String, enum: ["processing", "completed", "failed"], default: "processing" },
+      error: { type: String, default: "" },
       generatedAt: { type: Date }
     },
     data: { type: mongoose.Schema.Types.Mixed, required: true },

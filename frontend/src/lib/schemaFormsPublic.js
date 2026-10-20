@@ -25,6 +25,7 @@ async function handleResponse(response) {
       (Array.isArray(payload.errors) ? payload.errors.join(" ") : "Request failed.");
     const error = new Error(message);
     error.payload = payload;
+    error.status = response.status;
     throw error;
   }
   return payload;
@@ -48,4 +49,28 @@ export async function submitSchemaForm(payload) {
     body: JSON.stringify(payload),
   });
   return handleResponse(response);
+}
+
+export async function waitForSchemaFormSubmission(identifier, onStatus) {
+  const deadline = Date.now() + 5 * 60 * 1000;
+  while (Date.now() < deadline) {
+    let status;
+    try {
+      const response = await fetch(
+        `${getApiV1Base()}/public/forms/schema-forms/submissions/${encodeURIComponent(identifier)}/status`,
+      );
+      status = await handleResponse(response);
+    } catch (error) {
+      if (error.status && error.status !== 404 && error.status < 500) throw error;
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      continue;
+    }
+    onStatus?.(status);
+    if (status.pdfStatus === "completed" && status.pdfDownloadUrl) return status;
+    if (status.pdfStatus === "failed") throw new Error(status.message || "Your PDF could not be prepared.");
+    await new Promise((resolve) => window.setTimeout(resolve, 2000));
+  }
+  throw new Error(
+    "Your form may have been received, but PDF preparation is taking longer than expected. Please reopen this link before trying again.",
+  );
 }

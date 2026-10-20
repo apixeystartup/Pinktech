@@ -1,5 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { submitSchemaForm, resolveSchemaFormAssetUrl } from "../../lib/schemaFormsPublic";
+import {
+  submitSchemaForm,
+  waitForSchemaFormSubmission,
+  resolveSchemaFormAssetUrl,
+} from "../../lib/schemaFormsPublic";
 import { sanitizeHtml } from "../../lib/agreementFormatter";
 import PdfFieldCanvas from "../sign/PdfFieldCanvas";
 import SignaturePad from "./SignaturePad";
@@ -85,6 +89,7 @@ function DynamicFormRenderer({
   const [statusMessage, setStatusMessage] = useState("");
   const [statusType, setStatusType] = useState("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreparingPdf, setIsPreparingPdf] = useState(false);
   const submittingRef = useRef(false);
   const [phase, setPhase] = useState("pre");
   const [preAccepted, setPreAccepted] = useState(false);
@@ -192,7 +197,7 @@ function DynamicFormRenderer({
     setIsSubmitting(true);
     try {
       const now = new Date().toISOString();
-      const result = await submitSchemaForm({
+      const submissionPayload = {
         moduleId: moduleDoc._id,
         ...(dispatchToken ? { dispatchToken } : {}),
         data: values,
@@ -206,10 +211,33 @@ function DynamicFormRenderer({
           },
         },
         [honeypotName]: "",
-      });
+      };
+      let result;
+      try {
+        result = await submitSchemaForm(submissionPayload);
+      } catch (error) {
+        if (!dispatchToken || error.payload) throw error;
+        setIsPreparingPdf(true);
+        setStatusType("success");
+        setStatusMessage("Your response was received. Preparing your PDF...");
+        result = await waitForSchemaFormSubmission(dispatchToken);
+      }
+      if (!result.pdfDownloadUrl) {
+        setIsPreparingPdf(true);
+        setStatusType("success");
+        setStatusMessage("Your response was received. Preparing your PDF...");
+        result = await waitForSchemaFormSubmission(
+          dispatchToken || result.id,
+          (status) => {
+            if (status.pdfStatus === "processing") {
+              setStatusMessage("Your response was received. Preparing your PDF...");
+            }
+          },
+        );
+      }
       setPdfUrl(result.pdfDownloadUrl || "");
       setStatusType("success");
-      setStatusMessage(result.message || settings.successMessage || "Submitted.");
+      setStatusMessage(settings.successMessage || result.message || "Submission successful.");
       setPhase("done");
     } catch (error) {
       const apiFieldErrors = error.payload?.fieldErrors;
@@ -219,6 +247,7 @@ function DynamicFormRenderer({
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
+      setIsPreparingPdf(false);
     }
   };
 
@@ -314,7 +343,7 @@ function DynamicFormRenderer({
             <input type="text" name={honeypotName} style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
             <div className="full">
               <button type="submit" className="ioButton" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting…" : settings.submitLabel || "Submit"}
+                {isPreparingPdf ? "Preparing PDF…" : isSubmitting ? "Submitting…" : settings.submitLabel || "Submit"}
               </button>
             </div>
           </div>
