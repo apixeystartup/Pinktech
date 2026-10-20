@@ -238,6 +238,7 @@ function DynamicFormRenderer({
                 signerFieldIds={signerFieldIds(openingFields)}
                 onChange={updateAgreementField}
                 onSignatureRequest={(fieldId) => setSignatureTarget({ fieldId })}
+                fitToContainer
               />
               <button type="button" className="smallBtn" onClick={() => setSignatureTarget({})}>
                 {preSignatureDataUrl ? "Redraw signature" : "Draw Party 2 signature"}

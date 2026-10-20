@@ -284,7 +284,7 @@ export default function PdfFieldCanvas({
       const styles = window.getComputedStyle(container);
       const horizontalPadding = Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
       const availableWidth = container.clientWidth - horizontalPadding;
-      setPageWidth(Math.max(280, Math.min(PAGE_WIDTH, Math.floor(availableWidth))));
+      setPageWidth(Math.max(1, Math.min(PAGE_WIDTH, Math.floor(availableWidth))));
     };
     const observer = new ResizeObserver(updateWidth);
     observer.observe(container);

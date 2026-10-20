@@ -809,6 +809,71 @@
   border-radius: 5px;
 }
 
+.schema-forms.schema-forms--public .signCanvasRoot {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.schema-forms.schema-forms--public .signPdfPage {
+  container-type: inline-size;
+  max-width: 100%;
+  margin: 8px auto;
+}
+
+.schema-forms.schema-forms--public .signField {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  color: #17231b;
+  cursor: text;
+  font-size: 2cqw;
+  line-height: 1;
+}
+
+.schema-forms.schema-forms--public .signField.is-selected,
+.schema-forms.schema-forms--public .signField.is-editable {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.schema-forms.schema-forms--public .signField.is-editable input,
+.schema-forms.schema-forms--public .signField.is-editable textarea {
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  box-shadow: none;
+}
+
+.schema-forms.schema-forms--public .signField.is-editable input:focus,
+.schema-forms.schema-forms--public .signField.is-editable textarea:focus {
+  outline: 0;
+  box-shadow: none;
+}
+
+.schema-forms.schema-forms--public .signField .signPadTrigger {
+  border: 0;
+  background: transparent;
+  color: #173d2a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 2cqw;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.schema-forms.schema-forms--public .signField__text,
+.schema-forms.schema-forms--public .signField__placeholder {
+  color: inherit;
+}
+
 .signDesigner {
   --designer-ink: #17231b;
   --designer-muted: #5f6b61;
