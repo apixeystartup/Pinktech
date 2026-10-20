@@ -215,7 +215,7 @@ describe("generateSubmissionPdf", () => {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
-      expect(page.setContent).toHaveBeenCalledWith(expect.stringContaining("Onboarding"), { waitUntil: "networkidle0" });
+      expect(page.setContent).toHaveBeenCalledWith(expect.stringContaining("Onboarding"), { waitUntil: "load" });
       expect(page.pdf).toHaveBeenCalledWith(expect.objectContaining({ path: outputPath, format: "A4" }));
       expect(browser.close).toHaveBeenCalledTimes(1);
     } finally {
