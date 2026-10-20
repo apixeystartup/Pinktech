@@ -303,6 +303,27 @@ function registerSchemaDispatchRoutes(router, { kycStaffStack }) {
     }
   });
 
+  router.delete("/form-dispatches/:dispatchId", async (req, res, next) => {
+    try {
+      if (!req.auth.isAdmin) {
+        throw new ApiError(403, "Only a tenant admin or super admin may delete a workflow.");
+      }
+      if (!mongoose.isValidObjectId(req.params.dispatchId)) {
+        throw new ApiError(404, "Workflow not found.");
+      }
+
+      const result = await SchemaFormDispatch.deleteOne({
+        _id: req.params.dispatchId,
+        tenantId: req.tenantId,
+      });
+      if (!result.deletedCount) throw new ApiError(404, "Workflow not found.");
+
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.post("/form-dispatches/:dispatchId/approve", async (req, res, next) => {
     try {
       const schema = Joi.object({

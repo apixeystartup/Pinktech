@@ -104,6 +104,7 @@ function DoctorDetailsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [templateForm, setTemplateForm] = useState(null);
   const [regeneratingId, setRegeneratingId] = useState(null);
+  const [deletingDispatchId, setDeletingDispatchId] = useState(null);
 
   const load = useCallback(
     async (silent = false) => {
@@ -185,6 +186,24 @@ function DoctorDetailsPage() {
       showToast(getErrorMessage(err), "error");
     } finally {
       setRegeneratingId(null);
+    }
+  };
+
+  const deleteWorkflow = async (form) => {
+    const confirmed = window.confirm(
+      `Delete the ${form.name || "workflow"} workflow for this doctor? This will revoke its form link and remove it from workflow tracking. Existing submitted answers and PDFs will be retained.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingDispatchId(form.dispatchId);
+    try {
+      await api.delete(`/kyc/form-dispatches/${form.dispatchId}`);
+      showToast("Workflow deleted. Existing submissions and PDFs were retained.", "success");
+      await load(true);
+    } catch (err) {
+      showToast(getErrorMessage(err), "error");
+    } finally {
+      setDeletingDispatchId(null);
     }
   };
 
@@ -365,13 +384,24 @@ function DoctorDetailsPage() {
                 ) : null}
 
                 <div className="doc-actions doc-form-actions">
-                  <button
-                    type="button"
-                    className="doc-mini-btn doc-mini-btn--primary"
-                    onClick={() => setTemplateForm(form)}
-                  >
-                    Open template
-                  </button>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      className="doc-mini-btn doc-mini-btn--danger"
+                      onClick={() => deleteWorkflow(form)}
+                      disabled={deletingDispatchId === form.dispatchId}
+                    >
+                      {deletingDispatchId === form.dispatchId ? "Deleting…" : "Delete workflow"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="doc-mini-btn doc-mini-btn--primary"
+                      onClick={() => setTemplateForm(form)}
+                    >
+                      Open template
+                    </button>
+                  )}
                   {form.publicPath && (form.status?.key === "PENDING_SUBMISSION" || !form.submittedAt) ? (
                     <>
                       <button

@@ -746,6 +746,16 @@
   color: #dc2626;
 }
 
+.doc-mini-btn--danger {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.doc-mini-btn--danger:hover:not(:disabled) {
+  background: #dc2626;
+  color: #fff;
+}
+
 .doc-mini-btn--primary {
   background: #f97316;
   border-color: #f97316;
