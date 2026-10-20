@@ -98,10 +98,10 @@ function AppLayout() {
             <span className="topbar-brand-mark">P</span>
           </div>
           <div className="topbar-titles">
-            <h1 className="topbar-title">
+            <div className="topbar-title">
               <span className="topbar-title-word">Pink Tech</span>
               <span className="topbar-title-tag">Workspace</span>
-            </h1>
+            </div>
             <div className="topbar-meta-block">
               <p className="topbar-subtitle topbar-identity" title={topbarSummaryTitle || undefined}>
                 {displayName ? <span className="topbar-employee-name">{displayName}</span> : null}

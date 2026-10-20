@@ -220,45 +220,61 @@ function buildSubmissionPdfHtml({ moduleName, submissionData, agreements, includ
     <meta charset="utf-8" />
     <title>Submission PDF</title>
     <style>
-      body { font-family: Arial, sans-serif; color: #222; padding: 20px; }
-      h1, h2 { color: #b01257; margin-bottom: 8px; }
-      .section { margin-bottom: 24px; }
-      .responseSection { margin: 26px 0; }
-      .responseHeader { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #f4d5e3; }
+      @page { size: A4; margin: 18mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Arial, "Segoe UI", sans-serif; color: #17231b; font-size: 13px; }
+      h1, h2 { color: #17231b; }
+      .packetHeader { padding-bottom: 18px; border-bottom: 2px solid #173d2a; }
+      .packetBrand { margin-bottom: 24px; color: #31543a; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+      .packetHeader h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.03em; }
+      .packetHeader .small { margin: 0; color: #59655c; }
+      .section { margin: 20px 0; }
+      .section h2, .responseHeader h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+      .formMeta { padding: 11px 13px; border: 1px solid #dfe4dc; border-radius: 5px; background: #f7f8f5; }
+      .formMetaLabel { display: block; margin-bottom: 4px; color: #59655c; font-size: 11px; }
+      .formMetaValue { color: #17231b; font-size: 14px; font-weight: 600; }
+      .responseSection { margin: 24px 0; }
+      .responseHeader { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #dfe4dc; }
       .responseHeader h2 { margin: 0 0 4px; }
-      .responseIntro { margin: 0; color: #687386; font-size: 12px; }
-      .responseCount { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #fdf0f7; color: #9c255c; font-size: 11px; font-weight: 700; }
-      .responseGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-      .responseCard { min-width: 0; padding: 12px 13px; border: 1px solid #e7eaf0; border-left: 3px solid #d8588c; border-radius: 7px; background: #fbfcfe; break-inside: avoid; page-break-inside: avoid; }
-      .responseLabel { margin-bottom: 6px; color: #647087; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
-      .responseValue { color: #202b3c; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-      .responseEmpty { padding: 18px; border: 1px dashed #d7dce5; border-radius: 7px; color: #687386; text-align: center; }
-      .signature { max-width: 280px; border: 1px solid #ddd; padding: 6px; border-radius: 6px; background: #fff; }
-      .small { font-size: 12px; color: #666; }
-      .agreementBox { border: 1px solid #eee; border-radius: 8px; padding: 12px; background: #fafafa; }
-      .agreementMeta { font-size: 12px; color: #666; margin: 8px 0; }
-      .muted { color: #888; font-style: italic; }
-      .agreementBody { font-size: 14px; line-height: 1.55; color: #222; }
-      .agreementBody h1, .agreementBody h2, .agreementBody h3, .agreementBody h4 { margin: 14px 0 6px; line-height: 1.25; color: #111; }
-      .agreementBody h1 { font-size: 20px; }
-      .agreementBody h2 { font-size: 17px; }
-      .agreementBody h3 { font-size: 15px; }
-      .agreementBody h4 { font-size: 14px; }
+      .responseIntro { margin: 0; color: #59655c; font-size: 12px; }
+      .responseCount { flex: 0 0 auto; color: #465448; font-size: 12px; font-weight: 600; }
+      .responseGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .responseCard { min-width: 0; padding: 10px 12px; border: 1px solid #e4e8e1; border-radius: 5px; background: #fafbf9; break-inside: avoid; page-break-inside: avoid; }
+      .responseLabel { margin-bottom: 5px; color: #59655c; font-size: 11px; font-weight: 600; }
+      .responseValue { color: #17231b; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .responseEmpty { padding: 18px; border: 1px dashed #cbd2c9; border-radius: 5px; color: #59655c; text-align: center; }
+      .signature { max-width: 280px; border: 1px solid #dfe4dc; padding: 6px; border-radius: 4px; background: #fff; }
+      .small { font-size: 11px; color: #59655c; }
+      .agreementBox { margin: 22px 0; padding: 14px 16px; border: 1px solid #dfe4dc; border-radius: 5px; background: #fff; break-inside: auto; }
+      .agreementBox > h2 { padding-bottom: 8px; border-bottom: 1px solid #e7ebe5; }
+      .agreementMeta { font-size: 11px; color: #59655c; margin: 8px 0; }
+      .muted { color: #59655c; font-style: italic; }
+      .agreementBody { font-size: 13px; line-height: 1.6; color: #202b23; }
+      .agreementBody h1, .agreementBody h2, .agreementBody h3, .agreementBody h4 { margin: 14px 0 6px; line-height: 1.25; color: #17231b; break-after: avoid; page-break-after: avoid; }
+      .agreementBody h1 { font-size: 19px; }
+      .agreementBody h2 { font-size: 16px; }
+      .agreementBody h3 { font-size: 14px; }
+      .agreementBody h4 { font-size: 13px; }
       .agreementBody h1:first-child, .agreementBody h2:first-child { margin-top: 0; }
       .agreementBody p { margin: 0 0 8px; }
       .agreementBody ul, .agreementBody ol { margin: 0 0 10px; padding-left: 22px; }
       .agreementBody li { margin: 3px 0; }
-      .agreementBody hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
-      .agreementBody blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid #eee; color: #555; }
+      .agreementBody hr { border: none; border-top: 1px solid #dfe4dc; margin: 12px 0; }
+      .agreementBody blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 2px solid #cbd2c9; color: #465448; }
       @media print { .responseSection { break-inside: auto; } .responseHeader { break-after: avoid; page-break-after: avoid; } }
     </style>
   </head>
   <body>
-    <h1>Form Submission Packet</h1>
-    <div class="small">Generated at: ${new Date().toISOString()}</div>
+    <header class="packetHeader">
+      <div class="packetBrand">Pinktech · Submission record</div>
+      <h1>Form submission</h1>
+      <p class="small">Generated ${escapeHtml(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }))} UTC</p>
+    </header>
     <div class="section">
-      <h2>Form</h2>
-      <div>${escapeHtml(moduleName)}</div>
+      <div class="formMeta">
+        <span class="formMetaLabel">Form</span>
+        <div class="formMetaValue">${escapeHtml(moduleName)}</div>
+      </div>
     </div>
 
     ${includeAgreements ? renderAgreementSection({
@@ -305,7 +321,7 @@ async function generateSubmissionPdf({ submissionId, moduleName, submissionData,
       path: filePath,
       format: "A4",
       printBackground: true,
-      margin: { top: "20px", right: "20px", bottom: "20px", left: "20px" }
+      margin: { top: "18mm", right: "18mm", bottom: "18mm", left: "18mm" }
     });
   } finally {
     await browser.close();

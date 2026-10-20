@@ -324,7 +324,7 @@ export default function SignatureTemplatesTab({ org }) {
   if (editing) {
     const paletteByKey = Object.fromEntries(PALETTE.map((field) => [field.key, field]));
     return (
-      <div className="signDesigner">
+      <div className="schema-forms signDesigner">
         <div className="signDesigner__bar">
           <div className="signDesigner__barActions">
             <button type="button" className="ghostBtn signDesigner__close" onClick={() => setEditing(null)}>

@@ -6,8 +6,8 @@ import { useToast } from "../components/common/ToastProvider";
 function StatCard({ label, value, sub }) {
   return (
     <div className="dash-stat-card">
-      <span className="dash-stat-value">{value ?? "—"}</span>
       <span className="dash-stat-label">{label}</span>
+      <span className="dash-stat-value">{value ?? "—"}</span>
       {sub ? <span className="dash-stat-sub">{sub}</span> : null}
     </div>
   );
@@ -839,7 +839,7 @@ function DashboardPage() {
     <section className="module-page">
       <div className="dash-header">
         <div>
-          <h2>Dashboard</h2>
+          <h1>Dashboard</h1>
           <p className="dash-subtitle">
             Welcome back{user?.name ? `, ${user.name}` : ""} &mdash; {roleLabel}
           </p>

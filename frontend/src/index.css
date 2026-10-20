@@ -763,8 +763,8 @@ a:hover {
 /* Compact "Organization data (Party 1)" summary shown in the module header
    on the Templates tab, in place of the page title + description. Sized to
    match the Builder tab's title + description block height exactly:
-   h2 (1.42rem × 1.2) + 6px gap + desc (0.92rem × 1.55). */
-.module-page h2:has(.org-summary) {
+   h1 (1.42rem × 1.2) + 6px gap + desc (0.92rem × 1.55). */
+.module-page h1:has(.org-summary) {
   margin-bottom: 0;
 }
 .org-summary {

@@ -3,7 +3,7 @@ function ModulePage({ title, description, actions, children }) {
     <section className="module-page">
       <div className="module-header">
         <div className="module-header-text">
-          <h2>{title}</h2>
+          <h1>{title}</h1>
           {description ? <p className="module-page-desc">{description}</p> : null}
         </div>
         <div className="module-header-actions">

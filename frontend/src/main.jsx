@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import './index.css'
 import './org-explorer.css'
+import './product-redesign.css'
+import './product-workspace.css'
 import App from './App.jsx'
 
 const storedTheme = localStorage.getItem('theme')

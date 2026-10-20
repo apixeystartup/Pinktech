@@ -258,7 +258,7 @@ export default function OrgEmployeePage() {
   const title = (
     <>
       Org Explore
-      {tenantLabel ? <span className="module-title-tenant">{tenantLabel}</span> : null}
+    {tenantLabel ? <span className="module-title-tenant"> {tenantLabel}</span> : null}
     </>
   );
   const hasAccess = permissionCodes.includes("*") || permissionCodes.includes("employee.view");
@@ -308,9 +308,9 @@ function OrgExplorerPage() {
   // nobody reporting to them has nothing to explore.
   const noTeam = !isAdmin && !statsLoading && Number(stats?.total ?? 0) <= 1;
   return (
-    <div className="flex flex-col" style={{ minHeight: "calc(100vh - 160px)" }}>
+    <div className="org-explorer-shell flex flex-col" style={{ minHeight: "calc(100vh - 160px)" }}>
       <OrgTopBar />
-      <main className="px-6 py-6 max-w-[1920px] mx-auto w-full">
+      <main className="org-explorer-main px-6 py-6 max-w-[1920px] mx-auto w-full">
         {noTeam ? (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
             <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Nothing to explore yet</h2>
@@ -365,8 +365,8 @@ function OrgTopBar() {
   const removedCount = removed?.count ?? 0;
 
   return (
-    <header className="border-b border-pink-100 bg-white px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
-      <div className="flex items-center gap-4 min-w-0">
+    <header className="org-explorer-header border-b border-pink-100 bg-white px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
+      <div className="org-explorer-header__identity flex items-center gap-4 min-w-0">
         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-pink-700 grid place-items-center text-white font-bold text-lg shrink-0">P</div>
         <div className="min-w-0">
           <h1 className="text-base font-semibold text-slate-900 tracking-tight">Org Explorer</h1>
@@ -421,10 +421,10 @@ function ExplorerView({ variant }) {
     : "minmax(260px, 340px) minmax(280px, min(520px, 52vw))";
 
   return (
-    <div className="grid gap-4 items-stretch w-full min-w-0" style={{ gridTemplateColumns: gridCols }}>
+    <div className="org-explorer-layout grid gap-4 items-stretch w-full min-w-0" style={{ gridTemplateColumns: gridCols }}>
       <DirectoryColumn />
       {variant === "tree" ? (
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
+        <section className="org-canvas bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
           <div className="px-5 py-4 border-b border-slate-100">
             <h2 className="text-sm font-semibold text-slate-900 tracking-tight">{selectedId ? "Org tree" : "Pick someone to see their team"}</h2>
             <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">Click someone in the list or expand nodes in the tree to explore reporting lines. Use the Org explorer tab for profile and actions.</p>
@@ -432,7 +432,7 @@ function ExplorerView({ variant }) {
           <div className="p-5 min-h-0 flex-1"><OrgTreePanel /></div>
         </section>
       ) : (
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0 org-explorer-detail">
+        <section className="org-profile bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0 org-explorer-detail">
           <div className="px-5 py-4 border-b border-slate-100">
             <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Profile</h2>
             <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Select someone to view their record, role, and actions.</p>
@@ -463,7 +463,7 @@ function DirectoryColumn() {
   ];
 
   return (
-    <section className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
+    <section className="org-directory bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
       <div className="px-5 py-4 border-b border-slate-100">
         <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Directory</h2>
         <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Search, filters, and the employee list.</p>

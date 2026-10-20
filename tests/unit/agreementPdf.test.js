@@ -154,6 +154,22 @@ describe("buildSubmissionPdfHtml", () => {
     expect(html).not.toContain("<table>");
   });
 
+  it("uses the product's current visual system for printable submission packets", () => {
+    const html = buildSubmissionPdfHtml({
+      moduleName: "Consultant Onboarding",
+      submissionData: {},
+      includeAgreements: false,
+      agreements: {}
+    });
+
+    expect(html).toContain('<div class="packetBrand">Pinktech · Submission record</div>');
+    expect(html).toContain("<h1>Form submission</h1>");
+    expect(html).toContain(".packetHeader {");
+    expect(html).toContain("@page { size: A4; margin: 18mm; }");
+    expect(html).toContain('<span class="formMetaLabel">Form</span>');
+    expect(html).toContain('<div class="formMetaValue">Consultant Onboarding</div>');
+  });
+
   it("shows an empty state when a submission has no form responses", () => {
     const html = buildSubmissionPdfHtml({
       moduleName: "Consent Form",
