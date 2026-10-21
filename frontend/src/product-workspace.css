@@ -131,6 +131,10 @@
   padding: 0;
 }
 
+.app-shell .shell-body {
+  margin-top: 12px;
+}
+
 .org-page .org-explorer-layout {
   gap: 14px;
 }
