@@ -1999,16 +1999,21 @@ textarea {
 }
 
 .dash-stats-grid {
-  gap: 14px;
+  grid-auto-rows: 1fr;
+  gap: 16px;
   overflow: visible;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  margin-bottom: 32px;
 }
 
 .dash-stat-card {
   min-width: 0;
+  min-height: 104px;
+  gap: 5px;
+  padding: 18px 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -2028,16 +2033,28 @@ textarea {
   border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
+.dash-header {
+  margin-bottom: 26px;
+}
+
+.dash-section-title {
+  margin-top: 30px;
+}
+
+.content {
+  margin: 12px 0;
+}
+
 .tenants-create-form {
   display: grid;
-  gap: 14px;
-  margin: 10px 0 20px;
+  gap: 18px;
+  margin: 14px 0 24px;
 }
 
 .tenants-create-fields {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .tenants-create-fields > label,
@@ -2045,10 +2062,11 @@ textarea {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-muted);
   font-size: 0.84rem;
   font-weight: 550;
+  line-height: 1.4;
 }
 
 .tenants-create-fields input,
@@ -2056,11 +2074,36 @@ textarea {
 .notifications-compose-fields input,
 .notifications-compose-fields select,
 .notifications-compose-fields textarea {
+  display: block;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
   min-height: 42px;
   padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.4;
+  box-shadow: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.tenants-create-fields input:hover,
+.roles-create-fields input:hover,
+.notifications-compose-fields input:hover,
+.notifications-compose-fields select:hover,
+.notifications-compose-fields textarea:hover {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border-strong));
+}
+
+.tenants-create-fields input:focus,
+.roles-create-fields input:focus,
+.notifications-compose-fields input:focus,
+.notifications-compose-fields select:focus,
+.notifications-compose-fields textarea:focus {
+  border-color: var(--primary);
 }
 
 .tenants-create-actions {
@@ -2093,7 +2136,7 @@ textarea {
 .roles-create-fields {
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .roles-create-fields input {
@@ -2105,13 +2148,19 @@ textarea {
 }
 
 .notifications-compose {
-  gap: 14px;
+  gap: 18px;
+  padding: 22px 24px;
+}
+
+.notifications-compose__title,
+.notifications-compose .small-note {
+  margin: 0;
 }
 
 .notifications-compose-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 0.42fr);
-  gap: 14px;
+  gap: 18px;
 }
 
 .notifications-compose-fields > label:last-child {
@@ -2119,7 +2168,7 @@ textarea {
 }
 
 .notifications-compose-fields textarea {
-  min-height: 116px;
+  min-height: 128px;
   resize: vertical;
 }
 
