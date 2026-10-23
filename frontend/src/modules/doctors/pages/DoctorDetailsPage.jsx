@@ -42,6 +42,83 @@ function Badge({ item }) {
   return <span className={`doc-badge doc-badge--${item.tone || "muted"}`}>{item.label}</span>;
 }
 
+function ProfileIcon({ name, size = 16 }) {
+  const paths = {
+    completed: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8.5 12 2.3 2.3 4.8-5" />
+      </>
+    ),
+    pending: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5v5l3.2 1.8" />
+      </>
+    ),
+    rejected: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m9 9 6 6m0-6-6 6" />
+      </>
+    ),
+    muted: (
+      <>
+        <path d="M7 3.75h7l4 4v12.5H7z" />
+        <path d="M14 3.75v4h4M10 12h5m-5 3.5h5" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M7 3.75h7l4 4v12.5H7z" />
+        <path d="M14 3.75v4h4m-6 4v5m0 0 2-2m-2 2-2-2" />
+      </>
+    ),
+    profile: (
+      <>
+        <circle cx="12" cy="8" r="3.25" />
+        <path d="M5.5 20c.6-3.3 2.8-5 6.5-5s5.9 1.7 6.5 5" />
+      </>
+    ),
+    assigned: (
+      <>
+        <path d="M7 3.75h7l4 4v12.5H7z" />
+        <path d="M14 3.75v4h4M10 12h5m-5 3.5h2" />
+        <path d="M17.5 14.5v4m-2-2h4" />
+      </>
+    ),
+    submitted: (
+      <>
+        <path d="M7 3.75h7l4 4v12.5H7z" />
+        <path d="M14 3.75v4h4m-8 5 1.7 1.7 3.3-3.4" />
+      </>
+    ),
+    signed: (
+      <>
+        <path d="m5 16.5-.8 3.3 3.3-.8L18.8 7.7a2.1 2.1 0 0 0-3-3L5 16.5Z" />
+        <path d="m13.9 6.6 3 3M5 20h14" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {paths[name] || paths.muted}
+    </svg>
+  );
+}
+
 function Progress({ progress, minWidth }) {
   const complete = progress?.percent === 100;
   return (
@@ -392,36 +469,31 @@ function DoctorDetailsPage() {
               <div className="doc-profile-form-list">
                 {compliance.forms.map((form) => (
                   <article className="doc-profile-form" key={form.dispatchId}>
-                    <div className={`doc-profile-form-icon doc-profile-form-icon--${form.status?.tone || "muted"}`} aria-hidden="true">
-                      {form.status?.key === "COMPLETED" ? "✓" : "·"}
-                    </div>
-                    <div className="doc-profile-form-main">
-                      <h4>{form.name}</h4>
-                      <p>
-                        {form.agreement?.signed
-                          ? `Signed${form.agreement.signedAt ? ` · ${fmtDate(form.agreement.signedAt)}` : ""}`
-                          : form.submittedAt
-                            ? `Submitted · ${fmtDate(form.submittedAt)}`
-                            : `Assigned · ${fmtDate(form.assignedAt) || "Date unavailable"}`}
-                        {form.dueDate ? ` · Due ${fmtDate(form.dueDate)}` : ""}
-                      </p>
-                    </div>
-                    <Badge item={form.status} />
-                    {form.pdfPath && form.status?.key !== "PENDING_SUBMISSION" ? (
-                      <button
-                        type="button"
-                        className="doc-profile-document"
-                        onClick={() => openPublic(form.pdfPath)}
-                        aria-label={`Open PDF for ${form.name}`}
-                        title="Open completed PDF"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    ) : null}
                     <details className="doc-profile-form-details">
-                      <summary>Workflow details</summary>
+                      <summary className="doc-profile-form-summary">
+                        <span className={`doc-profile-form-icon doc-profile-form-icon--${form.status?.tone || "muted"}`}>
+                          <ProfileIcon
+                            name={
+                              form.status?.key === "COMPLETED" || form.status?.tone === "complete"
+                                ? "completed"
+                                : form.status?.tone || "muted"
+                            }
+                          />
+                        </span>
+                        <span className="doc-profile-form-main">
+                          <strong>{form.name}</strong>
+                          <span>
+                            {form.agreement?.signed
+                              ? `Signed${form.agreement.signedAt ? ` · ${fmtDate(form.agreement.signedAt)}` : ""}`
+                              : form.submittedAt
+                                ? `Submitted · ${fmtDate(form.submittedAt)}`
+                                : `Assigned · ${fmtDate(form.assignedAt) || "Date unavailable"}`}
+                            {form.dueDate ? ` · Due ${fmtDate(form.dueDate)}` : ""}
+                          </span>
+                        </span>
+                        <Badge item={form.status} />
+                        <span className="doc-profile-expand-icon" aria-hidden="true" />
+                      </summary>
                       <div className="doc-profile-form-expanded">
                         <dl className="doc-dl">
                           <DetailRow label="Form type" value={form.moduleType} />
@@ -544,6 +616,17 @@ function DoctorDetailsPage() {
                         </div>
                       </div>
                     </details>
+                    {form.pdfPath && form.status?.key !== "PENDING_SUBMISSION" ? (
+                      <button
+                        type="button"
+                        className="doc-profile-document"
+                        onClick={() => openPublic(form.pdfPath)}
+                        aria-label={`Open PDF for ${form.name}`}
+                        title="Open completed PDF"
+                      >
+                        <ProfileIcon name="download" />
+                      </button>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -562,7 +645,7 @@ function DoctorDetailsPage() {
                 {activityItems.map((item, index) => (
                   <li className="doc-activity-item" key={`${item.type}-${item.at}-${index}`}>
                     <span className={`doc-activity-marker doc-activity-marker--${item.type}`} aria-hidden="true">
-                      {item.type === "signed" ? "✓" : item.type === "submitted" ? "↗" : item.type === "assigned" ? "+" : "•"}
+                      <ProfileIcon name={item.type} size={15} />
                     </span>
                     <div className="doc-activity-copy">
                       <strong>{item.title}</strong>
