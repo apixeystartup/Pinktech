@@ -653,7 +653,10 @@ a:hover {
 .sidebar a {
   color: var(--text-muted);
   text-decoration: none;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 10px 14px;
   border-radius: var(--radius-md);
   font-size: 0.9rem;
@@ -663,6 +666,23 @@ a:hover {
     box-shadow var(--dur-fast) var(--ease-out);
   border: 1px solid transparent;
 }
+
+.nav-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger-text) 18%, transparent);
+}
+
 
 .sidebar a:hover {
   background: var(--nav-hover);

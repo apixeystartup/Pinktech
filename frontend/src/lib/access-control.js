@@ -17,9 +17,9 @@ const NAV_SECTIONS = [
       { to: "/app", label: "Dashboard", permissions: [] },
       { to: "/app/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"], superAdminOnly: true },
       { to: "/app/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"], adminOnly: true },
-      { to: "/app/org-employees", label: "Org Explore", permissions: ROUTE_PERMISSIONS["/org-employees"] },
-      { to: "/app/employee-management", label: "Employee Management", permissions: ROUTE_PERMISSIONS["/employee-management"], adminOnly: true },
-      { to: "/app/doctors", label: "Doctor Management", permissions: ROUTE_PERMISSIONS["/doctors"] },
+      { to: "/app/org-employees", label: "Organization", permissions: ROUTE_PERMISSIONS["/org-employees"] },
+      { to: "/app/employee-management", label: "Employees", permissions: ROUTE_PERMISSIONS["/employee-management"], adminOnly: true },
+      { to: "/app/doctors", label: "Doctors", permissions: ROUTE_PERMISSIONS["/doctors"] },
     ],
   },
   {
@@ -32,7 +32,7 @@ const NAV_SECTIONS = [
     title: "Compliance",
     items: [
       { to: "/app/notifications", label: "Notifications", permissions: ROUTE_PERMISSIONS["/notifications"] },
-      { to: "/app/audit", label: "Audit Logs", permissions: ROUTE_PERMISSIONS["/audit"] },
+      { to: "/app/audit", label: "Activity Log", permissions: ROUTE_PERMISSIONS["/audit"] },
     ],
   },
 ];

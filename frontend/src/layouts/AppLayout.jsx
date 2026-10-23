@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import { getNavSections, isAdminRole } from "../lib/access-control";
 import api from "../lib/api";
 import { displayAccountEmail } from "../lib/userDisplay";
+import WorkflowHint from "../components/common/WorkflowHint";
 
 function AppLayout() {
   const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole } = useAuth();
+  const { pathname } = useLocation();
   const [tenants, setTenants] = useState([]);
   // A regular employee only ever sees themselves + their own reports in Org
   // Explore, so an employee with no reports gets no Org Explore entry at all.
@@ -14,7 +16,31 @@ function AppLayout() {
   // we can tell, rather than hiding a page they may need.
   const [employeeHasTeam, setEmployeeHasTeam] = useState(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [auditErrorCount, setAuditErrorCount] = useState(0);
   const orgAdmin = isAdminRole(accountRole, isSuperAdmin);
+
+  // Keep the Activity Log badge honest without making the sidebar depend on
+  // the audit page being open. Polls gently and refreshes with tenant context.
+  useEffect(() => {
+    let active = true;
+    const loadErrorCount = () => {
+      api
+        .get("/audit/logs", { params: { limit: 1, status: "ERROR" } })
+        .then((res) => {
+          if (active) setAuditErrorCount(Number(res.data?.errorCount || 0));
+        })
+        .catch(() => {
+          if (active) setAuditErrorCount(0);
+        });
+    };
+    loadErrorCount();
+    const timer = setInterval(loadErrorCount, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [tenantContextId]);
+
 
   useEffect(() => {
     if (orgAdmin) return undefined;
@@ -171,6 +197,11 @@ function AppLayout() {
                 {section.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end onClick={() => setNavOpen(false)}>
                     {item.label}
+                    {item.to === "/app/audit" && auditErrorCount > 0 ? (
+                      <span className="nav-count-badge" title={`${auditErrorCount} error${auditErrorCount === 1 ? "" : "s"} recorded`}>
+                        {auditErrorCount > 99 ? "99+" : auditErrorCount}
+                      </span>
+                    ) : null}
                   </NavLink>
                 ))}
               </div>
@@ -179,6 +210,7 @@ function AppLayout() {
         </aside>
         <main className="content">
           <div className="content-inner">
+            <WorkflowHint pathname={pathname} accountRole={accountRole} />
             <Outlet />
           </div>
         </main>

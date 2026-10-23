@@ -19,12 +19,16 @@ const PLACEHOLDER_DEFS = [
   { key: "doctor.clinic", label: "Clinic / hospital" },
   { key: "doctor.hospital_name", label: "Hospital name" },
   { key: "doctor.address", label: "Address" },
+  { key: "doctor.gstin", label: "Doctor GSTIN" },
+  { key: "doctor.designation", label: "Doctor designation" },
   { key: "tenant.name", label: "Organization name" },
   { key: "tenant.code", label: "Organization code" },
   { key: "tenant.email", label: "Organization email" },
   { key: "tenant.phone", label: "Organization phone" },
   { key: "tenant.address", label: "Organization address" },
   { key: "tenant.registration_number", label: "Organization registration no." },
+  { key: "tenant.gstin", label: "Organization GSTIN" },
+  { key: "tenant.designation", label: "Party 1 designation" },
   { key: "date", label: "Today's date" },
 ];
 
@@ -51,12 +55,16 @@ function placeholderContext({ doctor = {}, tenant = null, tenantName = "" } = {}
     "doctor.clinic": clinic,
     "doctor.hospital_name": clinic,
     "doctor.address": doctor?.address || "",
+    "doctor.gstin": doctor?.gstin || "",
+    "doctor.designation": doctor?.designation || "",
     "tenant.name": resolvedTenantName || "",
     "tenant.code": tenantObj.code || "",
     "tenant.email": tenantObj.email || "",
     "tenant.phone": tenantObj.phone || "",
     "tenant.address": tenantObj.address || "",
     "tenant.registration_number": tenantObj.registrationNumber || tenantObj.registration_number || "",
+    "tenant.gstin": tenantObj.gstin || "",
+    "tenant.designation": tenantObj.signatoryDesignation || tenantObj.designation || "",
     date: new Date().toISOString().slice(0, 10),
   };
 }
@@ -106,6 +114,8 @@ const TEMPLATE_PARTY_FIELDS = [
   { key: "phone", label: "Organization phone", tag: "tenant.phone", docPath: "phone" },
   { key: "address", label: "Organization address", tag: "tenant.address", docPath: "address" },
   { key: "registration_number", label: "Organization registration no.", tag: "tenant.registration_number", docPath: "registrationNumber" },
+  { key: "gstin", label: "Organization GSTIN", tag: "tenant.gstin", docPath: "gstin" },
+  { key: "designation", label: "Party 1 designation", tag: "tenant.designation", docPath: "signatoryDesignation" },
 ];
 
 const TEMPLATE_PARTY_KEYS = TEMPLATE_PARTY_FIELDS.map((f) => f.key);

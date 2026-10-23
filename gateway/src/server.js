@@ -91,6 +91,112 @@ const Permission = mongoose.model("Permission", permissionSchema);
 const Tenant = mongoose.model("Tenant", tenantSchema);
 const Role = mongoose.model("Role", roleSchema);
 
+const auditLogSchema = new mongoose.Schema(
+  {
+    tenantId: { type: mongoose.Schema.Types.ObjectId, index: true, default: null },
+    userId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    action: { type: String, required: true, index: true },
+    status: { type: String, enum: ["SUCCESS", "ERROR"], default: "SUCCESS", index: true },
+    errorMessage: { type: String, default: null },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, strict: false },
+);
+const AuditLog = mongoose.model("AuditLog", auditLogSchema);
+
+function toObjectId(value) {
+  if (!value || !mongoose.Types.ObjectId.isValid(String(value))) return null;
+  return new mongoose.Types.ObjectId(String(value));
+}
+
+/**
+ * Turn the attempted request into the same action vocabulary the services use
+ * when they write successful audit entries, so failures and successes of the
+ * same operation group together in the Activity Log.
+ */
+function deriveAuditAction(req) {
+  const path = (req.originalUrl || "").split("?")[0];
+  const method = String(req.method || "GET").toUpperCase();
+  const includes = (part) => path.includes(part);
+
+  if (includes("/auth/login")) return "AUTH_LOGIN";
+  if (includes("/auth/forgot-password") || includes("/auth/reset-password")) return "AUTH_PASSWORD_RESET";
+  if (includes("/auth/set-password")) return "AUTH_PASSWORD_SET";
+  if (includes("/auth/verify-otp")) return "AUTH_OTP_VERIFY";
+
+  if (includes("/users")) {
+    if (includes("send-creds") || includes("reset-creds")) return "USER_CREDENTIALS_SENT";
+    if (method === "POST") return "USER_INVITED";
+    if (method === "DELETE") return "USER_DELETED";
+    return "USER_UPDATED";
+  }
+
+  if (includes("/schema-forms") || /\/forms(\/|$)/.test(path)) {
+    if (includes("/submit") || includes("/submission")) return "FORM_SUBMITTED";
+    if (includes("/assign")) return "FORM_ASSIGNED";
+    if (method === "POST") return "FORM_CREATED";
+    if (method === "DELETE") return "FORM_DELETED";
+    return "FORM_UPDATED";
+  }
+
+  if (includes("/doctors")) {
+    if (includes("/compliance") && method === "POST") return "DOCTOR_COMPLIANCE_ASSIGNED";
+    if (method === "POST") return "DOCTOR_CREATED";
+    if (method === "DELETE") return "DOCTOR_DELETED";
+    return "DOCTOR_UPDATED";
+  }
+
+  if (includes("/assignments")) return method === "POST" ? "SEAT_ASSIGNED" : "ASSIGNMENT_UPDATED";
+  if (includes("/positions")) return method === "POST" ? "POSITION_CREATED" : "POSITION_UPDATED";
+  if (includes("/workflows")) return method === "POST" ? "WORKFLOW_CREATED" : "WORKFLOW_UPDATED";
+  if (includes("/notifications")) return method === "POST" ? "NOTIFICATION_SENT" : "NOTIFICATION_ACTION";
+  if (includes("/tenants")) return method === "POST" ? "TENANT_CREATED" : "TENANT_UPDATED";
+  if (includes("/roles")) return method === "POST" ? "ROLE_CREATED" : "ROLE_UPDATED";
+  if (includes("/kyc") || includes("/external-users")) return "KYC_ACTION";
+
+  return `${method} ${path}`;
+}
+
+function extractErrorMessage(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "Request failed";
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed?.message) {
+      const details = Array.isArray(parsed.details)
+        ? parsed.details.map((d) => d?.message).filter(Boolean).join("; ")
+        : "";
+      return details ? `${parsed.message}: ${details}` : String(parsed.message);
+    }
+  } catch {
+    /* not JSON — fall through to the raw body */
+  }
+  return text.slice(0, 1000);
+}
+
+async function recordRequestFailure(req, route, statusCode, rawBody) {
+  try {
+    const userId = req.headers["x-auth-user-id"];
+    if (!userId) return;
+    await AuditLog.create({
+      tenantId: toObjectId(req.headers["x-auth-tenant-id"]),
+      userId: toObjectId(userId),
+      action: deriveAuditAction(req),
+      status: "ERROR",
+      errorMessage: extractErrorMessage(rawBody),
+      metadata: {
+        method: req.method,
+        path: (req.originalUrl || "").split("?")[0],
+        statusCode,
+        service: route?.service || null,
+      },
+    });
+  } catch (error) {
+    logger.warn({ error }, "Failed to record failed request in audit log");
+  }
+}
+
+
 const SERVICE_MAP = {
   auth: "http://127.0.0.1:4001",
   platform: "http://127.0.0.1:4002",
@@ -193,6 +299,26 @@ function proxyRequest(targetUrl, path, req, res) {
 
   const proxyReq = http.request(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    if (proxyRes.statusCode >= 400) {
+      // Keep a small copy of the error body so the Activity Log can show the
+      // exact message the user saw. Large bodies (PDFs, streams) are never
+      // errors here, and the cap keeps memory bounded if one is.
+      const chunks = [];
+      let captured = 0;
+      proxyRes.on("data", (chunk) => {
+        if (captured >= 16 * 1024) return;
+        chunks.push(chunk);
+        captured += chunk.length;
+      });
+      proxyRes.on("end", () => {
+        recordRequestFailure(
+          req,
+          resolveRoute(req.originalUrl),
+          proxyRes.statusCode,
+          Buffer.concat(chunks).toString("utf8"),
+        );
+      });
+    }
     proxyRes.pipe(res);
   });
 

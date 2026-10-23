@@ -2,6 +2,101 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
 import { useToast } from "../components/common/ToastProvider";
+import { Link } from "react-router-dom";
+
+function getDashboardNextStep(data) {
+  if (!data) return null;
+
+  const summary = data.summary || {};
+  if (data.role === "super_admin") {
+    if (!summary.totalTenants) {
+      return {
+        title: "Create your first tenant",
+        detail: "Tenants keep each organization's people, forms and doctor records separate.",
+        to: "/app/tenants",
+        action: "Create a tenant",
+      };
+    }
+    if (!summary.totalEmployees) {
+      return {
+        title: "Set up tenant access",
+        detail: "Create roles and add employees so each tenant can manage its own work.",
+        to: "/app/roles",
+        action: "Set up roles",
+      };
+    }
+    if (!summary.totalForms) {
+      return {
+        title: "Create a reusable form",
+        detail: "Build and publish a form before assigning it to doctors.",
+        to: "/app/forms",
+        action: "Create a form",
+      };
+    }
+    if (!summary.totalDoctors) {
+      return {
+        title: "Add your first doctor",
+        detail: "Create a doctor profile, then attach the relevant compliance form.",
+        to: "/app/doctors",
+        action: "Add a doctor",
+      };
+    }
+    return {
+      title: "Review tenant progress",
+      detail: "Open a tenant to inspect its team and doctor activity.",
+      to: "/app/tenants",
+      action: "View tenants",
+    };
+  }
+
+  if (data.role === "tenant_admin") {
+    if (!summary.totalEmployees) {
+      return {
+        title: "Add your team",
+        detail: "Set up employees and reporting lines before assigning work.",
+        to: "/app/employee-management",
+        action: "Add employees",
+      };
+    }
+    if (!summary.formsCreated) {
+      return {
+        title: "Create your first form",
+        detail: "Build and publish a reusable form for your doctor workflows.",
+        to: "/app/forms",
+        action: "Create a form",
+      };
+    }
+    if (!summary.totalDoctors) {
+      return {
+        title: "Onboard a doctor",
+        detail: "Create a doctor profile, then assign the right form.",
+        to: "/app/doctors",
+        action: "Add a doctor",
+      };
+    }
+    return {
+      title: "Review doctor progress",
+      detail: "Open a doctor profile to check submitted forms and approvals.",
+      to: "/app/doctors",
+      action: "View doctors",
+    };
+  }
+
+  if (!data.usersCreated?.length) {
+    return {
+      title: "Start by onboarding a doctor",
+      detail: "Add a doctor profile, then open it to continue with assigned work.",
+      to: "/app/doctors",
+      action: "Open doctors",
+    };
+  }
+  return {
+    title: "Continue with a doctor profile",
+    detail: "Choose a doctor to review their forms and any work waiting for you.",
+    to: "/app/doctors",
+    action: "View doctors",
+  };
+}
 
 function StatCard({ label, value, sub }) {
   return (
@@ -834,6 +929,7 @@ function DashboardPage() {
 
   const isSuperAdmin = data?.role === "super_admin";
   const roleLabel = isSuperAdmin ? "Pinktech Super Admin" : data?.role === "tenant_admin" ? "Admin" : "Employee";
+  const dashboardStep = getDashboardNextStep(data);
 
   return (
     <section className="module-page">
@@ -858,6 +954,20 @@ function DashboardPage() {
           </div>
         )}
       </div>
+
+      {!loading && !error && data ? (
+        <section className="dashboard-next-step" aria-labelledby="dashboard-next-title">
+          <div className="dashboard-next-copy">
+            <span className="dashboard-next-label">A good place to start</span>
+            <h2 id="dashboard-next-title">{dashboardStep.title}</h2>
+            <p>{dashboardStep.detail}</p>
+          </div>
+          <Link className="dashboard-next-action" to={dashboardStep.to}>
+            {dashboardStep.action}
+            <span aria-hidden="true">→</span>
+          </Link>
+        </section>
+      ) : null}
 
       {loading && <p className="dash-loading">Loading dashboard...</p>}
       {error && <p className="dash-error">{error}</p>}

@@ -120,6 +120,14 @@ async function login({ email, password }) {
     $or: [{ email: normalizedLogin }, { orgContactEmail: normalizedLogin }],
   }).select("+passwordHash");
   if (!candidates.length) {
+    await writeAudit({
+      tenantId: null,
+      userId: null,
+      action: "AUTH_LOGIN",
+      status: "ERROR",
+      errorMessage: "Invalid credentials",
+      metadata: { email: normalizedLogin },
+    });
     throw new ApiError(401, "Invalid credentials");
   }
 
@@ -145,13 +153,26 @@ async function login({ email, password }) {
     // accounting and the specific status errors behave as before.
     const target = candidates[0];
     const targetTenant = await Tenant.findById(target.tenantId);
+    const failAudit = async (message) => {
+      await writeAudit({
+        tenantId: target.tenantId,
+        userId: target._id,
+        action: "AUTH_LOGIN",
+        status: "ERROR",
+        errorMessage: message,
+        metadata: { email: normalizedLogin },
+      });
+    };
     if (!targetTenant || targetTenant.status !== "ACTIVE") {
+      await failAudit("Tenant is inactive");
       throw new ApiError(403, "Tenant is inactive");
     }
     if (target.lockUntil && target.lockUntil > now) {
+      await failAudit("Account temporarily locked due to failed login attempts");
       throw new ApiError(423, "Account temporarily locked due to failed login attempts");
     }
     if (target.status !== "ACTIVE" || target.status === "DISABLED") {
+      await failAudit("Account is not active");
       throw new ApiError(403, "Account is not active");
     }
     target.loginAttempts = (target.loginAttempts || 0) + 1;
@@ -160,6 +181,7 @@ async function login({ email, password }) {
       target.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
     }
     await target.save();
+    await failAudit("Invalid credentials");
     throw new ApiError(401, "Invalid credentials");
   }
 

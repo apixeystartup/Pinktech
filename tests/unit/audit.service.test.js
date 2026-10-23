@@ -22,6 +22,8 @@ describe("audit.service", () => {
       tenantId: "tenant-1",
       userId: "user-1",
       action: "AUTH_LOGIN",
+      status: "SUCCESS",
+      errorMessage: null,
       metadata: { email: "john@test.com" },
     });
   });
@@ -37,6 +39,8 @@ describe("audit.service", () => {
       tenantId: null,
       userId: null,
       action: "SYSTEM_EVENT",
+      status: "SUCCESS",
+      errorMessage: null,
       metadata: {},
     });
   });

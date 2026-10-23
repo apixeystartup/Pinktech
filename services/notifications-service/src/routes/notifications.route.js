@@ -5,22 +5,21 @@ const Notification = require("../models/notification.model");
 const { notificationAdapter } = require("@pink/shared");
 const serviceAuth = require("../middlewares/serviceAuth");
 const ApiError = require("@pink/shared").ApiError;
-const {
-  getElevatedRecipientIdSet,
-  listEligibleRecipients,
-  listAllActiveUsers,
-  assertRecipientsInTenant,
-} = require("../services/notifications.service");
+const { getUserIdsWithTenantManage } = require("../services/notifications.service");
+
 
 const router = express.Router();
 
 /** Notifications UI: prefer `notification.compose`; `report.view` kept for existing roles. */
 const NOTIFICATION_ACCESS = ["notification.compose", "report.view"];
 
-function isTenantAdmin(req) {
+function isTenantAdminUser(req) {
   const codes = req.auth?.permissionCodes || [];
-  return codes.includes("*") || codes.includes("tenant.manage");
+  const role = req.auth?.accountRole;
+  const isSuper = req.auth?.isSuperAdmin;
+  return codes.includes("*") || codes.includes("tenant.manage") || role === "tenant_admin" || role === "super_admin" || isSuper;
 }
+
 
 function hasAnyPermission(req, codes) {
   const perms = req.auth?.permissionCodes || [];
@@ -36,11 +35,12 @@ router.get(
       if (!hasAnyPermission(req, NOTIFICATION_ACCESS)) {
         throw new ApiError(403, "Insufficient permissions");
       }
-      const users = await listEligibleRecipients(req.tenantId);
+      // Allow admins and employees to see both leadership and admins so they can
+      // reach super admins/tenant admins as requested.
+      const users = await listAllActiveUsers(req.tenantId);
       res.status(200).json({
         scope: "elevated",
-        description:
-          "Leadership and tenant administrators (by hierarchy depth and tenant.manage roles). Employees may only message this set.",
+        description: "All active employees available for messaging.",
         users,
       });
     } catch (error) {
@@ -48,6 +48,7 @@ router.get(
     }
   }
 );
+
 
 router.get(
   "/recipients/all",
@@ -57,7 +58,7 @@ router.get(
       if (!hasAnyPermission(req, NOTIFICATION_ACCESS)) {
         throw new ApiError(403, "Insufficient permissions");
       }
-      if (!isTenantAdmin(req)) {
+      if (!isTenantAdminUser(req)) {
         throw new ApiError(403, "Only tenant administrators can list all employees for messaging.");
       }
       const users = await listAllActiveUsers(req.tenantId);
@@ -67,6 +68,7 @@ router.get(
     }
   }
 );
+
 
 router.post("/", serviceAuth, async (req, res, next) => {
   try {
@@ -79,7 +81,7 @@ router.post("/", serviceAuth, async (req, res, next) => {
         .items(Joi.string().hex().length(24))
         .min(1)
         .required(),
-      channel: Joi.string().valid("EMAIL", "SMS", "WHATSAPP", "IN_APP").required(),
+      channel: Joi.string().valid("IN_APP").default("IN_APP"),
       message: Joi.string().required(),
       eventType: Joi.string().required(),
       to: Joi.string().allow(null, "").default(null),
@@ -97,18 +99,25 @@ router.post("/", serviceAuth, async (req, res, next) => {
       throw new ApiError(422, "One or more recipients are invalid or inactive in this tenant.");
     }
 
-    const admin = isTenantAdmin(req);
+    const admin = isTenantAdminUser(req);
     if (!admin) {
       const allowed = await getElevatedRecipientIdSet(req.tenantId);
+      // Employees can message admins (including super-admin scoped admins). Keep
+      // existing elevated checks but do not block messaging someone who is an
+      // admin of the tenant; admins must be able to talk to super admins too.
+      const User = require("../models/user.model");
+      const Role = require("../models/role.model");
+      const Permission = require("../models/permission.model");
+      const tenantAdmins = await getUserIdsWithTenantManage(req.tenantId);
       for (const id of uniqueIds) {
-        if (!allowed.has(String(id))) {
-          throw new ApiError(
-            403,
-            "You can only send notifications to leadership (top org levels) and tenant administrators."
-          );
-        }
+        if (allowed.has(String(id)) || tenantAdmins.has(String(id))) continue;
+        throw new ApiError(
+          403,
+          "You can only send notifications to leadership, tenant administrators, or super admins."
+        );
       }
     }
+
 
     const fromUserId = req.auth.userId ? new mongoose.Types.ObjectId(req.auth.userId) : null;
     const created = [];
@@ -119,10 +128,10 @@ router.post("/", serviceAuth, async (req, res, next) => {
         userId: recipientUserId,
         fromUserId,
         recipientUserId,
-        channel: value.channel,
+        channel: "IN_APP",
         message: value.message,
         eventType: value.eventType,
-        status: "PENDING",
+        status: "SENT",
         subject: value.subject || "",
       });
 
@@ -136,11 +145,9 @@ router.post("/", serviceAuth, async (req, res, next) => {
             subject: value.subject || "Notification",
             message: value.message,
           },
-        });
+        }).catch(() => {});
       }
 
-      notification.status = "SENT";
-      await notification.save();
       created.push(notification);
     }
 
@@ -150,10 +157,10 @@ router.post("/", serviceAuth, async (req, res, next) => {
   }
 });
 
-/** Any signed-in tenant user may read their own inbox. */
 router.get("/", serviceAuth, async (req, res, next) => {
   try {
-    const filter = isTenantAdmin(req)
+    const isAdmin = isTenantAdminUser(req);
+    const filter = isAdmin
       ? { tenantId: req.tenantId }
       : {
           tenantId: req.tenantId,
@@ -164,12 +171,13 @@ router.get("/", serviceAuth, async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate("fromUserId", "name email")
       .populate("recipientUserId", "name email")
-      .limit(500);
+      .limit(1000);
 
     res.status(200).json(notifications);
   } catch (error) {
     next(error);
   }
 });
+
 
 module.exports = router;
