@@ -185,25 +185,23 @@
 /* --- details page ------------------------------------------------------- */
 
 .doc-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  margin-bottom: 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  margin-bottom: 10px;
   color: var(--text-muted);
-  background: var(--bg-elevated, #fff);
-  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
-  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .doc-back:hover {
   color: var(--text);
-  border-color: var(--border-strong, rgba(15, 23, 42, 0.14));
-  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+  background: var(--bg-subtle, #f1f3ef);
 }
 
 .doc-back svg {
@@ -806,6 +804,361 @@
   color: var(--text-muted);
 }
 
+/* --- doctor profile ----------------------------------------------------- */
+
+.doc-profile-hero {
+  position: relative;
+  align-items: flex-end;
+  gap: 16px;
+  min-height: 126px;
+  overflow: hidden;
+  padding: 48px 20px 18px;
+  background: var(--bg-elevated, #fff);
+}
+
+.doc-profile-hero::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 64px;
+  content: "";
+  background: #fbecf2;
+  pointer-events: none;
+}
+
+.doc-profile-hero > * {
+  position: relative;
+}
+
+.doc-profile-hero .doc-avatar {
+  width: 62px;
+  height: 62px;
+  border: 3px solid #fff;
+  border-radius: 12px;
+  background: var(--primary-muted, #fce7f3);
+  color: var(--primary, #be185d);
+  box-shadow: 0 2px 8px rgb(20 30 20 / 12%);
+}
+
+.doc-profile-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.doc-profile-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle, #f1f3ef);
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 650;
+}
+
+.doc-profile-status--complete {
+  background: #eaf4ed;
+  color: #267343;
+}
+
+.doc-profile-id {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.doc-profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.doc-profile-actions .doc-btn-danger {
+  min-height: 34px;
+}
+
+.doc-profile-layout {
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.doc-profile-credentials,
+.doc-profile-main > .doc-card {
+  min-width: 0;
+}
+
+.doc-profile-credentials {
+  padding: 17px 16px;
+}
+
+.doc-profile-credentials .doc-card-title,
+.doc-profile-section-head {
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+}
+
+.doc-credential-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  margin: 12px 0 0;
+}
+
+.doc-credential-list dt {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.doc-credential-list dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.doc-profile-extra {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+}
+
+.doc-profile-extra summary,
+.doc-profile-form-details summary {
+  color: var(--link);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.doc-profile-extra[open] summary {
+  margin-bottom: 8px;
+}
+
+.doc-profile-main {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.doc-profile-compliance,
+.doc-profile-activity {
+  padding: 17px 16px;
+}
+
+.doc-profile-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+.doc-profile-section-head .doc-card-title {
+  margin: 0;
+}
+
+.doc-profile-completion {
+  flex: none;
+  color: var(--success, #267343);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.doc-profile-form-list {
+  display: grid;
+  gap: 8px;
+}
+
+.doc-profile-form {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+  border-radius: 9px;
+  background: var(--bg-elevated, #fff);
+}
+
+.doc-profile-form-icon,
+.doc-activity-marker {
+  display: grid;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 7px;
+  background: #eef3ef;
+  color: #35734a;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.doc-profile-form-icon--pending {
+  background: #fff5e8;
+  color: #a86712;
+}
+
+.doc-profile-form-icon--rejected {
+  background: #fff0ef;
+  color: #b53b34;
+}
+
+.doc-profile-form-icon--muted {
+  background: var(--bg-subtle, #f1f3ef);
+  color: var(--text-muted);
+}
+
+.doc-profile-form-main {
+  min-width: 0;
+}
+
+.doc-profile-form-main h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.doc-profile-form-main p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.doc-profile-form .doc-badge {
+  padding: 3px 7px;
+  font-size: 0.6rem;
+}
+
+.doc-profile-document {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.doc-profile-document:hover {
+  background: var(--primary-muted, #fce7f3);
+  color: var(--primary, #be185d);
+}
+
+.doc-profile-form-details {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
+
+.doc-profile-form-details summary {
+  font-size: 0.69rem;
+}
+
+.doc-profile-form-expanded {
+  display: grid;
+  gap: 12px;
+  padding: 12px 0 2px;
+}
+
+.doc-profile-form-expanded .doc-dl {
+  grid-template-columns: minmax(105px, 0.65fr) minmax(0, 1fr);
+  gap: 7px 10px;
+  font-size: 0.75rem;
+}
+
+.doc-profile-form-expanded .doc-form-actions {
+  flex-wrap: wrap;
+}
+
+.doc-profile-activity > .doc-card-title {
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--border, rgba(15, 23, 42, 0.09));
+}
+
+.doc-activity-list {
+  position: relative;
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.doc-activity-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 5px 0;
+}
+
+.doc-activity-item:not(:last-child)::before {
+  position: absolute;
+  top: 32px;
+  bottom: -7px;
+  left: 12px;
+  width: 1px;
+  content: "";
+  background: var(--border, rgba(15, 23, 42, 0.09));
+}
+
+.doc-activity-marker {
+  z-index: 1;
+  border-radius: 50%;
+  background: #f8e9f0;
+  color: #b82d69;
+  font-size: 0.75rem;
+}
+
+.doc-activity-marker--signed {
+  background: #eaf4ed;
+  color: #267343;
+}
+
+.doc-activity-marker--submitted {
+  background: #eef1f8;
+  color: #50618a;
+}
+
+.doc-activity-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.doc-activity-copy strong {
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.doc-activity-copy span,
+.doc-activity-item time {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.doc-activity-item time {
+  white-space: nowrap;
+}
+
 /* --- form / modal ------------------------------------------------------- */
 
 .doc-form-grid {
@@ -938,6 +1291,55 @@
   .doc-dl {
     grid-template-columns: 1fr;
     gap: 2px 0;
+  }
+
+  @media (max-width: 900px) {
+    .doc-profile-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .doc-profile-main {
+      grid-row: auto;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .doc-profile-hero {
+      align-items: flex-start;
+      padding: 44px 14px 14px;
+    }
+
+    .doc-profile-hero .doc-avatar {
+      width: 52px;
+      height: 52px;
+    }
+
+    .doc-profile-actions {
+      width: 100%;
+      justify-content: flex-start;
+      margin-left: 0;
+    }
+
+    .doc-profile-form {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+    }
+
+    .doc-profile-form .doc-badge {
+      grid-column: 2;
+      justify-self: start;
+    }
+
+    .doc-profile-form-details {
+      grid-column: 2 / -1;
+    }
+
+    .doc-activity-item {
+      grid-template-columns: 28px minmax(0, 1fr);
+    }
+
+    .doc-activity-item time {
+      grid-column: 2;
+    }
   }
 
   .doc-dl dd {

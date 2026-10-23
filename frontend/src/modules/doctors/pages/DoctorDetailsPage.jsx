@@ -82,6 +82,51 @@ function approvalLevelLabel(form) {
   return `Step 1 of ${steps.length}`;
 }
 
+function recentActivityItems(doctor, forms) {
+  const items = [];
+
+  if (doctor.createdAt) {
+    items.push({
+      type: "profile",
+      title: "Doctor profile registered",
+      description: "Added to the doctor directory",
+      at: doctor.createdAt,
+    });
+  }
+
+  forms.forEach((form) => {
+    if (form.assignedAt) {
+      items.push({
+        type: "assigned",
+        title: `${form.name} assigned`,
+        description: form.handlerName ? `Managed by ${form.handlerName}` : "Form assigned to this doctor",
+        at: form.assignedAt,
+      });
+    }
+    if (form.submittedAt) {
+      items.push({
+        type: "submitted",
+        title: `${form.name} submitted`,
+        description: "Doctor response received",
+        at: form.submittedAt,
+      });
+    }
+    if (form.agreement?.signedAt) {
+      items.push({
+        type: "signed",
+        title: `${form.name} signed`,
+        description: "Agreement signature recorded",
+        at: form.agreement.signedAt,
+      });
+    }
+  });
+
+  return items
+    .filter((item) => !Number.isNaN(new Date(item.at).getTime()))
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, 5);
+}
+
 function DoctorDetailsPage() {
   const { doctorId } = useParams();
   const navigate = useNavigate();
@@ -234,46 +279,46 @@ function DoctorDetailsPage() {
   }
 
   const summary = compliance.summary || {};
+  const activityItems = recentActivityItems(doctor, compliance.forms);
+  const allFormsComplete = summary.total > 0 && summary.completed === summary.total;
+  const profileStatus = doctor.draft
+    ? "Draft"
+    : allFormsComplete && doctor.status === "ACTIVE"
+      ? "Compliant"
+      : doctor.status === "ACTIVE"
+        ? "Active"
+        : doctor.status === "INACTIVE"
+          ? "Inactive"
+          : doctor.status;
 
   return (
     <ModulePage
-      title="Doctor Details"
-      description="Profile, compliance checklist, questionnaire progress, agreement and approvals."
-      actions={
-        <>
-          {canManage ? (
-            <button type="button" className="btn-secondary" title="Edit Doctor" onClick={() => setEditOpen(true)}>
-              Edit
-            </button>
-          ) : null}
-          {canAssignForm ? (
-            <button type="button" className="btn-primary" onClick={() => setAssignOpen(true)}>
-              Assign Form
-            </button>
-          ) : null}
-          {canManage ? (
-            <button type="button" className="doc-btn-danger" title="Delete Doctor" onClick={() => setDeleteOpen(true)}>
-              Delete
-            </button>
-          ) : null}
-        </>
-      }
+      title="Doctor Profile Details"
     >
-
-      <button type="button" className="doc-back" onClick={() => navigate("/app/doctors")}>
+      <button
+        type="button"
+        className="doc-back"
+        onClick={() => navigate("/app/doctors")}
+        aria-label="Back to doctor directory"
+        title="Back to doctor directory"
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M19 12H5m7-7-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Back to directory
       </button>
 
       {/* --- top section --- */}
-      <header className="doc-card doc-hero">
+      <header className="doc-card doc-hero doc-profile-hero">
         <div className="doc-avatar" aria-hidden="true">
           {initials(doctor.name) || "?"}
         </div>
         <div className="doc-hero-main">
-          <h2 className="doc-hero-name">Dr. {doctor.name}</h2>
+          <div className="doc-profile-name-row">
+            <h2 className="doc-hero-name">Dr. {doctor.name}</h2>
+            <span className={`doc-profile-status${allFormsComplete ? " doc-profile-status--complete" : ""}`}>
+              {profileStatus}
+            </span>
+          </div>
           <p className="doc-hero-meta">
             {doctor.specialization || "Specialization not set"}
             {doctor.yearsOfExperience !== null && doctor.yearsOfExperience !== undefined
@@ -281,195 +326,257 @@ function DoctorDetailsPage() {
               : ""}
             {doctor.clinicHospitalName ? ` · ${doctor.clinicHospitalName}` : ""}
           </p>
-          <span className="doc-id-chip">Doctor ID: {doctor.doctorCode}</span>
+          <span className="doc-profile-id">ID: {doctor.doctorCode}</span>
+          {doctor.draft ? <span className="doc-cell-sub">Draft profile — finish it with Edit Profile</span> : null}
         </div>
-        <div className="doc-hero-side">
-          <span className={`dash-status dash-status--${String(doctor.status).toLowerCase()}`}>{doctor.status}</span>
-          {doctor.draft ? <span className="doc-cell-sub">Draft profile — finish it with Edit Doctor</span> : null}
+        <div className="doc-profile-actions">
+          {canManage ? (
+            <button type="button" className="btn-secondary" onClick={() => setEditOpen(true)}>
+              Edit Profile
+            </button>
+          ) : null}
+          {canAssignForm ? (
+            <button type="button" className="btn-primary" onClick={() => setAssignOpen(true)}>
+              Assign New Form
+            </button>
+          ) : null}
+          {canManage ? (
+            <button type="button" className="doc-btn-danger" title="Delete Doctor" onClick={() => setDeleteOpen(true)}>
+              Delete
+            </button>
+          ) : null}
         </div>
       </header>
 
-      <div className="doc-grid">
-        {/* --- personal details --- */}
-        <section className="doc-card doc-card--personal">
-          <h3 className="doc-card-title">Personal Details</h3>
-          <p className="doc-card-sub">Identity and contact information on file.</p>
-          <dl className="doc-dl">
-            <DetailRow label="Age" value={doctor.age !== null && doctor.age !== undefined ? `${doctor.age} yrs` : null} />
-            <DetailRow label="Gender" value={doctor.gender} />
-            <DetailRow label="Date of Birth" value={fmtDate(doctor.dateOfBirth)} />
-            <DetailRow label="Phone Number" value={doctor.phone} />
-            <DetailRow label="Email" value={doctor.email} />
-            <DetailRow label="PAN" value={doctor.pan} />
-            <DetailRow label="Aadhaar" value={doctor.aadhaar} />
-            <DetailRow label="Medical Reg. No." value={doctor.medicalRegistrationNumber} />
+      <div className="doc-grid doc-profile-layout">
+        <section className="doc-card doc-profile-credentials">
+          <h3 className="doc-card-title">Professional Credentials</h3>
+          <dl className="doc-credential-list">
+            <DetailRow label="Medical license" value={doctor.medicalRegistrationNumber} />
             <DetailRow label="Qualification" value={doctor.qualification} />
-            <DetailRow label="Clinic / Hospital" value={doctor.clinicHospitalName} />
+            <DetailRow
+              label="Experience"
+              value={doctor.yearsOfExperience !== null && doctor.yearsOfExperience !== undefined
+                ? `${doctor.yearsOfExperience} years`
+                : null}
+            />
+            <DetailRow label="Specialization" value={doctor.specialization} />
+            <DetailRow label="Clinics & affiliations" value={doctor.clinicHospitalName} />
             <DetailRow label="Address" value={doctor.address} />
-            <DetailRow label="Added by" value={doctor.createdByLabel} />
-            <DetailRow label="Last updated" value={fmtDateTime(doctor.updatedAt)} />
+            <DetailRow label="Email" value={doctor.email} />
+            <DetailRow label="Phone" value={doctor.phone} />
           </dl>
+          <details className="doc-profile-extra">
+            <summary>Personal and account details</summary>
+            <dl className="doc-credential-list">
+              <DetailRow label="Age" value={doctor.age !== null && doctor.age !== undefined ? `${doctor.age} yrs` : null} />
+              <DetailRow label="Gender" value={doctor.gender} />
+              <DetailRow label="Date of birth" value={fmtDate(doctor.dateOfBirth)} />
+              <DetailRow label="PAN" value={doctor.pan} />
+              <DetailRow label="Aadhaar" value={doctor.aadhaar} />
+              <DetailRow label="Added by" value={doctor.createdByLabel} />
+              <DetailRow label="Last updated" value={fmtDateTime(doctor.updatedAt)} />
+            </dl>
+          </details>
         </section>
 
-        {/* --- compliance forms: one card per assigned form --- */}
-        <div className="doc-forms-head">
-          <h3 className="doc-card-title">Compliance Forms</h3>
-          <p className="doc-card-sub" style={{ marginBottom: 0 }}>
-            {summary.total
-              ? `${summary.completed} of ${summary.total} required activities completed${
-                  summary.actionRequired ? ` · ${summary.actionRequired} need attention` : ""
-                }`
-              : "Each form assigned to this doctor gets its own card."}
-          </p>
-        </div>
-
-        {compliance.forms.length ? (
-          <div className="doc-form-cards">
-            {compliance.forms.map((form) => (
-              <section className="doc-card doc-form-card" key={form.dispatchId}>
-                <div className="doc-form-head">
-                  <div className="doc-form-title-wrap">
-                    <h3 className="doc-card-title">{form.name}</h3>
-                    <p className="doc-form-meta">
-                      {form.moduleType} · assigned {fmtDate(form.assignedAt)}
-                      {form.dueDate ? ` · due ${fmtDate(form.dueDate)}` : ""}
-                      {form.revision > 1 ? ` · revision ${form.revision}` : ""}
-                    </p>
-                  </div>
-                  <Badge item={form.status} />
-                </div>
-
-                <dl className="doc-dl">
-                  <DetailRow label="Managed by" value={form.handlerName} />
-                  {form.templateName ? (
-                    <DetailRow label="Template" value={form.templateName} />
-                  ) : null}
-                  <DetailRow
-                    label="Submitted by doctor"
-                    value={form.submittedAt ? fmtDateTime(form.submittedAt) : "Not submitted yet"}
-                  />
-                  <DetailRow label="Approval level" value={approvalLevelLabel(form)} />
-                  <DetailRow
-                    label="Progress"
-                    value={form.progress?.total ? `${form.progress.answered} of ${form.progress.total}` : null}
-                  />
-                </dl>
-                <Progress progress={form.progress} />
-
-                {form.approvals?.chainLength ? (
-                  <ol className="doc-chain">
-                    {form.approvals.steps.map((step) => (
-                      <li
-                        key={step.index}
-                        className={`doc-chain-step${step.key === "PENDING" ? " doc-chain-step--active" : ""}`}
-                      >
-                        <div className="doc-chain-step-main">
-                          <div className="doc-chain-role">{step.role}</div>
-                          <div className="doc-chain-name">{step.approverName || "—"}</div>
-                        </div>
-                        <Badge item={step} />
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="doc-form-note">
-                    No approval chain — the form completes on its own once the doctor submits it.
-                  </p>
-                )}
-
-                {form.rejection ? (
-                  <div className="doc-form-banner">
-                    <strong>Correction requested:</strong> {form.rejection.reason || "—"}
-                  </div>
-                ) : null}
-
-                <div className="doc-actions doc-form-actions">
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      className="doc-mini-btn doc-mini-btn--danger"
-                      onClick={() => deleteWorkflow(form)}
-                      disabled={deletingDispatchId === form.dispatchId}
-                    >
-                      {deletingDispatchId === form.dispatchId ? "Deleting…" : "Delete workflow"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="doc-mini-btn doc-mini-btn--primary"
-                      onClick={() => setTemplateForm(form)}
-                    >
-                      Open template
-                    </button>
-                  )}
-                  {form.publicPath && (form.status?.key === "PENDING_SUBMISSION" || !form.submittedAt) ? (
-                    <>
-                      <button
-                        type="button"
-                        className="doc-mini-btn"
-                        onClick={() => copyPath(form.publicPath)}
-                      >
-                        Copy link
-                      </button>
-                      <button
-                        type="button"
-                        className="doc-mini-btn"
-                        onClick={() => openPublic(form.publicPath)}
-                      >
-                        Open form
-                      </button>
-                    </>
-                  ) : null}
-                  {form.status?.key !== "PENDING_SUBMISSION" || form.submissionReceived ? (
-                    <button
-                      type="button"
-                      className="doc-mini-btn"
-                      onClick={() => regenerateLink(form)}
-                      disabled={regeneratingId === form.dispatchId}
-                      title="Issue a fresh link and restart this workflow for another submission"
-                    >
-                      {regeneratingId === form.dispatchId ? "Regenerating…" : "Regenerate link"}
-                    </button>
-                  ) : null}
-                  {form.pdfPath && form.status?.key !== "PENDING_SUBMISSION" ? (
-                    <button
-                      type="button"
-                      className="doc-mini-btn"
-                      onClick={() => openPublic(form.pdfPath)}
-                    >
-                      View document
-                    </button>
-                  ) : null}
-                  {form.canApprove ? (
-                    <>
-                      <button
-                        type="button"
-                        className="doc-mini-btn doc-mini-btn--approve"
-                        onClick={() => actOnDispatch(form.dispatchId, "APPROVE")}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className="doc-mini-btn doc-mini-btn--reject"
-                        onClick={() => actOnDispatch(form.dispatchId, "REJECT")}
-                      >
-                        Send back
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </section>
-            ))}
-          </div>
-        ) : (
-          <section className="doc-card doc-grid-wide">
-            <div className="doc-empty">
-              No compliance forms assigned.
-              {isAdmin ? " Use Assign Form to send one to this doctor." : ""}
+        <div className="doc-profile-main">
+          <section className="doc-card doc-profile-compliance">
+            <div className="doc-profile-section-head">
+              <h3 className="doc-card-title">Compliance Agreements &amp; Forms</h3>
+              <span className="doc-profile-completion">
+                {summary.total ? `${summary.completed} of ${summary.total} completed` : "No forms assigned"}
+              </span>
             </div>
+            {compliance.forms.length ? (
+              <div className="doc-profile-form-list">
+                {compliance.forms.map((form) => (
+                  <article className="doc-profile-form" key={form.dispatchId}>
+                    <div className={`doc-profile-form-icon doc-profile-form-icon--${form.status?.tone || "muted"}`} aria-hidden="true">
+                      {form.status?.key === "COMPLETED" ? "✓" : "·"}
+                    </div>
+                    <div className="doc-profile-form-main">
+                      <h4>{form.name}</h4>
+                      <p>
+                        {form.agreement?.signed
+                          ? `Signed${form.agreement.signedAt ? ` · ${fmtDate(form.agreement.signedAt)}` : ""}`
+                          : form.submittedAt
+                            ? `Submitted · ${fmtDate(form.submittedAt)}`
+                            : `Assigned · ${fmtDate(form.assignedAt) || "Date unavailable"}`}
+                        {form.dueDate ? ` · Due ${fmtDate(form.dueDate)}` : ""}
+                      </p>
+                    </div>
+                    <Badge item={form.status} />
+                    {form.pdfPath && form.status?.key !== "PENDING_SUBMISSION" ? (
+                      <button
+                        type="button"
+                        className="doc-profile-document"
+                        onClick={() => openPublic(form.pdfPath)}
+                        aria-label={`Open PDF for ${form.name}`}
+                        title="Open completed PDF"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : null}
+                    <details className="doc-profile-form-details">
+                      <summary>Workflow details</summary>
+                      <div className="doc-profile-form-expanded">
+                        <dl className="doc-dl">
+                          <DetailRow label="Form type" value={form.moduleType} />
+                          <DetailRow label="Managed by" value={form.handlerName} />
+                          <DetailRow label="Template" value={form.templateName} />
+                          <DetailRow
+                            label="Submitted by doctor"
+                            value={form.submittedAt ? fmtDateTime(form.submittedAt) : "Not submitted yet"}
+                          />
+                          <DetailRow label="Approval level" value={approvalLevelLabel(form)} />
+                          <DetailRow
+                            label="Progress"
+                            value={form.progress?.total ? `${form.progress.answered} of ${form.progress.total}` : null}
+                          />
+                        </dl>
+                        <Progress progress={form.progress} />
+
+                        {form.approvals?.chainLength ? (
+                          <ol className="doc-chain">
+                            {form.approvals.steps.map((step) => (
+                              <li
+                                key={step.index}
+                                className={`doc-chain-step${step.key === "PENDING" ? " doc-chain-step--active" : ""}`}
+                              >
+                                <div className="doc-chain-step-main">
+                                  <div className="doc-chain-role">{step.role}</div>
+                                  <div className="doc-chain-name">{step.approverName || "—"}</div>
+                                </div>
+                                <Badge item={step} />
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <p className="doc-form-note">
+                            No approval chain — the form completes on its own once the doctor submits it.
+                          </p>
+                        )}
+
+                        {form.rejection ? (
+                          <div className="doc-form-banner">
+                            <strong>Correction requested:</strong> {form.rejection.reason || "—"}
+                          </div>
+                        ) : null}
+
+                        <div className="doc-actions doc-form-actions">
+                          {isAdmin ? (
+                            <button
+                              type="button"
+                              className="doc-mini-btn doc-mini-btn--danger"
+                              onClick={() => deleteWorkflow(form)}
+                              disabled={deletingDispatchId === form.dispatchId}
+                            >
+                              {deletingDispatchId === form.dispatchId ? "Deleting…" : "Delete workflow"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="doc-mini-btn doc-mini-btn--primary"
+                              onClick={() => setTemplateForm(form)}
+                            >
+                              Open template
+                            </button>
+                          )}
+                          {form.publicPath && (form.status?.key === "PENDING_SUBMISSION" || !form.submittedAt) ? (
+                            <>
+                              <button
+                                type="button"
+                                className="doc-mini-btn"
+                                onClick={() => copyPath(form.publicPath)}
+                              >
+                                Copy link
+                              </button>
+                              <button
+                                type="button"
+                                className="doc-mini-btn"
+                                onClick={() => openPublic(form.publicPath)}
+                              >
+                                Open form
+                              </button>
+                            </>
+                          ) : null}
+                          {form.status?.key !== "PENDING_SUBMISSION" || form.submissionReceived ? (
+                            <button
+                              type="button"
+                              className="doc-mini-btn"
+                              onClick={() => regenerateLink(form)}
+                              disabled={regeneratingId === form.dispatchId}
+                              title="Issue a fresh link and restart this workflow for another submission"
+                            >
+                              {regeneratingId === form.dispatchId ? "Regenerating…" : "Regenerate link"}
+                            </button>
+                          ) : null}
+                          {form.pdfPath && form.status?.key !== "PENDING_SUBMISSION" ? (
+                            <button
+                              type="button"
+                              className="doc-mini-btn"
+                              onClick={() => openPublic(form.pdfPath)}
+                            >
+                              View document
+                            </button>
+                          ) : null}
+                          {form.canApprove ? (
+                            <>
+                              <button
+                                type="button"
+                                className="doc-mini-btn doc-mini-btn--approve"
+                                onClick={() => actOnDispatch(form.dispatchId, "APPROVE")}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="doc-mini-btn doc-mini-btn--reject"
+                                onClick={() => actOnDispatch(form.dispatchId, "REJECT")}
+                              >
+                                Send back
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </details>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="doc-empty">
+                No compliance forms assigned.
+                {isAdmin ? " Use Assign New Form to send one to this doctor." : ""}
+              </div>
+            )}
           </section>
-        )}
+
+          <section className="doc-card doc-profile-activity">
+            <h3 className="doc-card-title">Recent Activity Logs</h3>
+            {activityItems.length ? (
+              <ol className="doc-activity-list">
+                {activityItems.map((item, index) => (
+                  <li className="doc-activity-item" key={`${item.type}-${item.at}-${index}`}>
+                    <span className={`doc-activity-marker doc-activity-marker--${item.type}`} aria-hidden="true">
+                      {item.type === "signed" ? "✓" : item.type === "submitted" ? "↗" : item.type === "assigned" ? "+" : "•"}
+                    </span>
+                    <div className="doc-activity-copy">
+                      <strong>{item.title}</strong>
+                      <span>{item.description}</span>
+                    </div>
+                    <time dateTime={new Date(item.at).toISOString()}>{fmtDate(item.at)}</time>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="doc-empty">Activity will appear here when dated profile or form events are available.</div>
+            )}
+          </section>
+        </div>
       </div>
 
       {editOpen ? (
