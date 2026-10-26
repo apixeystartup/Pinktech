@@ -53,24 +53,55 @@ html[data-theme="light"] .app-shell .module-page .wf-forms .signDesigner__action
   cursor: grabbing;
 }
 
-.signField__dragHandle {
-  right: 2px;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+.app-shell .module-page .signDesigner .signField__dragHandle {
+  top: 1px;
+  right: 1px;
+  display: grid;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #6d6d60;
+  box-shadow: none;
+  transform: none;
   font-size: 0;
+  line-height: 1;
 }
 
-.signField__dragHandle svg {
-  width: 16px;
-  height: 16px;
+.app-shell .module-page .signDesigner .signField__dragHandle svg {
+  width: 14px;
+  height: 14px;
   fill: currentColor;
 }
 
-.signField__resize {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
+.app-shell .module-page .signDesigner .signField__dragHandle:hover {
+  background: #e8e9dc;
+  color: #202018;
+}
+
+.app-shell .module-page .signDesigner .signField__resize {
+  right: 1px;
+  bottom: 1px;
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+  min-height: 10px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #ffffff;
+  border-radius: 2px;
+  background: #6d6d60;
+  box-shadow: none;
+  transform: none;
+}
+
+.app-shell .module-page .signDesigner .signField__resize:hover {
+  background: #202018;
 }
 
 @media (max-width: 860px) {
@@ -635,6 +666,7 @@ html[data-theme="light"] .wf-forms .signDesigner__close.ghostBtn:hover {
 html[data-theme="light"] .wf-forms .signDesigner__nameField {
   flex: 1 1 auto;
   gap: 8px;
+  margin-bottom: 0;
   color: #202018;
   font-size: 14px;
   font-weight: 600;
@@ -642,6 +674,7 @@ html[data-theme="light"] .wf-forms .signDesigner__nameField {
 
 html[data-theme="light"] .wf-forms .signDesigner__nameInput {
   min-height: 46px;
+  margin-bottom: 0;
   padding: 10px 14px;
   border: 1px solid #d4d5c8;
   border-radius: 10px;

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const AuditLog = require("../models/auditLog.model");
 const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
+const Role = require("../models/role.model");
 const { isPlatformTenant } = require("@pink/shared");
 
 const router = express.Router();
@@ -165,25 +166,59 @@ router.get("/logs", async (req, res, next) => {
     const [users, tenants] = await Promise.all([
       userIds.length
         ? User.find({ _id: { $in: userIds.map(toObjectId) } })
-            .select("name email empCode tenantId")
+            .select("name email empCode tenantId roleIds")
             .lean()
         : [],
       tenantIds.length
         ? Tenant.find({ _id: { $in: tenantIds.map(toObjectId) } })
-            .select("name code")
+            .select("name code adminUserId")
             .lean()
         : [],
     ]);
 
+    const userTenantIds = [
+      ...new Set(users.map((user) => String(user.tenantId)).filter((id) => !tenantIds.includes(id))),
+    ];
+    const roleIds = [
+      ...new Set(users.flatMap((user) => (user.roleIds || []).map(String))),
+    ];
+    const [userTenants, roles] = await Promise.all([
+      userTenantIds.length
+        ? Tenant.find({ _id: { $in: userTenantIds.map(toObjectId) } })
+            .select("name code adminUserId")
+            .lean()
+        : [],
+      roleIds.length
+        ? Role.find({ _id: { $in: roleIds.map(toObjectId) } })
+            .select("name")
+            .lean()
+        : [],
+    ]);
+
+    const allTenants = [...tenants, ...userTenants];
     const userMap = new Map(users.map((user) => [String(user._id), user]));
-    const tenantMap = new Map(tenants.map((tenant) => [String(tenant._id), tenant]));
+    const tenantMap = new Map(allTenants.map((tenant) => [String(tenant._id), tenant]));
+    const roleMap = new Map(roles.map((role) => [String(role._id), role.name]));
 
     const enriched = items.map((item) => {
       const user = item.userId ? userMap.get(String(item.userId)) : null;
+      const userTenant = user?.tenantId ? tenantMap.get(String(user.tenantId)) : null;
       const tenant =
         (item.tenantId && tenantMap.get(String(item.tenantId))) ||
         (item.metadata?.tenantId && tenantMap.get(String(item.metadata.tenantId))) ||
         null;
+      const roleNames = (user?.roleIds || [])
+        .map((roleId) => roleMap.get(String(roleId)))
+        .filter(Boolean);
+      const isTenantAdmin =
+        user && userTenant?.adminUserId && String(userTenant.adminUserId) === String(user._id);
+      const displayLabel = !user
+        ? "System"
+        : isPlatformTenant(userTenant)
+          ? "Platform Super Admin"
+          : isTenantAdmin
+            ? `${userTenant?.name || "Tenant"} - Admin`
+            : `${user.name || "—"} - ${roleNames.join(", ") || "Employee"}`;
       const tenantOrgLabel = tenant
         ? `${tenant.name}${isPlatformTenant(tenant) ? " · Platform" : ""}`
         : item.metadata?.code || item.metadata?.name || "Platform";
@@ -197,8 +232,10 @@ router.get("/logs", async (req, res, next) => {
               name: user.name || "—",
               empCode: user.empCode || null,
               email: user.email || null,
+              roleNames,
+              displayLabel,
             }
-          : null,
+          : { name: "System", empCode: null, email: null, roleNames: [], displayLabel },
       };
     });
 

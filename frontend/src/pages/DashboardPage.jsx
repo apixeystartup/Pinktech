@@ -411,19 +411,19 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
                                       return (
                                         <Fragment key={emp.userId}>
                                           <tr>
-                                            <td className="dash-td-name dash-emp-name">{emp.name}</td>
-                                            <td>{emp.email}</td>
-                                            <td><code>{emp.empCode || "—"}</code></td>
-                                            <td>{emp.roles}</td>
-                                            <td>{emp.reportingTo ? emp.reportingTo.name : "Root"}</td>
-                                            <td className="dash-num">{emp.formsCreated}</td>
-                                            <td className="dash-num">{emp.usersCreated}</td>
-                                            <td>
+                                            <td className="dash-td-name dash-emp-name" data-label="Employee">{emp.name}</td>
+                                            <td data-label="Email">{emp.email}</td>
+                                            <td data-label="Employee code"><code>{emp.empCode || "—"}</code></td>
+                                            <td data-label="Roles">{emp.roles}</td>
+                                            <td data-label="Reports to">{emp.reportingTo ? emp.reportingTo.name : "Root"}</td>
+                                            <td className="dash-num" data-label="Forms created">{emp.formsCreated}</td>
+                                            <td className="dash-num" data-label="Doctors created">{emp.usersCreated}</td>
+                                            <td data-label="Status">
                                               <span className={`dash-status dash-status--${status.mod}`}>
                                                 {status.text}
                                               </span>
                                             </td>
-                                            <td className="dash-num">
+                                            <td className="dash-num" data-label="Actions">
                                               {!isEditing && (
                                                 <button
                                                   type="button"
@@ -537,14 +537,14 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
                                   <tbody>
                                     {docState.rows.map((doc) => (
                                       <tr key={doc.externalUserId}>
-                                        <td className="dash-td-name">{doc.name}</td>
-                                        <td>{doc.createdBy ? doc.createdBy.name : "—"}</td>
-                                        <td><code>{doc.createdBy?.empCode || "—"}</code></td>
-                                        <td>{doc.createdBy?.role || "—"}</td>
-                                        <td>
+                                        <td className="dash-td-name" data-label="Doctor">{doc.name}</td>
+                                        <td data-label="Created by">{doc.createdBy ? doc.createdBy.name : "—"}</td>
+                                        <td data-label="Employee code"><code>{doc.createdBy?.empCode || "—"}</code></td>
+                                        <td data-label="Employee role">{doc.createdBy?.role || "—"}</td>
+                                        <td data-label="Reports to">
                                           {doc.createdBy?.reportingTo?.name || "Root"}
                                         </td>
-                                        <td className="dash-num">{doc.formsCreated}</td>
+                                        <td className="dash-num" data-label="Forms created">{doc.formsCreated}</td>
                                       </tr>
                                     ))}
                                   </tbody>

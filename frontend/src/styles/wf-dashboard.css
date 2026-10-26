@@ -1206,15 +1206,85 @@ html[data-theme='light'] .wf-foot {
     background: transparent;
   }
 
+  html[data-theme='light'] .wf-tenants-table tbody .wf-expand-row > td {
+    display: block;
+    width: 100%;
+    grid-column: 1 / -1;
+  }
+
   html[data-theme='light'] .wf-expand-row .dash-expand-panel {
     padding: 0;
     border: 0;
     background: transparent;
   }
 
-  /* Role-section tables keep horizontal scrolling on phones (they are wide). */
-  html[data-theme='light'] .wf-sec-card .dash-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  html[data-theme='light'] .wf-expand-row .dash-table-wrap {
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table {
+    display: block;
+    width: 100%;
+    border: 0;
+    overflow: visible;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table thead {
+    display: none;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table tbody tr:not(.dash-expand-row) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid #e6e7dc;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table tbody tr:not(.dash-expand-row) > td {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table tbody tr:not(.dash-expand-row) > td::before {
+    content: attr(data-label);
+    color: #6d6d60;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table .dash-td-name {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    white-space: normal;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table tbody tr.dash-expand-row {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-table tbody tr.dash-expand-row > td {
+    display: block;
+    padding: 0;
   }
 }

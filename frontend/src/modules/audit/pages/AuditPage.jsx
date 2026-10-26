@@ -92,6 +92,10 @@ function initials(name = "") {
   return `${parts[0][0] || ""}${parts.length > 1 ? parts[parts.length - 1][0] : ""}`.toUpperCase();
 }
 
+function userDisplayLabel(user) {
+  return user?.displayLabel || user?.name || "System";
+}
+
 function formatDate(value) {
   if (!value) return { date: "—", time: "" };
   const date = new Date(value);
@@ -341,9 +345,9 @@ function AuditPage() {
                       </td>
                       <td>
                         <div className="audit-user">
-                          <span className="audit-avatar">{initials(user?.name)}</span>
+                          <span className="audit-avatar">{initials(userDisplayLabel(user))}</span>
                           <div className="audit-user__text">
-                            <strong>{user?.name || "System"}</strong>
+                            <strong>{userDisplayLabel(user)}</strong>
                             <span>
                               {user?.empCode ? <span className="audit-emp">EMP {user.empCode}</span> : null}
                               {user?.empCode ? " · " : null}
@@ -402,7 +406,7 @@ function AuditPage() {
                       <span>{item.action}</span>
                     </div>
                     <div className="audit-card__row">
-                      <strong>{user?.name || "System"}</strong>
+                      <strong>{userDisplayLabel(user)}</strong>
                       <span>
                         {user?.empCode ? `EMP ${user.empCode} · ` : ""}
                         {item.tenantOrgLabel || "Platform"}
@@ -470,7 +474,7 @@ function AuditPage() {
                 <div>
                   <dt>User</dt>
                   <dd>
-                    {selectedError.user?.name || "System"}
+                    {userDisplayLabel(selectedError.user)}
                     {selectedError.user?.empCode ? ` · EMP ${selectedError.user.empCode}` : ""}
                   </dd>
                 </div>
