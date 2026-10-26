@@ -482,6 +482,7 @@ html[data-theme="light"] .wf-forms .signDesigner {
 html[data-theme="light"] .wf-forms .signDesigner__bar {
   display: flex;
   flex-direction: column;
+  align-items: stretch; /* sign-designer.css sets `align-items: center`, which would center the rows */
   gap: 14px;
   padding: 18px 20px;
   border-color: #d4d5c8;
@@ -490,13 +491,7 @@ html[data-theme="light"] .wf-forms .signDesigner__bar {
   box-shadow: none;
 }
 
-/* Screen 17: one bar — row 1 back + view toggle, row 2 name + actions.
-   sign-designer.css lays the bar out as `auto | 1fr | auto`; with our two
-   rows that squeezes row 1 into an auto column, so stack them instead. */
-html[data-theme="light"] .wf-forms .signDesigner__bar {
-  grid-template-columns: minmax(0, 1fr);
-}
-
+/* Screen 17: one bar — row 1 back + view toggle, row 2 name + actions. */
 html[data-theme="light"] .wf-forms .signDesigner__barTop {
   width: 100%;
   display: flex;
