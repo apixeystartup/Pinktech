@@ -212,7 +212,7 @@ html[data-theme="light"] .doc-table-wrap .doc-action-btn {
   height: 34px;
   place-items: center;
   padding: 0;
-  border: 1px solid #d4d5c8;
+  border: 1px solid #c6c7b9;
   border-radius: 9px;
   background: #f4f5e9;
   color: #202018;
@@ -220,13 +220,13 @@ html[data-theme="light"] .doc-table-wrap .doc-action-btn {
 
 html[data-theme="light"] .doc-table-wrap .doc-action-btn--view {
   background: #f4f5e9;
-  border-color: #d4d5c8;
+  border-color: #c6c7b9;
   color: #202018;
 }
 
 html[data-theme="light"] .doc-table-wrap .doc-action-btn--danger {
   background: #f4f5e9;
-  border-color: #d4d5c8;
+  border-color: #c6c7b9;
   color: #da423c;
 }
 
@@ -1098,10 +1098,30 @@ html[data-theme="light"] .doc-activity-item time {
     display: none;
   }
 
+  /* The disclosure keeps the card shell so it does not float loose
+     under the values box (the section itself is borderless on mobile). */
   html[data-theme="light"] .doc-profile-extra {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid #e6e7dc;
+    margin-top: 12px;
+    padding: 0 16px;
+    border: 1px solid #d4d5c8;
+    border-radius: 13px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .doc-profile-extra summary {
+    padding: 13px 0;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .doc-profile-extra[open] summary {
+    border-bottom: 1px solid #e6e7dc;
+  }
+
+  html[data-theme="light"] .doc-profile-extra .doc-credential-list {
+    margin: 0;
+    padding: 6px 0 12px;
+    border: 0;
+    background: transparent;
   }
 
   html[data-theme="light"] .doc-profile-form-list {
