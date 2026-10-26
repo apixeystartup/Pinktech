@@ -142,6 +142,9 @@ html[data-theme="light"] .org-page .org-wf-tabs .tab-btn:hover {
 
 html[data-theme="light"] .org-page .org-btn-primary,
 html[data-theme="light"] .org-page .org-btn-secondary {
+  /* No color transitions: full-page capture briefly resizes the viewport,
+     which flips the ≤900px rules and catches the blend mid-flight. */
+  transition: none;
   min-height: 37px;
   display: inline-flex;
   align-items: center;

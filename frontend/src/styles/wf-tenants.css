@@ -9,9 +9,30 @@
 
 /* ------------------------------- page ----------------------------- */
 
+/* Screen 3: card sits 32px below the topbar; hint gets 15px padding and
+ * 33px breathing room before the title. */
+html[data-theme="light"] .content:has(.tenants-page) {
+  padding-top: 32px;
+}
+
+html[data-theme="light"] .content:has(.tenants-page) .workflow-hint {
+  padding: 15px;
+  margin-bottom: 33px;
+}
+
 html[data-theme="light"] .content:has(.tenants-page) .module-page h1 {
+  margin-bottom: 9px;
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+
+html[data-theme="light"] .content:has(.tenants-page) .module-header {
+  padding-bottom: 24px;
+  margin-bottom: 36px;
+}
+
+html[data-theme="light"] .content:has(.tenants-page) .module-page {
+  margin-bottom: 8px;
 }
 
 html[data-theme="light"] .content:has(.tenants-page) .workflow-hint-copy strong {
@@ -23,7 +44,7 @@ html[data-theme="light"] .content:has(.tenants-page) .workflow-hint-copy strong 
 html[data-theme="light"] .app-shell .module-page .tenants-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 25px;
 }
 
 /* ---------------------------- create form ------------------------- */
@@ -32,13 +53,13 @@ html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-create-f
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 14px 18px;
+  gap: 14px 16px;
   margin: 0;
 }
 
 html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-field {
   display: flex;
-  flex: 0 1 17%;
+  flex: 0 1 19%;
   flex-direction: column;
   gap: 7px;
   min-width: 150px;
@@ -82,7 +103,7 @@ html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-create-a
 
 html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-create-actions .btn-primary {
   min-width: 236px;
-  height: 42px;
+  height: 48px;
   padding: 0 22px;
   border-radius: 10px;
   font-size: 15px;
@@ -98,6 +119,10 @@ html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-create-a
   color: #202018;
   font-size: 14px;
   font-weight: 600;
+}
+
+html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-create-actions .btn-primary {
+  min-width: 196px;
 }
 
 /* ------------------------------ search ---------------------------- */
@@ -139,6 +164,19 @@ html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-search-b
   color: #202018;
   font-size: 14.5px;
   font-weight: 600;
+}
+
+html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-search-clear {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #f4f5e9;
+  color: #515045;
+  font-size: 22px;
+  line-height: 1;
 }
 
 /* ------------------------------ table ----------------------------- */

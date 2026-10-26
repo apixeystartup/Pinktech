@@ -81,20 +81,6 @@ function TenantsPage() {
     }
   };
 
-  const createAndSendCreds = async (event) => {
-    event.preventDefault();
-    try {
-      const res = await api.post("/tenants", form);
-      const tenantId = res.data._id;
-      await api.post(`/tenants/${tenantId}/send-creds`);
-      showToast("Tenant created and credentials sent", "success");
-      setForm({ name: "", code: "", email: "", plan: "starter", status: "ACTIVE" });
-      load();
-    } catch (error) {
-      showToast(getErrorMessage(error), "error");
-    }
-  };
-
   const openEdit = (tenant) => {
     setEditForm({
       name: tenant.name,
@@ -235,9 +221,6 @@ function TenantsPage() {
             </select>
           </label>
           <div className="tenants-create-actions">
-            <button className="btn-secondary" type="button" onClick={createAndSendCreds}>
-              Create &amp; Send Creds
-            </button>
             <button className="btn-primary" type="submit">
               Create tenant
             </button>
@@ -248,12 +231,25 @@ function TenantsPage() {
           <label className="tenants-field tenants-search-field">
             <span className="tenants-search-label">Search</span>
             <input
-              type="search"
+              type="text"
               placeholder="Search tenants"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </label>
+          {searchInput ? (
+            <button
+              className="btn-secondary tenants-search-clear"
+              type="button"
+              aria-label="Clear tenant search"
+              onClick={() => {
+                setSearchInput("");
+                setSearchQuery("");
+              }}
+            >
+              ×
+            </button>
+          ) : null}
           <button className="btn-secondary tenants-search-btn" type="submit">
             Search
           </button>

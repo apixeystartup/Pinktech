@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import ModulePage from "../../../components/common/ModulePage";
 import SchemaFormsBuilder from "../SchemaFormsBuilder";
 import TemplatesTab from "../TemplatesTab";
@@ -71,18 +72,20 @@ function fileToSignatureDataUrl(file) {
 
 function FormsPage() {
   const { tenantContextId, isSuperAdmin, currentTenant } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tenantKey = String(tenantContextId || "");
   const cachedTenant = (() => {
     try { return JSON.parse(localStorage.getItem("pink:org:" + tenantKey) || "null"); } catch { return null; }
   })();
 
-  const [tab, setTab] = useState("builder");
+  // Screens 15/16 land on Templates — "Forms templates" is the entry view.
+  const tab = searchParams.get("tab") === "builder" ? "builder" : "templates";
+  const setTab = (nextTab) => {
+    setSearchParams(nextTab === "builder" ? { tab: "builder" } : {});
+  };
   // True while the agreement/signature designer is open inside the Templates
   // tab — the page header then collapses to the designer's own toolbar row.
   const [designing, setDesigning] = useState(false);
-  // Set by a "Edit template" card action on the Templates tab so the Builder
-  // tab opens straight into that form.
-  const [openModuleId, setOpenModuleId] = useState("");
   const [org, setOrg] = useState(() => tenantToOrg(currentTenant || cachedTenant || EMPTY_ORG));
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgNote, setOrgNote] = useState("");
@@ -255,18 +258,11 @@ function FormsPage() {
     </div>
   );
 
-  // "Edit template" on a form card → Builder tab, straight into that form.
-  const openBuilderFor = (moduleId) => {
-    setOpenModuleId(moduleId);
-    setDesigning(false);
-    setTab("builder");
-  };
-
   const content =
     tab === "builder" ? (
       // The builder owns its whole page (list + inline editor) so the header
       // can switch to the "Edit form builder" row of Screen 19.
-      <SchemaFormsBuilder org={org} toolbar={segToggle} openModuleId={openModuleId} />
+      <SchemaFormsBuilder org={org} toolbar={segToggle} />
     ) : (
       <ModulePage
         title={designing ? null : "Forms templates"}
@@ -279,17 +275,6 @@ function FormsPage() {
           {designing ? null : (
             <div className="wf-seg-row">{segToggle}</div>
           )}
-          {designing ? null : (
-            <p className="wf-tip">
-              <span className="wf-tip__full">
-                Next: choose a template, then open Builder to create the form.
-              </span>
-              <span className="wf-tip__line">Next: choose a template</span>
-              <span className="wf-tip__line">
-                Then open Builder to create the form.
-              </span>
-            </p>
-          )}
           {/* key=tenant: a tenant switch remounts the tab, so the editor,
               banner, and detected fields reset instead of carrying the old
               tenant's work. */}
@@ -298,7 +283,6 @@ function FormsPage() {
             org={org}
             toolbar={segToggle}
             onDesigningChange={setDesigning}
-            onEditTemplate={openBuilderFor}
           />
         </div>
       </ModulePage>
@@ -446,4 +430,3 @@ function FormsPage() {
 }
 
 export default FormsPage;
-

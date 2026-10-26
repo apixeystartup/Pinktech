@@ -65,7 +65,7 @@ function tenantPreviewContext(org) {
   };
 }
 
-function TemplatesTab({ org, toolbar, onDesigningChange, onEditTemplate }) {
+function TemplatesTab({ org, toolbar, onDesigningChange }) {
   const { tenantContextId, isSuperAdmin } = useAuth();
   const [editor, setEditor] = useState(EMPTY_EDITOR);
   const [showEditor, setShowEditor] = useState(false);
@@ -250,7 +250,6 @@ function TemplatesTab({ org, toolbar, onDesigningChange, onEditTemplate }) {
       org={org}
       toolbar={toolbar}
       onDesigningChange={onDesigningChange}
-      onEditTemplate={onEditTemplate}
     />
   );
 }

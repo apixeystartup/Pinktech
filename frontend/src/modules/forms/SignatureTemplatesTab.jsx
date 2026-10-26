@@ -13,7 +13,6 @@ import {
   uploadSignTemplateDocument,
 } from "../../lib/signApi";
 import PdfFieldCanvas from "../../components/sign/PdfFieldCanvas";
-import { getModules } from "../../lib/schemaFormsApi";
 import "./../../styles/sign-designer.css";
 
 const PALETTE = [
@@ -96,7 +95,7 @@ function PaletteIcon({ type }) {
   );
 }
 
-export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange, onEditTemplate }) {
+export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange }) {
   const { tenantContextId, currentTenant } = useAuth();
   const mapOrg = (source) => ({
     name: source?.name || "",
@@ -158,31 +157,7 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
-  // Form modules — the primary card grid of the Templates tab (Screen 15).
-  // Same data the Builder tab edits; here the cards open it or the public form.
-  const [modules, setModules] = useState([]);
-  const [modulesLoading, setModulesLoading] = useState(true);
-  const [modulesError, setModulesError] = useState("");
-  useEffect(() => {
-    let active = true;
-    getModules()
-      .then((data) => {
-        if (active) setModules(Array.isArray(data) ? data : []);
-      })
-      .catch((e) => {
-        if (active) {
-          setModulesError(e?.response?.data?.message || e.message || "Could not load forms.");
-        }
-      })
-      .finally(() => {
-        if (active) setModulesLoading(false);
-      });
-    return () => { active = false; };
-  }, []);
-
-  // Right panel of the agreement designer: a field list (Preview) or the
-  // controls for the selected field (Properties).
-  const [propsTab, setPropsTab] = useState("properties");
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   useEffect(() => {
     const source = currentTenant || orgQuery.data || org;
@@ -248,7 +223,7 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
     setDocUrl("");
     setEditing({ template: t, name: t.name || "", fields: normalizeFields(t.fields) });
     setSelectedCid("");
-    setPropsTab("properties");
+    setPropertiesOpen(false);
     // The page header collapses while the designer owns the screen (Screen 17).
     onDesigningChange?.(true);
   }
@@ -256,12 +231,13 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
   function closeDesign() {
     setEditing(null);
     setSelectedCid("");
+    setPropertiesOpen(false);
     onDesigningChange?.(false);
   }
 
   function selectField(cid) {
     setSelectedCid(cid);
-    if (cid) setPropsTab("properties");
+    setPropertiesOpen(Boolean(cid));
   }
 
   async function handleDelete(id) {
@@ -308,13 +284,14 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
       ],
     }));
     setSelectedCid(cid);
-    setPropsTab("properties");
+    setPropertiesOpen(true);
   }
 
   function handleDeleteSelected() {
     if (!selectedCid) return;
     updateEditing((prev) => ({ ...prev, fields: prev.fields.filter((f) => f.cid !== selectedCid) }));
     setSelectedCid("");
+    setPropertiesOpen(false);
   }
 
   async function handleUpload(file) {
@@ -452,7 +429,7 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
         </div>
         {error ? <div className="fieldError">{error}</div> : null}
         {notice ? <div className="doc-form-note">{notice}</div> : null}
-        <div className="signDesigner__body signDesigner__body--editing">
+        <div className={`signDesigner__body signDesigner__body--editing${propertiesOpen ? " has-properties" : ""}`}>
           <aside className="signDesigner__palette">
             <div className="signDesigner__panelHeading">
               <div>
@@ -523,7 +500,10 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
                 onChange={handleFieldChange}
                 onDelete={(cid) => {
                   updateEditing((p) => ({ ...p, fields: p.fields.filter((f) => f.cid !== cid) }));
-                  if (selectedCid === cid) setSelectedCid("");
+                  if (selectedCid === cid) {
+                    setSelectedCid("");
+                    setPropertiesOpen(false);
+                  }
                 }}
                 fitToContainer
               />
@@ -554,69 +534,23 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
               Drag fields onto the document. Select a placed field to edit its label, value, or position.
             </div>
           </main>
-          <aside className="signDesigner__props">
-            <div className="signDesigner__propsTabs" role="tablist" aria-label="Field panel">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={propsTab === "preview"}
-                className={`signDesigner__propsTab${propsTab === "preview" ? " is-active" : ""}`}
-                onClick={() => setPropsTab("preview")}
-              >
-                Preview
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={propsTab === "properties"}
-                className={`signDesigner__propsTab${propsTab === "properties" ? " is-active" : ""}`}
-                onClick={() => setPropsTab("properties")}
-              >
-                Properties
-              </button>
-              {selectedField ? (
+          {propertiesOpen && selectedField ? (
+            <aside className="signDesigner__props">
+              <div className="signDesigner__propsHeader">
+                <strong>Properties</strong>
                 <button
                   type="button"
                   className="signDesigner__propsClose"
-                  aria-label="Clear field selection"
-                  title="Clear field selection"
-                  onClick={() => setSelectedCid("")}
+                  aria-label="Close properties"
+                  title="Close properties"
+                  onClick={() => {
+                    setSelectedCid("");
+                    setPropertiesOpen(false);
+                  }}
                 >
                   ×
                 </button>
-              ) : null}
-            </div>
-            {propsTab === "preview" ? (
-              <div className="wfPropsList">
-                <div className="wfPropsList__head">
-                  <strong>
-                    {editing.fields.length} placed field{editing.fields.length === 1 ? "" : "s"}
-                  </strong>
-                  <span>Select one to edit it.</span>
-                </div>
-                {editing.fields.length ? (
-                  <ul className="wfPropsList__items">
-                    {editing.fields.map((f) => (
-                      <li key={f.cid}>
-                        <button
-                          type="button"
-                          className={`wfPropsItem${f.cid === selectedCid ? " is-active" : ""}`}
-                          onClick={() => selectField(f.cid)}
-                        >
-                          <span className="wfPropsItem__label">{f.label || f.tag}</span>
-                          <code>{f.tag}</code>
-                          <span className="wfPropsItem__page">p{(f.page || 0) + 1}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="wfPropsEmpty">
-                    Drag a field from the library onto the document to place it.
-                  </p>
-                )}
               </div>
-            ) : selectedField ? (
               <div className="wfPropsCard">
                 <div className="wfPropsCard__head">
                   <strong>Placed field</strong>
@@ -685,12 +619,8 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
                   Delete field
                 </button>
               </div>
-            ) : (
-              <p className="wfPropsEmpty">
-                Select a placed field on the document to edit its label, value, or position.
-              </p>
-            )}
-          </aside>
+            </aside>
+          ) : null}
         </div>
       </div>
     );
@@ -701,61 +631,6 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange,
       {error ? <div className="fieldError">{error}</div> : null}
       {notice ? <div className="doc-form-note">{notice}</div> : null}
 
-      {/* Primary grid — the tenant's form modules (Screen 15 / Screen 16). */}
-      <section className="wfTemplates__section">
-        {modulesLoading ? <p className="doc-form-note">Loading forms…</p> : null}
-        {modulesError ? <p className="fieldError">{modulesError}</p> : null}
-        {!modulesLoading && !modulesError && !modules.length ? (
-          <div className="wfEmpty">
-            <strong>No form modules yet</strong>
-            <p>Open the Builder tab and use “+ Add Form” to design the first one.</p>
-          </div>
-        ) : null}
-        <div className="wfTmplGrid">
-          {modules.map((mod) => {
-            const qCount = mod.schema?.fields?.length ?? 0;
-            const published = Boolean(mod.isPublished);
-            const url = `${window.location.origin}/public/schema-forms/${mod._id}`;
-            return (
-              <article key={mod._id} className="wfTmplCard">
-                <div className="wfTmplCard__head">
-                  <h3>{mod.name || "Untitled"}</h3>
-                  <span className="wfBadge">{published ? "Published" : "Draft"}</span>
-                </div>
-                <p className="wfTmplCard__desc">
-                  {mod.schema?.settings?.description || "No description yet."}
-                </p>
-                <div className="wfTmplCard__stats">
-                  <div className="wfStat">
-                    <span>Fields</span>
-                    <strong>
-                      {qCount} field{qCount === 1 ? "" : "s"}
-                    </strong>
-                  </div>
-                  <div className="wfStat">
-                    <span>Status</span>
-                    <strong>{published ? "Published" : "Draft"}</strong>
-                  </div>
-                </div>
-                <div className="wfTmplCard__actions">
-                  <button
-                    type="button"
-                    className="wfBtn wfBtn--khaki"
-                    onClick={() => onEditTemplate?.(mod._id)}
-                  >
-                    Edit template
-                  </button>
-                  <a className="wfBtn wfBtn--yellow" href={url} target="_blank" rel="noreferrer">
-                    Use template
-                  </a>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Agreement templates — the PDF layouts a form can open with. */}
       <section className="wfTemplates__section">
         <div className="wfSectionHead">
           <h2>Agreement templates</h2>

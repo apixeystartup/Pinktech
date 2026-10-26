@@ -2,49 +2,48 @@ import { Link } from "react-router-dom";
 
 const PAGE_HINTS = {
   "/app/tenants": {
-    title: "Next: create your first tenant, then add doctors and employees.",
-    noLink: true,
+    title: "Next: define the roles for your tenant.",
+    detail: "Set up the roles your organization needs before adding its team.",
+    to: "/app/roles",
+    action: "Go to roles",
   },
   "/app/roles": {
-    title: "Next: review the organization, then choose the roles each team needs.",
-    noLink: true,
+    title: "Next: review your organization.",
+    detail: "Confirm the organization structure before managing its employees.",
+    to: "/app/org-employees",
+    action: "Go to organization",
   },
   "/app/employee-management": {
-    title: "Next: prepare a form",
-    detail: "Once your team is ready, create the form they will use with doctors.",
-    to: "/app/forms",
-    action: "Go to forms",
-  },
-  "/app/forms": {
-    title: "Next: choose a template, then open Builder to create the form.",
-    noLink: true,
+    title: "Next: manage your doctors.",
+    detail: "Add doctors before assigning them forms.",
+    to: "/app/doctors",
+    action: "Go to doctors",
   },
   "/app/org-employees": {
-    title: "Next: review your team",
-    detail: "Check the organization structure and update employee details when needed.",
+    title: "Next: manage your employees.",
+    detail: "Review the organization structure and update employee details.",
     to: "/app/employee-management",
-    action: "Manage employees",
+    action: "Go to employees",
   },
 };
 
-const ROLE_FLOWS = {
-  super_admin: [
-    { label: "Tenants", to: "/app/tenants" },
-    { label: "Roles", to: "/app/roles" },
-    { label: "Employees", to: "/app/employee-management" },
-    { label: "Forms", to: "/app/forms" },
-    { label: "Doctors", to: "/app/doctors" },
-  ],
-  tenant_admin: [
-    { label: "Roles", to: "/app/roles" },
-    { label: "Employees", to: "/app/employee-management" },
-    { label: "Forms", to: "/app/forms" },
-    { label: "Doctors", to: "/app/doctors" },
-  ],
-};
-
-function WorkflowHint({ pathname, accountRole }) {
-  const page = pathname.match(/^\/app\/doctors\/[^/]+$/)
+function WorkflowHint({ pathname, search }) {
+  const isFormsBuilder = new URLSearchParams(search).get("tab") === "builder";
+  const page = pathname === "/app/forms"
+    ? isFormsBuilder
+      ? {
+          title: "Next: manage your doctors.",
+          detail: "Your forms are ready to use with the doctors in your tenant.",
+          to: "/app/doctors",
+          action: "Go to doctors",
+        }
+      : {
+          title: "Next: create a form.",
+          detail: "Open Builder to create a form from your tenant's templates.",
+          to: "/app/forms?tab=builder",
+          action: "Open Builder",
+        }
+    : pathname.match(/^\/app\/doctors\/[^/]+$/)
     ? {
         title: "Next: review the assigned work",
         detail: "Select a compliance form row to open its details and available actions.",
@@ -71,10 +70,6 @@ function WorkflowHint({ pathname, accountRole }) {
 
   if (!page) return null;
 
-  const flow = ROLE_FLOWS[accountRole] || [];
-  const activeIndex = flow.findIndex((step) => step.to === pathname);
-  const next = !page.noLink && activeIndex >= 0 ? flow[activeIndex + 1] : null;
-
   return (
     <aside className="workflow-hint" aria-label="Guidance for this page">
       <span className="workflow-hint-mark" aria-hidden="true" />
@@ -85,10 +80,6 @@ function WorkflowHint({ pathname, accountRole }) {
       {page.to ? (
         <Link className="workflow-hint-link" to={page.to}>
           {page.action}
-        </Link>
-      ) : next ? (
-        <Link className="workflow-hint-link" to={next.to}>
-          Next: {next.label}
         </Link>
       ) : null}
     </aside>

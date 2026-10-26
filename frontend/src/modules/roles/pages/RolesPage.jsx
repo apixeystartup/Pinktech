@@ -48,6 +48,8 @@ function RolesPage() {
   const [permissions, setPermissions] = useState([]);
   const [form, setForm] = useState({ name: "" });
   const [editingRoleId, setEditingRoleId] = useState(null);
+  const [roleEditName, setRoleEditName] = useState("");
+  const [roleEditSaving, setRoleEditSaving] = useState(false);
   const [selectedRoleIds, setSelectedRoleIds] = useState([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("New team member");
@@ -106,6 +108,7 @@ function RolesPage() {
   useEffect(() => {
     setForm({ name: "" });
     setEditingRoleId(null);
+    setRoleEditName("");
   }, [tenantContextId]);
 
   useEffect(() => {
@@ -137,12 +140,12 @@ function RolesPage() {
   const startEdit = (row) => {
     if (row.type === "SYSTEM") return;
     setEditingRoleId(row._id);
-    setForm({ name: row.name || "" });
+    setRoleEditName(row.name || "");
   };
 
   const cancelEdit = () => {
     setEditingRoleId(null);
-    setForm({ name: "" });
+    setRoleEditName("");
   };
 
   const toggleRoleSelection = (roleId) => {
@@ -271,19 +274,33 @@ function RolesPage() {
     event.preventDefault();
     const allCodes = sortedPermissions.map((p) => p.code);
     try {
-      if (editingRoleId) {
-        await api.patch(`/roles/${editingRoleId}`, { name: form.name, permissionCodes: allCodes });
-        showToast("Role updated", "success");
-        cancelEdit();
-      } else {
-        await api.post("/roles", { name: form.name, permissionCodes: allCodes });
-        setForm({ name: "" });
-        showToast("Role created", "success");
-      }
+      await api.post("/roles", { name: form.name, permissionCodes: allCodes });
+      setForm({ name: "" });
+      showToast("Role created", "success");
       await recomputeOrgRoles();
       load();
     } catch (error) {
       showToast(getErrorMessage(error), "error");
+    }
+  };
+
+  const saveRoleEdit = async (event) => {
+    event.preventDefault();
+    if (!editingRoleId) return;
+    setRoleEditSaving(true);
+    try {
+      await api.patch(`/roles/${editingRoleId}`, {
+        name: roleEditName,
+        permissionCodes: sortedPermissions.map((permission) => permission.code),
+      });
+      showToast("Role updated", "success");
+      cancelEdit();
+      await recomputeOrgRoles();
+      load();
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setRoleEditSaving(false);
     }
   };
 
@@ -328,23 +345,46 @@ function RolesPage() {
       </div>
       <form className="stacked-form roles-create-form" onSubmit={submitRole}>
         <div className="inline-form roles-create-fields">
-          {editingRoleId ? <span className="small-note form-editing-hint">Editing role</span> : null}
           <input
             placeholder="Role name (e.g. Payroll Approver)"
             value={form.name}
             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
             required
           />
-          <button className="btn-primary" type="submit">
-            {editingRoleId ? "Save changes" : "Create role"}
-          </button>
-          {editingRoleId ? (
-            <button className="btn-secondary" type="button" onClick={cancelEdit}>
-              Cancel
-            </button>
-          ) : null}
+          <button className="btn-primary" type="submit">Create role</button>
         </div>
       </form>
+      {editingRoleId ? (
+        <div className="modal-backdrop role-edit-backdrop" onClick={cancelEdit}>
+          <form
+            className="modal-card role-edit-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="role-edit-title"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={saveRoleEdit}
+          >
+            <h3 id="role-edit-title">Edit role</h3>
+            <label className="stacked-label">
+              Role name
+              <input
+                autoFocus
+                value={roleEditName}
+                onChange={(event) => setRoleEditName(event.target.value)}
+                required
+              />
+            </label>
+            <div className="inline-form role-edit-actions">
+              <button type="button" className="btn-secondary" onClick={cancelEdit} disabled={roleEditSaving}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary" disabled={roleEditSaving}>
+                {roleEditSaving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
       <h3>Existing roles</h3>
       <div className="roles-bulk">
         <button type="button" className="btn-secondary" onClick={toggleSelectAll}>

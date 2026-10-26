@@ -182,16 +182,6 @@ function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, 
               className={cls}
               style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
               onClick={(e) => { e.stopPropagation(); onSelect?.(f.cid); if (mode === "sign" && ["SIGNATURE", "INITIALS"].includes(f.type) && signerOwned) onSign?.(f.cid); }}
-              onPointerDown={
-                mode === "design"
-                  ? (e) => {
-                      e.stopPropagation(); e.preventDefault();
-                      onSelect?.(f.cid);
-                      if (!wrapRef.current) return;
-                      beginDrag(f, e);
-                    }
-                  : undefined
-              }
             >
               {f.type === "IMAGE" && f.value ? <img src={f.value} alt={f.label || f.tag} draggable={false} /> : null}
               {f.type === "TEXT" || f.type === "DATE" ? (
@@ -215,7 +205,21 @@ function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, 
               {mode === "design" && sel ? (
                 <>
                   <span className="signField__tag">{f.tag}</span>
-                  <button type="button" className="signField__delete" onClick={(e) => { e.stopPropagation(); onDelete?.(f.cid); }}>&times;</button>
+                  <button
+                    type="button"
+                    className="signField__dragHandle"
+                    aria-label={`Move ${f.label || f.tag}`}
+                    title="Drag to move"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      beginDrag(f, e);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ⠿
+                  </button>
+                  <button type="button" className="signField__delete" aria-label={`Delete ${f.label || f.tag}`} onClick={(e) => { e.stopPropagation(); onDelete?.(f.cid); }}>&times;</button>
                   <span
                     className="signField__resize"
                     onPointerDown={(e) => {

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { registerAuthBridge } from "../lib/api";
 import AuthContext from "./auth-context";
 
 export function AuthProvider({ children }) {
+  const queryClient = useQueryClient();
   const [accessToken, setAccessToken] = useState(localStorage.getItem("accessToken"));
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem("refreshToken"));
   const [tenantContextId, setTenantContextId] = useState(localStorage.getItem("tenantContextId") || "");
@@ -128,15 +130,18 @@ export function AuthProvider({ children }) {
     setRefreshToken(nextRefreshToken);
   };
 
-  const setTenantContext = (nextTenantId) => {
+  const setTenantContext = useCallback((nextTenantId) => {
     const value = nextTenantId || "";
+    if (value === tenantContextId) return;
     if (value) {
       localStorage.setItem("tenantContextId", value);
     } else {
       localStorage.removeItem("tenantContextId");
     }
+    void queryClient.cancelQueries();
+    queryClient.removeQueries();
     setTenantContextId(value);
-  };
+  }, [queryClient, tenantContextId]);
 
   const logout = () => {
     localStorage.removeItem("accessToken");

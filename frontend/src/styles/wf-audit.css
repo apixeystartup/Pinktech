@@ -17,6 +17,17 @@
 
 /* ------------------------------- frame ---------------------------- */
 
+/* The wireframe sheet sits inset on the warm ground with a full-width
+   content column (Screen 23: sheet 32px in, content 32px inside it). */
+html[data-theme="light"] .content:has(.audit-page) {
+  margin: 24px;
+  padding: 32px;
+}
+
+html[data-theme="light"] .content:has(.audit-page) .content-inner {
+  max-width: none;
+}
+
 html[data-theme="light"] .content:has(.audit-page) .module-page {
   margin: 0;
   padding: 0;

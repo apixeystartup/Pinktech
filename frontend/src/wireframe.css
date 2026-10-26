@@ -58,16 +58,17 @@ html[data-theme="light"] .topbar-brand-mark {
   color: #202018;
 }
 
+/* "Pinktech  Platform admin" — one line: bold wordmark, muted role. */
 html[data-theme="light"] .topbar-brand-word {
   display: inline-flex;
-  flex-direction: column;
-  gap: 0;
+  align-items: baseline;
+  gap: 12px;
   color: #202018;
   line-height: 1.1;
 }
 
 html[data-theme="light"] .topbar-brand-word strong {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #202018;
@@ -75,13 +76,13 @@ html[data-theme="light"] .topbar-brand-word strong {
 
 html[data-theme="light"] .topbar-brand-word small {
   color: #515045;
-  font-size: 11.5px;
+  font-size: 14px;
   font-weight: 500;
 }
 
 html[data-theme="light"] .pillnav {
   border: 1px solid #d4d5c8;
-  background: #f4f5e9;
+  background: #ffffff;
   box-shadow: none;
 }
 
@@ -94,8 +95,10 @@ html[data-theme="light"] .pillnav-item:hover {
   color: #202018;
 }
 
+/* Wireframes use the khaki pill for the active item on 6 of 9 screens;
+   the user chose it everywhere (the other 3 show a black pill). */
 html[data-theme="light"] .pillnav-item.is-active {
-  background: #ffffff;
+  background: #e8e9dc;
   color: #202018;
   font-weight: 600;
 }
@@ -219,10 +222,10 @@ html[data-theme="light"] .app-shell thead th {
   border-color: #d4d5c8;
   background: #e8e9dc;
   color: #45443c;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 html[data-theme="light"] .app-shell tbody tr,
@@ -335,7 +338,8 @@ html[data-theme="light"] .module-header {
     display: none;
   }
 
-  .topbar-brand-word {
+  /* Specificity must match the light-theme brand rules above, or they win. */
+  html[data-theme="light"] .topbar-brand-word {
     display: none;
   }
 
@@ -350,6 +354,17 @@ html[data-theme="light"] .module-header {
 
   .account-name {
     display: none;
+  }
+
+  /* Wireframe mobile header: tile + title + plain avatar circle. */
+  .account-caret {
+    display: none;
+  }
+
+  .account-trigger {
+    border: 0;
+    background: transparent;
+    padding: 0;
   }
 
   .content {
@@ -401,8 +416,9 @@ html[data-theme="light"] .module-header {
     stroke-linejoin: round;
   }
 
+  /* Screens 4/6/16/20… paint the active tab yellow, not khaki. */
   .wf-tab.is-active {
-    background: #e8e9dc;
+    background: #ffdf00;
     color: #202018;
   }
 

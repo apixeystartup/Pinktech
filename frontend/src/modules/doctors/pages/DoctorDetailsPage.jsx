@@ -394,7 +394,8 @@ function DoctorDetailsPage() {
       </div>
 
       {/* --- top section --- */}
-      <header className="doc-card doc-hero doc-profile-hero">
+      <section className="doc-card doc-profile-summary">
+      <header className="doc-hero doc-profile-hero">
         <div className="doc-avatar" aria-hidden="true">
           {initials(doctor.name) || "?"}
         </div>
@@ -453,9 +454,8 @@ function DoctorDetailsPage() {
         </div>
       </header>
 
-      <div className="doc-grid doc-profile-layout">
-        <section className="doc-card doc-profile-credentials">
-          <h3 className="doc-card-title">Professional credentials</h3>
+      <section className="doc-profile-credentials">
+          <h3 className="doc-card-title">Professional, personal &amp; account details</h3>
           <dl className="doc-credential-list">
             <DetailRow label="Medical license" value={doctor.medicalRegistrationNumber} />
             <DetailRow label="Qualification" value={doctor.qualification} />
@@ -470,21 +470,18 @@ function DoctorDetailsPage() {
             <DetailRow label="Address" value={doctor.address} />
             <DetailRow label="Email" value={doctor.email} />
             <DetailRow label="Phone" value={doctor.phone} />
+            <DetailRow label="Age" value={doctor.age !== null && doctor.age !== undefined ? `${doctor.age} yrs` : null} />
+            <DetailRow label="Gender" value={doctor.gender} />
+            <DetailRow label="Date of birth" value={fmtDate(doctor.dateOfBirth)} />
+            <DetailRow label="PAN" value={doctor.pan} />
+            <DetailRow label="Aadhaar" value={doctor.aadhaar} />
+            <DetailRow label="Added by" value={doctor.createdByLabel} />
+            <DetailRow label="Last updated" value={fmtDateTime(doctor.updatedAt)} />
           </dl>
-          <details className="doc-profile-extra">
-            <summary>Personal and account details</summary>
-            <dl className="doc-credential-list">
-              <DetailRow label="Age" value={doctor.age !== null && doctor.age !== undefined ? `${doctor.age} yrs` : null} />
-              <DetailRow label="Gender" value={doctor.gender} />
-              <DetailRow label="Date of birth" value={fmtDate(doctor.dateOfBirth)} />
-              <DetailRow label="PAN" value={doctor.pan} />
-              <DetailRow label="Aadhaar" value={doctor.aadhaar} />
-              <DetailRow label="Added by" value={doctor.createdByLabel} />
-              <DetailRow label="Last updated" value={fmtDateTime(doctor.updatedAt)} />
-            </dl>
-          </details>
-        </section>
+      </section>
+      </section>
 
+      <div className="doc-grid doc-profile-layout">
         <div className="doc-profile-main">
           <section className="doc-card doc-profile-compliance">
             <div className="doc-profile-section-head">

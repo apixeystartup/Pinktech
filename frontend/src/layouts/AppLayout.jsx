@@ -53,7 +53,7 @@ function isActivePath(pathname, to) {
 
 function AppLayout() {
   const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [tenants, setTenants] = useState([]);
   // A regular employee only ever sees themselves + their own reports in Org
   // Explore, so an employee with no reports gets no Org Explore entry at all.
@@ -177,12 +177,21 @@ function AppLayout() {
   const empCode = (user?.empCode || "").trim();
   const accountEmail = displayAccountEmail(user);
   const roleLabel = isSuperAdmin ? "Super Admin" : accountRole === "tenant_admin" ? "Admin" : "Employee";
+  // Wireframe topbar: "Pinktech  Platform admin" — brand wordmark plus the
+  // signed-in role, on one line.
+  const brandRole = isSuperAdmin
+    ? "Platform admin"
+    : accountRole === "tenant_admin"
+      ? "Tenant admin"
+      : roleLabel;
   const topbarSummaryTitle = [displayName || null, empCode ? `Employee ID: ${empCode}` : null, accountEmail || null].filter(Boolean).join(" — ");
 
   // Mobile: the header shows the current screen's name, and the bottom bar
   // offers the four primary destinations plus a "More" sheet for the rest.
   const mobileTitle =
-    navItems.find((item) => isActivePath(pathname, item.to))?.label || "Dashboard";
+    pathname.startsWith("/app/forms")
+      ? "Forms templates"
+      : navItems.find((item) => isActivePath(pathname, item.to))?.label || "Dashboard";
   const primaryTabs = PRIMARY_TABS.map((tab) => ({
     ...tab,
     item: navItems.find((item) => item.to === tab.to),
@@ -200,7 +209,7 @@ function AppLayout() {
             <span className="topbar-brand-mark" aria-hidden="true">P</span>
             <span className="topbar-brand-word">
               <strong>Pinktech</strong>
-              <small>Product wireframe</small>
+              <small>{brandRole}</small>
             </span>
           </Link>
           <span className="wf-mobile-title" aria-hidden="true">{mobileTitle}</span>
@@ -316,8 +325,8 @@ function AppLayout() {
       <div className="shell-body">
         <main className="content">
           <div className="content-inner">
-            <WorkflowHint pathname={pathname} accountRole={accountRole} />
-            <Outlet />
+            <WorkflowHint pathname={pathname} search={search} accountRole={accountRole} />
+            <Outlet key={tenantContextId || "home"} />
           </div>
         </main>
       </div>

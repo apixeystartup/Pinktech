@@ -16,10 +16,6 @@
 
 /* The global hint sits above the header; the wireframes put the tip
    below the segmented control, so the page renders its own copy. */
-html[data-theme="light"] .content-inner:has(.wf-forms) .workflow-hint {
-  display: none;
-}
-
 html[data-theme="light"] .module-page:has(> .wf-forms) .module-header,
 html[data-theme="light"] .wf-forms--builder .module-header {
   border-bottom-color: #d4d5c8;
@@ -1581,7 +1577,7 @@ html[data-theme="light"] .wf-forms--builder .module-header-actions .wfBtn--ghost
 
   html[data-theme="light"] .wf-forms .signDesigner__palette {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 

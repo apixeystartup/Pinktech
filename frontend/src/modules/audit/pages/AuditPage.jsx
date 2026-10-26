@@ -217,7 +217,12 @@ function AuditPage() {
   return (
     <ModulePage
       title="Activity Log"
-      description={`${roleLabel} view · ${meta.scope || "Your scoped audit trail."} Every action is recorded with its outcome.`}
+      description={
+        <>
+          <span className="audit-desc-prefix">{`${roleLabel} view · ${meta.scope || "Your scoped audit trail."} `}</span>
+          Every action is recorded with its outcome.
+        </>
+      }
       actions={
         <span className={`audit-role-pill audit-role-pill--${role}`}>
           {roleLabel}
@@ -243,7 +248,10 @@ function AuditPage() {
         <div className="audit-stat">
           <span className="audit-stat__icon audit-stat__icon--success"><Icon name="check" /></span>
           <div>
-            <p>Success rate on this page</p>
+            <p>
+              <span className="audit-stat__label-desk">Success rate on this page</span>
+              <span className="audit-stat__label-mob">Success rate</span>
+            </p>
             <strong>{summary.successRate}%</strong>
           </div>
         </div>

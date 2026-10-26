@@ -424,8 +424,14 @@ html[data-theme="light"] .app-shell .emp-page .emp-cards {
 
   html[data-theme="light"] .app-shell .emp-page .emp-card-action {
     justify-self: end;
-    min-width: 116px;
-    padding: 11px 16px;
+    /* Screen 10: squarish box with the label wrapped onto two lines. */
+    width: 96px;
+    min-height: 56px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 12px;
+    white-space: normal;
     text-align: center;
     outline: 2px solid #ffdf00;
     outline-offset: 3px;

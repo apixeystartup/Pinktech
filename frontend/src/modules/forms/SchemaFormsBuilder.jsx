@@ -517,7 +517,6 @@ function SchemaFormsBuilder({ org, toolbar, openModuleId }) {
             </>
           ) : (
             <>
-              {toolbar}
               <button type="button" className="wfBtn wfBtn--khaki" onClick={onAddForm}>
                 + Add Form
               </button>
@@ -525,6 +524,7 @@ function SchemaFormsBuilder({ org, toolbar, openModuleId }) {
           )}
         </div>
       </div>
+      {!editing && toolbar ? <div className="wf-seg-row">{toolbar}</div> : null}
 
       {status.message ? (
         <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>

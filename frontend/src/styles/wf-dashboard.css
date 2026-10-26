@@ -19,8 +19,9 @@ html[data-theme='light'] .wf-dash {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 1288px;
-  margin-inline: auto;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
   color: #202018;
 }
 
