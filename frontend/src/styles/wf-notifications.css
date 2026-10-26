@@ -1,0 +1,603 @@
+/* ================================================================== *
+ * Notifications — wireframe alignment (Screens 21 & 22).             *
+ * Light theme only: every rule is scoped to html[data-theme="light"] *
+ * so the dark theme keeps its own styling.                           *
+ *                                                                    *
+ * wireframe.css is imported after this file, so rules that fight it  *
+ * (inputs, thead, body copy) carry extra specificity.                *
+ * ================================================================== */
+
+/* ------------------------------- page ----------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-only-mob {
+  display: none;
+}
+
+/* ---------------------------- compose card ------------------------ */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose {
+  margin: 0 0 32px;
+  padding: 25px;
+  border: 1px solid #d4d5c8;
+  border-radius: 14px;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__title {
+  margin: 0 0 26px;
+  color: #202018;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+/* Screen 21 opens with the heading only; Screen 22 adds the helper line. */
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__title-mob {
+  display: none;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__sub {
+  display: none;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-form {
+  margin: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-field + .notifw-field {
+  margin-top: 20px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-label {
+  display: block;
+  margin: 0 0 11px;
+  color: #202018;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* ---------------------------- recipients -------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipients {
+  padding: 8px 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipients__list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipients__empty {
+  margin: 0;
+  padding: 8px 2px;
+  color: #515045;
+  font-size: 14.5px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 34px;
+  color: #202018;
+  font-size: 15px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #ffdf00;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------- subject / message -------------------- */
+
+html[data-theme="light"]
+  .app-shell
+  .module-page
+  .notifw-page
+  .notifw-compose
+  .notifw-field
+  input.notifw-input:not([type="checkbox"]) {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 15px;
+}
+
+html[data-theme="light"]
+  .app-shell
+  .module-page
+  .notifw-page
+  .notifw-compose
+  .notifw-field
+  input.notifw-input:not([type="checkbox"])::placeholder {
+  color: #8d8a7c;
+}
+
+html[data-theme="light"]
+  .app-shell
+  .module-page
+  .notifw-page
+  .notifw-compose
+  .notifw-field
+  input.notifw-input:not([type="checkbox"]):focus {
+  border-color: #202018;
+  outline: none;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-field textarea.notifw-textarea {
+  display: block;
+  width: 100%;
+  height: 126px;
+  padding: 12px 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-field textarea.notifw-textarea::placeholder {
+  color: #8d8a7c;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-field textarea.notifw-textarea:focus {
+  border-color: #202018;
+  outline: none;
+  background: #ffffff;
+}
+
+/* wireframe.css paints every non-checkbox input khaki — this one is white. */
+html[data-theme="light"]
+  .app-shell
+  .module-page
+  .notifw-page
+  .notifw-compose
+  .notifw-recipients
+  input.notifw-recipients__filter:not([type="checkbox"]) {
+  width: 100%;
+  height: 36px;
+  margin: 0 0 6px;
+  padding: 0 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 8px;
+  background: #f4f5e9;
+  color: #202018;
+  font-size: 14px;
+}
+
+html[data-theme="light"]
+  .app-shell
+  .module-page
+  .notifw-page
+  .notifw-compose
+  .notifw-recipients
+  input.notifw-recipients__filter:not([type="checkbox"])::placeholder {
+  color: #8d8a7c;
+}
+
+/* ------------------------------ actions --------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #d4d5c8;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn--primary {
+  background: #ffdf00;
+  border-color: #e0c700;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn--primary:hover:not(:disabled) {
+  background: #f2d400;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn--primary:disabled {
+  background: #f0f0e6;
+  border-color: #e0e0d3;
+  color: #a3a196;
+  cursor: not-allowed;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn--ghost {
+  background: #ffffff;
+  border-color: #d4d5c8;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn--ghost:hover {
+  background: #eff0dd;
+}
+
+/* --------------------------- section heading ---------------------- */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-section {
+  margin: 0 0 22px;
+  color: #202018;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+/* ------------------------------- table ---------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-panel {
+  overflow: hidden;
+  border: 1px solid #d4d5c8;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-table th {
+  height: 40px;
+  padding: 0 21px;
+  border-bottom: 1px solid #d4d5c8;
+  background: #f3f4ed;
+  color: #515045;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-table td {
+  height: 56px;
+  padding: 0 21px;
+  border-bottom: 1px solid #d4d5c8;
+  color: #202018;
+  font-size: 14px;
+  line-height: 1.35;
+  vertical-align: middle;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-table tbody tr:hover {
+  background: #f7f8ef;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-cell-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-cell-attachment a {
+  color: #202018;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-cell-attachment .notifw-form-link {
+  display: block;
+  margin-top: 2px;
+  color: #515045;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-muted {
+  color: #515045;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff9ce;
+  color: #202018;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-cell-sent {
+  white-space: nowrap;
+}
+
+/* ----------------------- skeleton / empty states ------------------ */
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-skeleton {
+  padding: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-skeleton__row {
+  height: 56px;
+  border-bottom: 1px solid #d4d5c8;
+  background: linear-gradient(90deg, transparent 0%, rgb(32 32 24 / 6%) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: audit-shimmer 1.35s ease-in-out infinite;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-skeleton__row:last-child {
+  border-bottom: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty {
+  padding: 44px 24px;
+  text-align: center;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty h3 {
+  margin: 0 0 6px;
+  color: #202018;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty p {
+  margin: 0;
+  color: #515045;
+  font-size: 15px;
+}
+
+/* ====================== mobile (< 860px) ========================== */
+
+@media (max-width: 860px) {
+  /* The mobile screen sits on the warm ground with white cards. */
+  html[data-theme="light"] .content:has(.notifw-page) {
+    background: #f4f5e9;
+  }
+
+  html[data-theme="light"] .content:has(.notifw-page) .module-page {
+    margin-bottom: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  html[data-theme="light"] .content:has(.notifw-page) .module-header {
+    margin-bottom: 6px;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose__head {
+    padding: 18px 20px;
+    border: 1px solid #d4d5c8;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__title {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__title-desk {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__title-mob {
+    display: inline;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-compose__sub {
+    display: block;
+    margin: 6px 0 0;
+    color: #515045;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-form {
+    margin-top: 24px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-label {
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipients {
+    padding: 6px 12px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient {
+    height: 32px;
+    font-size: 15.5px;
+  }
+
+  html[data-theme="light"]
+    .app-shell
+    .module-page
+    .notifw-page
+    .notifw-compose
+    .notifw-field
+    input.notifw-input:not([type="checkbox"]) {
+    height: 40px;
+    font-size: 15.5px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-field textarea.notifw-textarea {
+    height: 112px;
+    font-size: 15.5px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    margin-top: 24px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-btn {
+    width: 100%;
+    height: 40px;
+    font-size: 15.5px;
+  }
+
+  /* Screen 22 drops the section heading and swaps the table for cards. */
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-section {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-only-desk {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-only-mob {
+    display: flex;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-cards {
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card {
+    padding: 18px 20px;
+    border: 1px solid #d4d5c8;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-kind {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #e8e9dc;
+    color: #202018;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__status {
+    color: #515045;
+    font-size: 14px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__who {
+    margin: 0;
+    color: #202018;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__subject {
+    margin: 4px 0 0;
+    color: #202018;
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__attachment {
+    margin: 6px 0 0;
+    color: #515045;
+    font-size: 14.5px;
+    line-height: 1.4;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__attachment a {
+    color: #515045;
+    text-decoration: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__attachment .notifw-form-link {
+    display: block;
+    margin-top: 2px;
+    color: #515045;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty {
+    padding: 32px 16px;
+  }
+}

@@ -11,6 +11,9 @@ import DoctorFormModal from "../DoctorFormModal";
 import DeleteDoctorModal from "../DeleteDoctorModal";
 import BulkAssignFormModal from "../BulkAssignFormModal";
 import "../../../styles/doctors.css";
+// Wireframe alignment layer (light theme) — loaded after doctors.css so its
+// page-scoped rules win; wireframe.css still loads after everything.
+import "../../../styles/wf-doctors.css";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -197,7 +200,9 @@ function DoctorManagementPage() {
       key: "status",
       label: "Status",
       render: (row) => (
-        <span className={`dash-status dash-status--${String(row.status).toLowerCase()}`}>{row.status}</span>
+        <span className={`dash-status dash-status--${String(row.status).toLowerCase()}`}>
+          {String(row.status).charAt(0) + String(row.status).slice(1).toLowerCase()}
+        </span>
       ),
     },
     {
@@ -210,6 +215,7 @@ function DoctorManagementPage() {
               <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
             </svg>
+            <span className="doc-action-label">View</span>
           </button>
           {canManage ? (
             <>
@@ -217,11 +223,13 @@ function DoctorManagementPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
+                <span className="doc-action-label">Edit</span>
               </button>
               <button type="button" className="doc-action-btn doc-action-btn--icon doc-action-btn--danger" onClick={() => setDeleting(row)} title="Delete" aria-label={`Delete ${row.name}`}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
+                <span className="doc-action-label">Delete</span>
               </button>
             </>
           ) : null}
@@ -233,7 +241,15 @@ function DoctorManagementPage() {
   return (
     <ModulePage
       title="Doctor Management"
-      description="Search the doctor directory, open a profile for full details, and keep compliance forms, agreements and approvals in sync."
+      description={
+        <>
+          <span className="doc-desc-wide">
+            Search the doctor directory, open a profile for full details, and keep compliance
+            forms, agreements and approvals in sync.
+          </span>
+          <span className="doc-desc-narrow">Search doctors and keep forms and approvals in sync.</span>
+        </>
+      }
     >
 
       <div className="doc-toolbar">
@@ -252,49 +268,56 @@ function DoctorManagementPage() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className="btn-secondary btn-icon-only doc-toolbar-refresh"
+          title="Refresh"
+          aria-label="Refresh doctors"
+          onClick={() => load()}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <span className="doc-toolbar-spacer" />
         <div className="doc-toolbar-actions">
           {canAssignForm ? (
             <button
               type="button"
-              className="btn-primary"
+              className="btn-primary doc-btn-assign"
               disabled={!selectedDoctorIds.length}
               title={selectedDoctorIds.length ? `Assign a form to ${selectedDoctorIds.length} selected doctor${selectedDoctorIds.length === 1 ? "" : "s"}` : "Tick doctors in the list first"}
               onClick={() => setBulkAssignOpen(true)}
             >
-              Assign Form{selectedDoctorIds.length ? ` (${selectedDoctorIds.length})` : ""}
+              <span className="doc-label-wide">Assign Form</span>
+              <span className="doc-label-narrow">Assign form</span>
+              {selectedDoctorIds.length ? ` (${selectedDoctorIds.length})` : ""}
             </button>
           ) : null}
           {canManage ? (
-            <button type="button" className="btn-secondary" onClick={() => setModal({ open: true, doctor: null })}>
-              Add Doctor
+            <button type="button" className="btn-secondary doc-btn-add" onClick={() => setModal({ open: true, doctor: null })}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+              </svg>
+              <span>Add doctor</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            className="btn-secondary btn-icon-only"
-            title="Refresh"
-            aria-label="Refresh doctors"
-            onClick={() => load()}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        emptyText={
-          loading
-            ? "Loading doctors…"
-            : query || status
-              ? "No doctors match your search."
-              : "No doctors yet — use Add Doctor to create the first profile."
-        }
-      />
+      <div className={`doc-table-wrap${canAssignForm ? " doc-table-wrap--select" : ""}`}>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          emptyText={
+            loading
+              ? "Loading doctors…"
+              : query || status
+                ? "No doctors match your search."
+                : "No doctors yet — use Add Doctor to create the first profile."
+          }
+        />
+      </div>
 
       {modal.open ? (
         <DoctorFormModal

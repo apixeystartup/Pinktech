@@ -1,0 +1,1167 @@
+/* ================================================================== *
+ * Doctors — wireframe alignment (Screens 11–14).                      *
+ * Light theme only: every rule is scoped to html[data-theme="light"]  *
+ * so the dark theme keeps its own styling.                            *
+ *                                                                    *
+ * wireframe.css is imported after this file, so rules that fight it   *
+ * carry the page class (and the light-theme attribute selector) for   *
+ * the extra specificity. Ground #f4f5e9 · cards #fff · ink #202018 ·  *
+ * line #d4d5c8 · khaki #e8e9dc/#eff0dd · accent #ffdf00 · orange #ed7940 *
+ * ================================================================== */
+
+/* ---------------------------- shared copy ------------------------- *
+ * The wireframe uses a short description on mobile and a longer one
+ * on desktop; same for the "Assign form" button label.               */
+
+html[data-theme="light"] .doc-desc-narrow,
+html[data-theme="light"] .doc-label-narrow {
+  display: none;
+}
+
+html[data-theme="light"] .content:has(.doc-toolbar) .module-page h1,
+html[data-theme="light"] .content:has(.doc-profile-page) .module-page h1 {
+  font-size: clamp(26px, 2.3vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+html[data-theme="light"] .content:has(.doc-toolbar) .module-page-desc {
+  max-width: 82ch;
+}
+
+/* =========================== directory ============================= */
+
+/* ------------------------------- toolbar -------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .doc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+/* The search field swallows the spare width so the controls sit flush
+   against it, the way the wireframe's toolbar reads. */
+html[data-theme="light"] .doc-toolbar-spacer {
+  display: none;
+}
+
+/* wireframe.css paints every .app-shell input with the `background`
+   shorthand, which resets background-image — the magnifier therefore
+   has to be declared important to survive that later rule. */
+html[data-theme="light"] .doc-toolbar .dash-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  height: 38px;
+  padding: 0 14px 0 40px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23515045' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E")
+    no-repeat 13px center / 18px 18px #f4f5e9 !important;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .doc-toolbar .dash-select {
+  flex: 0 0 auto;
+  height: 38px;
+  min-width: 190px;
+  padding: 0 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background-color: #f4f5e9;
+  font-size: 14px;
+}
+
+/* The refresh button sits at the end of the toolbar on desktop and
+   next to the status filter on mobile (see the media query below). */
+html[data-theme="light"] .doc-toolbar-refresh {
+  order: 5;
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #f4f5e9;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-toolbar-refresh:hover:not(:disabled) {
+  background: #e8e9dc;
+  border-color: #c6c7b9;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-toolbar-actions {
+  gap: 8px;
+}
+
+html[data-theme="light"] .doc-toolbar-actions .btn-primary,
+html[data-theme="light"] .doc-toolbar-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 15px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Unselected: the wireframe's "Assign Form" reads as a soft yellow chip. */
+html[data-theme="light"] .doc-toolbar .btn-primary:disabled {
+  background: #fff8cb;
+  border-color: #ece2a8;
+  color: #a3a196;
+}
+
+/* "Add doctor" is the dark primary action on desktop. The extra .app-shell
+   is what beats wireframe.css's `.btn-secondary`, which loads later at the
+   same specificity and would otherwise keep the button white. */
+html[data-theme="light"] .app-shell .doc-btn-add {
+  background: #202018;
+  border-color: #202018;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .app-shell .doc-btn-add:hover:not(:disabled) {
+  background: #34332b;
+  border-color: #34332b;
+  color: #ffffff;
+}
+
+/* ------------------------------- table ---------------------------- */
+
+html[data-theme="light"] .doc-table-wrap .table-wrap {
+  border: 1px solid #d4d5c8;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="light"] .doc-table-wrap .data-table th,
+html[data-theme="light"] .doc-table-wrap .data-table td {
+  padding: 14px 16px;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .doc-table-wrap .data-table thead th {
+  background: #e8e9dc;
+  color: #45443c;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .doc-table-wrap .data-table tbody tr:hover {
+  background: #f8f9f1;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-cell-name {
+  color: #202018;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-cell-sub {
+  color: #7f7c6e;
+  font-size: 12px;
+}
+
+html[data-theme="light"] .doc-table-wrap .dash-status {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+/* Compliance meter: khaki track, orange fill, grey count. */
+html[data-theme="light"] .doc-table-wrap .doc-progress {
+  min-width: 150px;
+  gap: 10px;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-progress-track {
+  height: 7px;
+  background: #e8e9dc;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-progress-fill {
+  background: #ed7940;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-progress-fill--complete {
+  background: #3ca368;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-progress-text {
+  color: #7f7c6e;
+  font-size: 12px;
+}
+
+/* Row actions: three equal squares (icon buttons, no labels). */
+html[data-theme="light"] .doc-table-wrap .doc-row-actions {
+  gap: 8px;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-action-btn {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d4d5c8;
+  border-radius: 9px;
+  background: #f4f5e9;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-action-btn--view {
+  background: #f4f5e9;
+  border-color: #d4d5c8;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-action-btn--danger {
+  background: #f4f5e9;
+  border-color: #d4d5c8;
+  color: #da423c;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-action-btn:hover:not(:disabled) {
+  background: #e8e9dc;
+  border-color: #c6c7b9;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .doc-table-wrap .doc-action-label {
+  display: none;
+}
+
+/* ============================ profile ============================== */
+
+html[data-theme="light"] .doc-profile-page .doc-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  height: auto;
+  margin: 0 0 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #515045;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .doc-profile-page .doc-back:hover {
+  background: transparent;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-profile-page .module-header {
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+}
+
+/* --------------------------------- hero ---------------------------- */
+
+html[data-theme="light"] .doc-profile-hero {
+  position: relative;
+  align-items: flex-start;
+  gap: 18px;
+  min-height: 0;
+  overflow: visible;
+  padding: 22px 24px;
+  background: #ffffff;
+}
+
+/* The dark-theme banner wash has no place in the wireframe's flat card. */
+html[data-theme="light"] .doc-profile-hero::before {
+  display: none;
+}
+
+html[data-theme="light"] .doc-profile-hero > * {
+  position: static;
+}
+
+html[data-theme="light"] .doc-profile-hero .doc-avatar {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: #e8e9dc;
+  box-shadow: none;
+  color: #202018;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .doc-profile-hero .doc-hero-name {
+  font-size: clamp(24px, 2vw, 30px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+html[data-theme="light"] .doc-profile-status {
+  min-height: 24px;
+  padding: 4px 11px;
+  border-radius: 7px;
+  background: #fff9cc;
+  color: #202018;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+html[data-theme="light"] .doc-profile-status--complete {
+  background: #cee4d2;
+  color: #1c7a45;
+}
+
+html[data-theme="light"] .doc-hero-meta {
+  margin: 7px 0 0;
+  color: #515045;
+  font-size: 15px;
+}
+
+html[data-theme="light"] .doc-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 165px));
+  gap: 14px 36px;
+  margin: 20px 0 0;
+}
+
+html[data-theme="light"] .doc-hero-stats dt {
+  margin: 0 0 3px;
+  color: #7f7c6e;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+html[data-theme="light"] .doc-hero-stats dd {
+  margin: 0;
+  color: #202018;
+  font-size: 14.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+html[data-theme="light"] .doc-profile-actions {
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+html[data-theme="light"] .doc-profile-actions .btn-secondary,
+html[data-theme="light"] .doc-profile-actions .btn-primary,
+html[data-theme="light"] .doc-profile-actions .doc-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 17px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .doc-profile-actions .btn-secondary {
+  background: #f4f5e9;
+  border-color: #d4d5c8;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-profile-actions .btn-secondary:hover:not(:disabled) {
+  background: #e8e9dc;
+  border-color: #c6c7b9;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-profile-actions .btn-primary {
+  background: #ffdf00;
+  border-color: #e0c700;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-profile-actions .btn-primary:hover:not(:disabled) {
+  background: #f2d400;
+  border-color: #d3bd00;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-profile-actions .doc-btn-danger {
+  background: #fdf5f5;
+  border-color: #f2d8d3;
+  color: #c8402f;
+}
+
+html[data-theme="light"] .doc-profile-actions .doc-btn-danger:hover:not(:disabled) {
+  background: #fbe9e6;
+  border-color: #eec6bf;
+  color: #c8402f;
+}
+
+/* --------------------------------- grid ---------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .doc-profile-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+}
+
+html[data-theme="light"] .doc-profile-layout > .doc-profile-activity {
+  grid-column: 1 / -1;
+}
+
+html[data-theme="light"] .doc-profile-credentials,
+html[data-theme="light"] .doc-profile-compliance,
+html[data-theme="light"] .doc-profile-activity {
+  padding: 20px 22px;
+}
+
+html[data-theme="light"] .doc-profile-section-head,
+html[data-theme="light"] .doc-profile-activity > .doc-card-title {
+  padding-bottom: 13px;
+  border-bottom: 1px solid #e6e7dc;
+}
+
+/* The credentials card reads as plain label/value pairs under its title. */
+html[data-theme="light"] .doc-profile-credentials .doc-card-title {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+html[data-theme="light"] .doc-profile-section-head {
+  margin-bottom: 0;
+}
+
+html[data-theme="light"] .doc-credential-list {
+  gap: 0;
+  margin: 8px 0 0;
+}
+
+html[data-theme="light"] .doc-credential-list dt {
+  margin: 0;
+  padding: 9px 0 0;
+  color: #7f7c6e;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+html[data-theme="light"] .doc-credential-list dd {
+  padding: 2px 0 9px;
+  color: #202018;
+  font-size: 13.5px;
+}
+
+/* Empty fields are simply not part of the profile — drop the pair. */
+html[data-theme="light"] .doc-credential-list dt:has(+ dd.doc-empty-value) {
+  display: none;
+}
+
+html[data-theme="light"] .doc-credential-list dd.doc-empty-value {
+  display: none;
+}
+
+html[data-theme="light"] .doc-profile-extra {
+  margin-top: 14px;
+  border-top: 1px solid #e6e7dc;
+}
+
+html[data-theme="light"] .doc-profile-extra summary {
+  color: #202018;
+  font-size: 13px;
+}
+
+/* --------------------------- compliance rows ----------------------- *
+ * The wireframe shows flat rows separated by hairlines, each with the
+ * form name and its status chip only; everything else lives in the
+ * expanded panel (still reachable — <details> stays interactive).      */
+
+html[data-theme="light"] .doc-profile-completion {
+  display: none;
+}
+
+html[data-theme="light"] .doc-profile-form-list {
+  gap: 0;
+}
+
+html[data-theme="light"] .doc-profile-form {
+  border: 0;
+  border-bottom: 1px solid #e6e7dc;
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-theme="light"] .doc-profile-form:hover {
+  background: transparent;
+  border-color: #e6e7dc;
+}
+
+html[data-theme="light"] .doc-profile-form:last-child {
+  border-bottom: 0;
+}
+
+html[data-theme="light"] .doc-profile-form-summary {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 2px;
+}
+
+html[data-theme="light"] .doc-profile-form-main {
+  gap: 0;
+}
+
+html[data-theme="light"] .doc-profile-form-main strong {
+  color: #202018;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: normal;
+}
+
+html[data-theme="light"] .doc-profile-form-main > span,
+html[data-theme="light"] .doc-profile-form-icon,
+html[data-theme="light"] .doc-profile-expand-icon,
+html[data-theme="light"] .doc-profile-document {
+  display: none;
+}
+
+html[data-theme="light"] .doc-profile-form-details[open] > .doc-profile-form-summary {
+  border-bottom-color: #e6e7dc;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .doc-profile-form-details[open] .doc-profile-form-main > span,
+html[data-theme="light"] .doc-profile-form-details[open] .doc-profile-form-icon {
+  display: block;
+}
+
+html[data-theme="light"] .doc-profile-form-details[open] .doc-profile-form-icon {
+  display: grid;
+}
+
+/* -------------------------------- badges --------------------------- */
+
+html[data-theme="light"] .doc-badge {
+  padding: 4px 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+html[data-theme="light"] .doc-badge--complete {
+  background: #fff9cc;
+  border-color: #fff9cc;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-badge--pending {
+  background: #eff0dd;
+  border-color: #eff0dd;
+  color: #202018;
+}
+
+html[data-theme="light"] .doc-badge--rejected {
+  background: #fdeceb;
+  border-color: #fdeceb;
+  color: #c8402f;
+}
+
+html[data-theme="light"] .doc-badge--muted {
+  background: #eff0dd;
+  border-color: #eff0dd;
+  color: #515045;
+}
+
+/* ------------------------------- activity -------------------------- */
+
+html[data-theme="light"] .doc-activity-item {
+  min-height: 56px;
+}
+
+html[data-theme="light"] .doc-activity-copy strong {
+  color: #202018;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .doc-activity-copy span,
+html[data-theme="light"] .doc-activity-item time {
+  color: #7f7c6e;
+  font-size: 12.5px;
+}
+
+/* ====================== mobile (< 860px) =========================== */
+
+@media (max-width: 860px) {
+  html[data-theme="light"] .doc-desc-wide,
+  html[data-theme="light"] .doc-label-wide {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-desc-narrow,
+  html[data-theme="light"] .doc-label-narrow {
+    display: inline;
+  }
+
+  html[data-theme="light"] .content:has(.doc-toolbar) .module-page-desc,
+  html[data-theme="light"] .content:has(.doc-profile-page) .module-page-desc {
+    max-width: none;
+  }
+
+  /* ------------------------------ toolbar ------------------------- */
+
+  html[data-theme="light"] .app-shell .module-page .doc-toolbar {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  html[data-theme="light"] .doc-toolbar .dash-search {
+    flex: 1 1 100%;
+    height: 46px;
+    border-radius: 12px;
+    background-position: 15px center !important;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .doc-toolbar .dash-select {
+    order: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 46px;
+    border-radius: 12px;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .doc-toolbar-refresh {
+    order: 1;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+  }
+
+  html[data-theme="light"] .doc-toolbar-spacer {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-toolbar-actions {
+    order: 2;
+    display: grid;
+    flex: 1 1 100%;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 10px;
+    margin-left: 0;
+  }
+
+  html[data-theme="light"] .doc-toolbar-actions .btn-primary,
+  html[data-theme="light"] .doc-toolbar-actions .btn-secondary {
+    width: 100%;
+    height: 48px;
+    padding: 0 14px;
+    border-radius: 12px;
+    font-size: 15.5px;
+  }
+
+  /* The wireframe keeps the secondary action white on mobile. */
+  html[data-theme="light"] .app-shell .doc-btn-add {
+    background: #ffffff;
+    border-color: #d4d5c8;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .app-shell .doc-btn-add:hover:not(:disabled) {
+    background: #f4f5e9;
+    border-color: #c6c7b9;
+    color: #202018;
+  }
+
+  /* ------------------------- table as cards ----------------------- */
+
+  html[data-theme="light"] .doc-table-wrap {
+    overflow: visible;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table,
+  html[data-theme="light"] .doc-table-wrap .data-table tbody {
+    display: block;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table thead {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table tbody {
+    display: grid;
+    gap: 14px;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 16px;
+    padding: 16px;
+    border: 1px solid #d4d5c8;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table tbody tr:hover {
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table td::before {
+    display: block;
+    margin-bottom: 3px;
+    color: #7f7c6e;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-cell-name {
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-cell-sub {
+    font-size: 13.5px;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-progress {
+    min-width: 0;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-progress-track {
+    min-width: 60px;
+    height: 8px;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-progress-text {
+    font-size: 13px;
+  }
+
+  /* Wireframe card: name + status, then four labelled fields, then
+     the three text buttons. Contact (and the tick column) stay hidden. */
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(1) {
+    display: none; /* tick */
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(2) {
+    grid-area: 1 / 1;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(3) {
+    grid-area: 2 / 1;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(4) {
+    grid-area: 2 / 2;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(5) {
+    display: none; /* contact */
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(6) {
+    grid-area: 3 / 1;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(7) {
+    grid-area: 3 / 2;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(8) {
+    grid-area: 1 / 2;
+    justify-self: end;
+    align-self: start;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(9) {
+    grid-area: 4 / 1 / 4 / 3;
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(3)::before {
+    content: "Specialization";
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(4)::before {
+    content: "Experience";
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(6)::before {
+    content: "Clinic / Hospital";
+  }
+
+  html[data-theme="light"] .doc-table-wrap--select .data-table tbody tr > :nth-child(7)::before {
+    content: "Compliance";
+  }
+
+  /* The same card without the tick column: every column shifts up one. */
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(1) {
+    grid-area: 1 / 1;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(2) {
+    grid-area: 2 / 1;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(3) {
+    grid-area: 2 / 2;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(4) {
+    display: none; /* contact */
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(5) {
+    grid-area: 3 / 1;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(6) {
+    grid-area: 3 / 2;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(7) {
+    grid-area: 1 / 2;
+    justify-self: end;
+    align-self: start;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(8) {
+    grid-area: 4 / 1 / 4 / 3;
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(2)::before {
+    content: "Specialization";
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(3)::before {
+    content: "Experience";
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(5)::before {
+    content: "Clinic / Hospital";
+  }
+
+  html[data-theme="light"] .doc-table-wrap:not(.doc-table-wrap--select) .data-table tbody tr > :nth-child(6)::before {
+    content: "Compliance";
+  }
+
+  /* Empty / loading row keeps its full width. */
+  html[data-theme="light"] .doc-table-wrap .data-table tbody tr:has(> .table-empty) {
+    display: block;
+    padding: 26px 16px;
+    border-radius: 14px;
+    text-align: center;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table tbody tr:has(> .table-empty) > td {
+    display: block;
+    font-size: 14px;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .data-table tbody tr:has(> .table-empty) > td::before {
+    content: none;
+  }
+
+  /* Text buttons instead of icons. */
+  html[data-theme="light"] .doc-table-wrap .doc-row-actions {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 10px;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-action-btn {
+    display: inline-flex;
+    width: auto;
+    height: 46px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 10px;
+    border: 1px solid #d4d5c8;
+    border-radius: 11px;
+    background: #f4f5e9;
+    color: #202018;
+    font-size: 15.5px;
+    font-weight: 500;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-action-btn svg {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-action-btn--view {
+    background: #f4f5e9;
+    border-color: #d4d5c8;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-action-btn--danger {
+    background: #f4f5e9;
+    border-color: #d4d5c8;
+    color: #c8402f;
+  }
+
+  html[data-theme="light"] .doc-table-wrap .doc-action-label {
+    display: inline;
+  }
+
+  /* ------------------------------ profile ------------------------- */
+
+  html[data-theme="light"] .doc-profile-page .doc-back {
+    font-size: 14px;
+  }
+
+  html[data-theme="light"] .doc-profile-hero {
+    gap: 14px;
+    padding: 18px 16px;
+  }
+
+  html[data-theme="light"] .doc-profile-hero .doc-avatar {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-profile-hero .doc-hero-name {
+    font-size: 24px;
+  }
+
+  html[data-theme="light"] .doc-profile-status {
+    background: #ffdf00;
+    border-color: #ffdf00;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .doc-hero-meta {
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .doc-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
+    margin-top: 20px;
+  }
+
+  html[data-theme="light"] .doc-hero-stats dt {
+    font-size: 14px;
+  }
+
+  html[data-theme="light"] .doc-hero-stats dd {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  html[data-theme="light"] .doc-hero-stats .doc-hero-stat:last-child {
+    grid-column: 1 / -1;
+  }
+
+  html[data-theme="light"] .doc-hero-extra {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-profile-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    width: 100%;
+    gap: 10px;
+    margin-left: 0;
+  }
+
+  html[data-theme="light"] .doc-profile-actions .btn-secondary,
+  html[data-theme="light"] .doc-profile-actions .btn-primary,
+  html[data-theme="light"] .doc-profile-actions .doc-btn-danger {
+    width: 100%;
+    height: 48px;
+    border-radius: 11px;
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .doc-profile-actions .doc-btn-danger {
+    background: #f4f5e9;
+    border-color: #d4d5c8;
+    color: #c8402f;
+  }
+
+  html[data-theme="light"] .doc-profile-actions .doc-btn-danger:hover:not(:disabled) {
+    background: #e8e9dc;
+    border-color: #c6c7b9;
+    color: #c8402f;
+  }
+
+  /* Section headings sit outside their cards on mobile. */
+  html[data-theme="light"] .app-shell .module-page .doc-profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  html[data-theme="light"] .doc-profile-credentials,
+  html[data-theme="light"] .doc-profile-compliance,
+  html[data-theme="light"] .doc-profile-activity {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  html[data-theme="light"] .doc-profile-credentials .doc-card-title,
+  html[data-theme="light"] .doc-profile-section-head,
+  html[data-theme="light"] .doc-profile-activity > .doc-card-title {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  html[data-theme="light"] .doc-profile-page .doc-card-title {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  html[data-theme="light"] .doc-profile-section-head {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  html[data-theme="light"] .doc-profile-section-head .doc-card-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  html[data-theme="light"] .doc-profile-completion {
+    display: block;
+    flex: 0 0 94px;
+    max-width: 94px;
+    color: #515045;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+    text-align: right;
+  }
+
+  html[data-theme="light"] .doc-credential-list {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid #d4d5c8;
+    border-radius: 13px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .doc-credential-list dt {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-credential-list dd {
+    padding: 10px 0;
+    border-bottom: 0;
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .doc-credential-list dd:last-of-type {
+    border-bottom: 0;
+  }
+
+  html[data-theme="light"] .doc-credential-list dd.doc-empty-value {
+    display: none;
+  }
+
+  html[data-theme="light"] .doc-profile-extra {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #e6e7dc;
+  }
+
+  html[data-theme="light"] .doc-profile-form-list {
+    gap: 12px;
+  }
+
+  html[data-theme="light"] .doc-profile-form {
+    border: 1px solid #d4d5c8;
+    border-radius: 13px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .doc-profile-form:hover {
+    border-color: #d4d5c8;
+  }
+
+  html[data-theme="light"] .doc-profile-form:last-child {
+    border-bottom: 1px solid #d4d5c8;
+  }
+
+  html[data-theme="light"] .doc-profile-form-summary {
+    padding: 15px 16px;
+  }
+
+  html[data-theme="light"] .doc-profile-form-main strong {
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  html[data-theme="light"] .doc-profile-form .doc-badge {
+    padding: 5px 13px;
+    background: #ffdf00;
+    border-color: #ffdf00;
+    color: #202018;
+    font-size: 13px;
+  }
+
+  html[data-theme="light"] .doc-profile-form .doc-badge--pending {
+    background: #eff0dd;
+    border-color: #eff0dd;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .doc-profile-form .doc-badge--rejected {
+    background: #fdeceb;
+    border-color: #fdeceb;
+    color: #c8402f;
+  }
+
+  html[data-theme="light"] .doc-profile-form-details[open] > .doc-profile-form-summary {
+    border-bottom-color: #e6e7dc;
+    border-radius: 13px 13px 0 0;
+    background: #f4f5e9;
+  }
+
+  html[data-theme="light"] .doc-profile-form-expanded {
+    padding: 14px 16px 16px;
+  }
+
+  html[data-theme="light"] .doc-activity-item {
+    min-height: 60px;
+  }
+}

@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data loading matches pink-form AdminPage */
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import {
   createModule,
   deleteModule,
@@ -221,7 +220,7 @@ function AgreementTemplatePreview({ template, org, side }) {
   );
 }
 
-function SchemaFormsBuilder({ org }) {
+function SchemaFormsBuilder({ org, toolbar, openModuleId }) {
   const { tenantContextId } = useAuth();
   const [modules, setModules] = useState([]);
   const [signatureTemplates, setSignatureTemplates] = useState([]);
@@ -232,8 +231,8 @@ function SchemaFormsBuilder({ org }) {
   const [status, setStatus] = useState({ type: "", message: "" });
   // Same cache as the Templates tab — switching tabs shows the list instantly.
   const tenantKey = String(tenantContextId || "");
-  // The editor (second section) only appears when creating or editing a form.
-  // Otherwise the tab shows just the form list plus the Add button.
+  // The editor is an inline page view (Screen 19) instead of a popup: false
+  // shows the module list, true shows the form configuration + questions.
   const [showEditor, setShowEditor] = useState(false);
 
   const fields = builderState.schema?.fields || [];
@@ -268,16 +267,17 @@ function SchemaFormsBuilder({ org }) {
     }
   }
 
-  // While the editor popup is open, lock the page behind it so there is only
-  // ever one scroller: the popup follows the form's own height exactly.
+  // A "Edit template" card action on the Templates tab hands over the module
+  // to open — wait for the list, then drop straight into that form.
+  const openedFor = useRef("");
   useEffect(() => {
-    if (!showEditor) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [showEditor]);
+    if (!openModuleId || openedFor.current === openModuleId) return;
+    if (!modules.length) return;
+    if (!modules.some((item) => item._id === openModuleId)) return;
+    openedFor.current = openModuleId;
+    onChangeModule(openModuleId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openModuleId, modules]);
 
   useEffect(() => {
     refreshModules().catch((err) => setStatus({ type: "error", message: err.message }));
@@ -459,6 +459,13 @@ function SchemaFormsBuilder({ org }) {
     return `${window.location.origin}/public/schema-forms/${moduleId}`;
   }
 
+  // "Preview" in the editor header (Screen 19) — the same public form the
+  // module cards open, in a new tab.
+  function openPreview() {
+    if (!selectedId) return;
+    window.open(publicFormUrl(selectedId), "_blank", "noopener,noreferrer");
+  }
+
   async function copyPublicLink(url) {
     try {
       await navigator.clipboard.writeText(url);
@@ -468,162 +475,103 @@ function SchemaFormsBuilder({ org }) {
     }
   }
 
+  const editing = showEditor;
+
   return (
-    <div className="schema-forms">
-      <div className="schema-forms__modules-section">
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
-          <button type="button" className="ioButton ioButton--sm" onClick={onAddForm}>
-            + Add Form
-          </button>
+    <section className="module-page schema-forms wf-forms wf-forms--builder">
+      <div className="module-header">
+        <div className="module-header-text">
+          {editing ? (
+            <button type="button" className="wf-backLink" onClick={() => setShowEditor(false)}>
+              <span aria-hidden="true">←</span> Form Builder
+            </button>
+          ) : null}
+          <div className="wf-builderTitle">
+            <h1>{editing ? "Edit form builder" : "Form Builder"}</h1>
+            {editing ? (
+              <span className="wfBadge">{builderState.isPublished ? "Published" : "Draft"}</span>
+            ) : null}
+          </div>
+          {editing ? null : (
+            <p className="module-page-desc">
+              Schema-driven forms (pink-form): design questions, share the public link, and review
+              submissions with PDF receipts.
+            </p>
+          )}
         </div>
-        {!modules.length ? (
-          <p className="hint">No saved modules yet. Use + Add Form to create the first one.</p>
-        ) : (
-          <div className="schema-forms-module-grid">
-            {modules.map((mod) => {
-              const url = publicFormUrl(mod._id);
-              const qCount = mod.schema?.fields?.length ?? 0;
-              const active = mod._id === selectedId;
-              return (
-                <article
-                  key={mod._id}
-                  className={`schema-forms-module-card${active ? " schema-forms-module-card--active" : ""}`}
-                >
-                  <div className="schema-forms-module-card__head">
-                    <h3 className="schema-forms-module-card__title">{mod.name || "Untitled"}</h3>
-                    <span
-                      className={`schema-forms-module-card__badge${mod.isPublished ? " schema-forms-module-card__badge--live" : ""}`}
-                    >
-                      {mod.isPublished ? "Published" : "Draft"}
-                    </span>
-                  </div>
-                  <p className="schema-forms-module-card__meta">
-                    {qCount} question{qCount === 1 ? "" : "s"} · id <code>{String(mod._id).slice(0, 8)}…</code>
-                  </p>
-                  <p className="schema-forms-module-card__url" title={url}>
-                    {url}
-                  </p>
-                  <div className="schema-forms-module-card__actions">
-                    <button type="button" className="ghostBtn miniBtn" onClick={() => copyPublicLink(url)}>
-                      Copy
-                    </button>
-                    <a className="ioButton ioButton--sm" href={url} target="_blank" rel="noreferrer">
-                      Open
-                    </a>
-                    <button type="button" className="ioButton ioButton--sm" onClick={() => onChangeModule(mod._id)}>
-                      Edit
-                    </button>
-                    <button type="button" className="dangerBtn miniBtn" onClick={() => onDeleteModule(mod._id, mod.name)}>
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Portal out of .module-page: its backdrop-filter would otherwise trap
-          the fixed overlay inside the card at the card's height. On the body
-          the popup spans the viewport and grows with the editor content. */}
-      {showEditor
-        ? createPortal(
-      <div className="form-editor-backdrop" onClick={() => setShowEditor(false)}>
-        <div className="form-editor-modal schema-forms" onClick={(e) => e.stopPropagation()}>
-      <div className="adminTopBar">
-        <div className="adminStats">
-          <div className="statCard">
-            <span>Questions</span>
-            <strong>{fields.length}</strong>
-          </div>
-          <div className="statCard">
-            <span>Status</span>
-            <strong>{builderState.isPublished ? "Published" : "Draft"}</strong>
-          </div>
-        </div>
-        <div className="adminActions">
-          <button type="button" className="ghostBtn" onClick={() => setShowEditor(false)}>
-            Back to list
-          </button>
-          <button type="button" className="ioButton" onClick={onSave}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Save form
-          </button>
+        <div className="module-header-actions">
+          {editing ? (
+            <>
+              <button
+                type="button"
+                className="wfBtn wfBtn--ghost"
+                onClick={openPreview}
+                disabled={!selectedId}
+                title={selectedId ? "Open the public form in a new tab" : "Save the form first, then preview it"}
+              >
+                Preview
+              </button>
+              <button type="button" className="wfBtn wfBtn--khaki" onClick={onSave}>
+                Save changes
+              </button>
+            </>
+          ) : (
+            <>
+              {toolbar}
+              <button type="button" className="wfBtn wfBtn--khaki" onClick={onAddForm}>
+                + Add Form
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="builderCard">
-        <div className="adminRow">
-          <h2>Workspace</h2>
-          <label className="optionLabel adminInline">
-            <input className="inputGlossy" type="checkbox" checked={showRawJson} onChange={(e) => setShowRawJson(e.target.checked)} />
-            Raw JSON
-          </label>
-        </div>
-        <label htmlFor="moduleSelect">Existing Forms</label>
-        <select id="moduleSelect" value={selectedId} onChange={(e) => onChangeModule(e.target.value)}>
-          <option value="">Create new form</option>
-          {modules.map((item) => (
-            <option key={item._id} value={item._id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        {showRawJson ? <textarea id="moduleJson" rows={14} value={schemaText} onChange={(e) => onRawJsonChange(e.target.value)} /> : null}
-      </div>
+      {status.message ? (
+        <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>
+      ) : null}
 
-      <div className="builderCard">
-        <h2>Form Setup</h2>
-        <label htmlFor="formName">Form Title</label>
-        <input id="formName" value={builderState.name || ""} onChange={(e) => updateRootField("name", e.target.value)} />
-        <label htmlFor="formDescription">Description</label>
-        <textarea
-          id="formDescription"
-          rows={2}
-          value={builderState.schema?.settings?.description || ""}
-          onChange={(e) => updateSetting("description", e.target.value)}
-        />
-        <div className="grid">
-          <div className="field">
-            <label htmlFor="submitLabel">Submit Button Label</label>
-            <input
-              id="submitLabel"
-              value={builderState.schema?.settings?.submitLabel || ""}
-              onChange={(e) => updateSetting("submitLabel", e.target.value)}
+      {editing ? (
+        <>
+          <div className="builderCard wfCard">
+            <h2>Form configuration</h2>
+            <label htmlFor="formName">Form title</label>
+            <input id="formName" value={builderState.name || ""} onChange={(e) => updateRootField("name", e.target.value)} />
+            <label htmlFor="formDescription">Description</label>
+            <textarea
+              id="formDescription"
+              rows={2}
+              value={builderState.schema?.settings?.description || ""}
+              onChange={(e) => updateSetting("description", e.target.value)}
             />
-          </div>
-          <div className="field">
-            <label htmlFor="isPublished">Publish Form</label>
-            <select
-              id="isPublished"
-              value={String(Boolean(builderState.isPublished))}
-              onChange={(e) => updateRootField("isPublished", e.target.value === "true")}
-            >
-              <option value="true">Published</option>
-              <option value="false">Draft</option>
-            </select>
-          </div>
-        </div>
-        <label htmlFor="successMessage">Success Message</label>
-        <textarea
-          id="successMessage"
-          rows={2}
-          value={builderState.schema?.settings?.successMessage || ""}
-          onChange={(e) => updateSetting("successMessage", e.target.value)}
-        />
-        <div className="grid">
-          <div className="field">
-            <label htmlFor="setting-opening-template">Agreement — template</label>
+            <div className="grid wfGrid--split">
+              <div className="field">
+                <label htmlFor="submitLabel">Submit button label</label>
+                <input
+                  id="submitLabel"
+                  value={builderState.schema?.settings?.submitLabel || ""}
+                  onChange={(e) => updateSetting("submitLabel", e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="isPublished">Publish status</label>
+                <select
+                  id="isPublished"
+                  value={String(Boolean(builderState.isPublished))}
+                  onChange={(e) => updateRootField("isPublished", e.target.value === "true")}
+                >
+                  <option value="true">Published</option>
+                  <option value="false">Draft</option>
+                </select>
+              </div>
+            </div>
+            <label htmlFor="successMessage">Success message</label>
+            <textarea
+              id="successMessage"
+              rows={2}
+              value={builderState.schema?.settings?.successMessage || ""}
+              onChange={(e) => updateSetting("successMessage", e.target.value)}
+            />
+            <label htmlFor="setting-opening-template">Agreement template</label>
             <select
               id="setting-opening-template"
               value={builderState.schema?.settings?.openingSignTemplateId || ""}
@@ -646,23 +594,21 @@ function SchemaFormsBuilder({ org }) {
                 </option>
               ))}
             </select>
+            <p className="doc-form-note">
+              Choose one opening agreement. Organization fields preview here; doctor fields are filled when this form is assigned.
+            </p>
+            <div className="grid agreement-template-previews">
+              <AgreementTemplatePreview
+                side="Agreement"
+                org={org}
+                template={signatureTemplates.find((item) => String(item._id) === String(builderState.schema?.settings?.openingSignTemplateId))}
+              />
+            </div>
           </div>
-        </div>
 
-        <p className="doc-form-note">
-          Choose one opening agreement. Organization fields preview here; doctor fields are filled when this form is assigned.
-        </p>
-        <div className="grid agreement-template-previews">
-          <AgreementTemplatePreview
-            side="Agreement"
-            org={org}
-            template={signatureTemplates.find((item) => String(item._id) === String(builderState.schema?.settings?.openingSignTemplateId))}
-          />
-        </div>
-      </div>
 
-      <div className="builderCard">
-        <div className="adminRow">
+      <div className="builderCard wfCard">
+        <div className="adminRow wfCard__head">
           <h2>Questions</h2>
           <button type="button" className="ioButton ioButton--sm" onClick={addQuestion}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -694,19 +640,28 @@ function SchemaFormsBuilder({ org }) {
           const supportsFileTypes = field.type === "file";
           return (
             <div key={field._builderId} className="questionCard">
-              <div className="adminRow">
-                <strong>Question {index + 1}</strong>
+              <div className="adminRow questionCard__head">
+                <strong className="questionCard__label">Question {index + 1}</strong>
                 <div className="questionActions">
-                  <button type="button" className="ghostBtn miniBtn" onClick={() => moveQuestion(index, -1)} disabled={index === 0}>
-                    Up
+                  <button
+                    type="button"
+                    className="wfIconBtn"
+                    onClick={() => moveQuestion(index, -1)}
+                    disabled={index === 0}
+                    aria-label="Move question up"
+                    title="Move up"
+                  >
+                    <span aria-hidden="true">↑</span>
                   </button>
                   <button
                     type="button"
-                    className="ghostBtn miniBtn"
+                    className="wfIconBtn"
                     onClick={() => moveQuestion(index, 1)}
                     disabled={index === fields.length - 1}
+                    aria-label="Move question down"
+                    title="Move down"
                   >
-                    Down
+                    <span aria-hidden="true">↓</span>
                   </button>
                   <button type="button" className="ghostBtn miniBtn" onClick={() => duplicateQuestion(index)}>
                     Duplicate
@@ -716,7 +671,7 @@ function SchemaFormsBuilder({ org }) {
                   </button>
                 </div>
               </div>
-              <label>Question Title</label>
+              <label>Question title</label>
               <input
                 className="inputElevated"
                 value={field.label || ""}
@@ -754,7 +709,7 @@ function SchemaFormsBuilder({ org }) {
                   </select>
                 </div>
               </div>
-              <label className="optionLabel adminInline">
+              <label className="optionLabel adminInline wfQRequired">
                 <input
                   className="inputGlossy"
                   type="checkbox"
@@ -765,14 +720,14 @@ function SchemaFormsBuilder({ org }) {
               </label>
 
               {!supportsOptions && !supportsFileTypes ? (
-                <>
+                <div className="wfQPlaceholder">
                   <label>Placeholder</label>
                   <input value={field.placeholder || ""} onChange={(e) => updateQuestion(index, { placeholder: e.target.value })} />
-                </>
+                </div>
               ) : null}
 
               {supportsOptions ? (
-                <div>
+                <div className="wfQExtra">
                   <label>Options</label>
                   {(field.options || []).map((opt, optIndex) => (
                     <div key={`${field._builderId}-opt-${optIndex}`} className="adminRow">
@@ -789,7 +744,7 @@ function SchemaFormsBuilder({ org }) {
               ) : null}
 
               {supportsFileTypes ? (
-                <div>
+                <div className="wfQExtra">
                   <label>Allowed file types (comma separated)</label>
                   <input
                     value={(field.validations?.allowedFileTypes || []).join(", ")}
@@ -809,15 +764,77 @@ function SchemaFormsBuilder({ org }) {
         })}
       </div>
 
-      {status.message ? (
-        <div className={status.type === "error" ? "alert alert--error" : "alert alert--success"}>{status.message}</div>
-      ) : null}
+      <div className="builderCard wfCard">
+        <div className="adminRow wfCard__head">
+          <h2>Workspace</h2>
+          <label className="optionLabel adminInline">
+            <input className="inputGlossy" type="checkbox" checked={showRawJson} onChange={(e) => setShowRawJson(e.target.checked)} />
+            Raw JSON
+          </label>
         </div>
-      </div>,
-      document.body
-          )
-        : null}
-    </div>
+        <label htmlFor="moduleSelect">Existing Forms</label>
+        <select id="moduleSelect" value={selectedId} onChange={(e) => onChangeModule(e.target.value)}>
+          <option value="">Create new form</option>
+          {modules.map((item) => (
+            <option key={item._id} value={item._id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        {showRawJson ? <textarea id="moduleJson" rows={14} value={schemaText} onChange={(e) => onRawJsonChange(e.target.value)} /> : null}
+      </div>
+        </>
+      ) : (
+        <div className="schema-forms__modules-section">
+          {!modules.length ? (
+            <p className="hint">No saved modules yet. Use + Add Form to create the first one.</p>
+          ) : (
+            <div className="schema-forms-module-grid">
+              {modules.map((mod) => {
+                const url = publicFormUrl(mod._id);
+                const qCount = mod.schema?.fields?.length ?? 0;
+                const active = mod._id === selectedId;
+                return (
+                  <article
+                    key={mod._id}
+                    className={`schema-forms-module-card${active ? " schema-forms-module-card--active" : ""}`}
+                  >
+                    <div className="schema-forms-module-card__head">
+                      <h3 className="schema-forms-module-card__title">{mod.name || "Untitled"}</h3>
+                      <span
+                        className={`schema-forms-module-card__badge${mod.isPublished ? " schema-forms-module-card__badge--live" : ""}`}
+                      >
+                        {mod.isPublished ? "Published" : "Draft"}
+                      </span>
+                    </div>
+                    <p className="schema-forms-module-card__meta">
+                      {qCount} question{qCount === 1 ? "" : "s"} · id <code>{String(mod._id).slice(0, 8)}…</code>
+                    </p>
+                    <p className="schema-forms-module-card__url" title={url}>
+                      {url}
+                    </p>
+                    <div className="schema-forms-module-card__actions">
+                      <button type="button" className="ghostBtn miniBtn" onClick={() => copyPublicLink(url)}>
+                        Copy
+                      </button>
+                      <a className="ioButton ioButton--sm" href={url} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                      <button type="button" className="ioButton ioButton--sm" onClick={() => onChangeModule(mod._id)}>
+                        Edit
+                      </button>
+                      <button type="button" className="dangerBtn miniBtn" onClick={() => onDeleteModule(mod._id, mod.name)}>
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

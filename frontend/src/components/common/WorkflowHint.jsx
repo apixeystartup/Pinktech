@@ -2,16 +2,12 @@ import { Link } from "react-router-dom";
 
 const PAGE_HINTS = {
   "/app/tenants": {
-    title: "Next: set up access",
-    detail: "After creating a tenant, define its roles and add its team.",
-    to: "/app/roles",
-    action: "Go to roles",
+    title: "Next: create your first tenant, then add doctors and employees.",
+    noLink: true,
   },
   "/app/roles": {
-    title: "Next: add your team",
-    detail: "Choose the right tenant in the header, then assign roles as you add employees.",
-    to: "/app/employee-management",
-    action: "Go to employees",
+    title: "Next: review the organization, then choose the roles each team needs.",
+    noLink: true,
   },
   "/app/employee-management": {
     title: "Next: prepare a form",
@@ -20,10 +16,8 @@ const PAGE_HINTS = {
     action: "Go to forms",
   },
   "/app/forms": {
-    title: "Next: onboard a doctor",
-    detail: "Publish a form, then assign it to a doctor from their profile.",
-    to: "/app/doctors",
-    action: "Go to doctors",
+    title: "Next: choose a template, then open Builder to create the form.",
+    noLink: true,
   },
   "/app/org-employees": {
     title: "Next: review your team",
@@ -57,38 +51,36 @@ function WorkflowHint({ pathname, accountRole }) {
       }
     : pathname === "/app/doctors"
       ? {
-          title: "Next: open a doctor profile",
-          detail: "Select a doctor's name to review their details, forms and approval progress.",
+          title: "Next: go to Forms",
+          detail: "Choose a form template to assign to a doctor.",
+          to: "/app/forms",
+          action: "Go to Forms",
         }
       : pathname === "/app/kyc"
         ? {
             title: "Next: send a verification link",
             detail: "Create or select an external user, choose Aadhaar or PAN, then send the OTP link.",
           }
-        : pathname === "/app/notifications"
+        : pathname === "/app/audit"
           ? {
-              title: "Next: follow the linked item",
-              detail: "Open a notification's related record to review or act on it.",
+              title: "Tip: narrow the activity",
+              detail: "Use the filters to find the event, then open its record for more context.",
+              noLink: true,
             }
-          : pathname === "/app/audit"
-            ? {
-                title: "Tip: narrow the activity",
-                detail: "Use the filters to find the event, then open its record for more context.",
-              }
-            : PAGE_HINTS[pathname];
+          : PAGE_HINTS[pathname];
 
   if (!page) return null;
 
   const flow = ROLE_FLOWS[accountRole] || [];
   const activeIndex = flow.findIndex((step) => step.to === pathname);
-  const next = activeIndex >= 0 ? flow[activeIndex + 1] : null;
+  const next = !page.noLink && activeIndex >= 0 ? flow[activeIndex + 1] : null;
 
   return (
     <aside className="workflow-hint" aria-label="Guidance for this page">
       <span className="workflow-hint-mark" aria-hidden="true" />
       <div className="workflow-hint-copy">
-        <strong>{page.title}</strong>
-        <span>{page.detail}</span>
+        {page.title ? <strong>{page.title}</strong> : null}
+        {page.detail ? <span>{page.detail}</span> : null}
       </div>
       {page.to ? (
         <Link className="workflow-hint-link" to={page.to}>

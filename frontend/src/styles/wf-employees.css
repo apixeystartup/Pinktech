@@ -1,0 +1,433 @@
+/* ================================================================== *
+ * Employee Management — wireframe alignment (Screens 9 & 10).        *
+ * Light theme only: every rule is scoped to html[data-theme="light"] *
+ * so the dark theme keeps its own styling.                           *
+ *                                                                    *
+ * Loaded after the global sheets but before wireframe.css, so rules  *
+ * that fight wireframe.css are written with extra specificity.       *
+ * ================================================================== */
+
+html[data-theme="light"] .app-shell .module-page .emp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --------------------------- filter tabs ------------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  flex-wrap: wrap;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-tabs {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-tab {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: #515045;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-tab:hover {
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-tab.is-active {
+  color: #202018;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-refresh {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: #515045;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-refresh:hover {
+  color: #202018;
+}
+
+/* ---------------------- bulk selection actions ------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-bulk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-bulk-btn {
+  padding: 8px 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-bulk-btn:hover {
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-bulk-clear {
+  padding: 8px 6px;
+  border: 0;
+  background: transparent;
+  color: #c8402f;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ---------------------------- search bar ------------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-search-icon {
+  position: absolute;
+  left: 16px;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #515045;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+/* wireframe.css paints every input khaki; Screen 9/10 show this one on white. */
+html[data-theme="light"] .app-shell .module-page .emp-page .emp-search
+  input.emp-search-input[type="text"]:not([type="checkbox"]) {
+  width: 100%;
+  height: 48px;
+  padding: 0 44px 0 46px;
+  border: 1px solid #d4d5c8;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 16px;
+}
+
+html[data-theme="light"] .app-shell .module-page .emp-page .emp-search
+  input.emp-search-input[type="text"]:not([type="checkbox"])::placeholder {
+  color: #8d8a7c;
+}
+
+html[data-theme="light"] .app-shell .module-page .emp-page .emp-search
+  input.emp-search-input[type="text"]:not([type="checkbox"]):focus {
+  border-color: #202018;
+  outline: none;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-search-clear {
+  position: absolute;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #515045;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-search-clear:hover {
+  background: #f4f5e9;
+  color: #202018;
+}
+
+/* ------------------------------ table ---------------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap {
+  overflow: hidden;
+  border: 1px solid #d4d5c8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table th,
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table td {
+  padding: 14px 16px;
+  border-color: #e6e7dc;
+  font-size: 15.5px;
+  line-height: 1.35;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table thead th {
+  border-bottom: 1px solid #d4d5c8;
+  background: #e8e9dc;
+  color: #45443c;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table tbody tr:hover {
+  background: #f7f8ef;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table th:first-child,
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table td:first-child {
+  width: 56px;
+  padding-right: 4px;
+}
+
+/* EMP ID sits right, STATUS + action centred (Screen 9). */
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table th:nth-child(4),
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table td:nth-child(4) {
+  text-align: right;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table th:nth-child(6),
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table td:nth-child(6),
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table th:nth-child(7),
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table td:nth-child(7) {
+  text-align: center;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .data-table td .emp-name {
+  font-weight: 600;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap .table-empty {
+  padding: 40px 16px;
+  color: #515045;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-table-wrap input[type="checkbox"],
+html[data-theme="light"] .app-shell .emp-page .emp-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #202018;
+}
+
+/* --------------------------- status text ------------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-status {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-status--active {
+  color: #3ca368;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-status--invited {
+  color: #ed7940;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-status--disabled,
+html[data-theme="light"] .app-shell .emp-page .emp-status--neutral {
+  color: #515045;
+}
+
+/* ------------------------- send creds button --------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-send {
+  padding: 9px 16px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-send:hover {
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-send--active {
+  border-color: #3ca368;
+  color: #2f9d5f;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-send--active:hover {
+  background: #f1faf5;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-send--invited {
+  border-color: #ed7940;
+  color: #d96a33;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-send--invited:hover {
+  background: #fff7f2;
+}
+
+html[data-theme="light"] .app-shell .emp-page .emp-send--disabled,
+html[data-theme="light"] .app-shell .emp-page .emp-send--neutral {
+  border-color: #d4d5c8;
+  color: #515045;
+}
+
+/* --------------------- mobile: stacked cards --------------------- */
+
+html[data-theme="light"] .app-shell .emp-page .emp-cards {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* Screens 8/10 show the mobile title on its own; wireframe.css's own light
+     rule (.topbar-brand-word) outranks its mobile hide, so re-assert it here. */
+  html[data-theme="light"] .topbar .topbar-brand-word {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .emp-page .emp-search
+    input.emp-search-input[type="text"]:not([type="checkbox"]) {
+    height: 46px;
+    padding: 0 40px 0 42px;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-search-icon {
+    left: 14px;
+    width: 19px;
+    height: 19px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-toolbar {
+    align-items: flex-start;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-refresh {
+    margin-left: auto;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-table-wrap {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-cards-empty {
+    margin: 0;
+    padding: 24px 4px;
+    color: #515045;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card {
+    border: 1px solid #d4d5c8;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 16px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: #202018;
+    font-size: 17px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-top .emp-status {
+    font-size: 16px;
+    font-weight: 500;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-top .emp-status--active {
+    color: #2f9d5f;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-top .emp-status--invited {
+    color: #e0703a;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-email {
+    margin: 6px 0 0 30px;
+    color: #202018;
+    font-size: 15.5px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-meta {
+    display: grid;
+    grid-template-columns: auto auto minmax(116px, 1fr);
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #e6e7dc;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-label {
+    color: #515045;
+    font-size: 14px;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-value {
+    color: #202018;
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+
+  html[data-theme="light"] .app-shell .emp-page .emp-card-action {
+    justify-self: end;
+    min-width: 116px;
+    padding: 11px 16px;
+    text-align: center;
+    outline: 2px solid #ffdf00;
+    outline-offset: 3px;
+  }
+}

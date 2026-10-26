@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import "../../../styles/wf-tenants.css";
 import api from "../../../lib/api";
 import { getErrorMessage } from "../../../lib/error";
 import ModulePage from "../../../components/common/ModulePage";
@@ -12,11 +13,23 @@ import useAuth from "../../../hooks/useAuth";
 const isPlatformTenant = (tenant) =>
   ["PINKTECH", "PLATFORM"].includes(String(tenant?.code || "").trim().toUpperCase());
 
+const planLabel = (plan) => {
+  const value = String(plan || "starter");
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const statusLabel = (status) => {
+  const value = String(status || "ACTIVE");
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+};
+
 function TenantsPage() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ name: "", code: "", email: "", plan: "starter", status: "ACTIVE" });
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -40,6 +53,21 @@ function TenantsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return items;
+    return items.filter((row) =>
+      [row.name, row.code, row.email, row.plan, row.status].some((value) =>
+        String(value || "").toLowerCase().includes(query),
+      ),
+    );
+  }, [items, searchQuery]);
+
+  const runSearch = (event) => {
+    event.preventDefault();
+    setSearchQuery(searchInput);
+  };
 
   const createTenant = async (event) => {
     event.preventDefault();
@@ -141,122 +169,218 @@ function TenantsPage() {
     }
   };
 
+  // Shared by the table row and the mobile card so both stay in sync.
+  const statusAction = (tenant) =>
+    isPlatformTenant(tenant) ? (
+      <button
+        className="btn-secondary"
+        type="button"
+        disabled
+        title="The platform tenant powers super-admin access for every workspace and cannot be suspended"
+      >
+        Always Active
+      </button>
+    ) : (
+      <button className="btn-secondary" type="button" onClick={() => toggleTenantStatus(tenant)}>
+        {tenant.status === "ACTIVE" ? "Deactivate" : "Activate"}
+      </button>
+    );
+
+  const deleteAction = (tenant) =>
+    String(tenant._id) !== String(user?.tenantId) && !isPlatformTenant(tenant) ? (
+      <button className="btn-danger" type="button" onClick={() => deleteTenant(tenant)}>
+        Delete
+      </button>
+    ) : null;
+
+  const sendCredsAction = (tenant) => (
+    <button
+      className="btn-secondary"
+      type="button"
+      onClick={() => sendCreds(tenant)}
+      disabled={sendingCredsId === tenant._id}
+    >
+      {sendingCredsId === tenant._id ? "Sending…" : "Send creds"}
+    </button>
+  );
+
   return (
     <ModulePage title="Tenants" description="Create and manage tenant lifecycle.">
-      <form className="tenants-create-form" onSubmit={createTenant}>
-        <div className="tenants-create-fields">
-          <label>
-            Name
+      <div className="tenants-page">
+        <form className="tenants-create-form" onSubmit={createTenant}>
+          <label className="tenants-field">
+            <span>Name</span>
             <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
           </label>
-          <label>
-            Code
+          <label className="tenants-field">
+            <span>Code</span>
             <input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} required />
           </label>
-          <label>
-            Admin Email
-            <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} required />
+          <label className="tenants-field">
+            <span>Admin email</span>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              required
+            />
           </label>
-        </div>
-        <div className="tenants-create-actions">
-          <label className="tenants-create-plan">
-            <input type="checkbox" checked={form.plan === "starter"} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.checked ? "starter" : "basic" }))} />
-            Starter
+          <label className="tenants-field tenants-field--plan">
+            <span>Plan</span>
+            <select value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}>
+              <option value="starter">Starter</option>
+              <option value="basic">Basic</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
           </label>
-          <button className="btn-primary" type="submit">Create</button>
-          <button className="btn-secondary" type="button" onClick={createAndSendCreds}>Create &amp; Send Creds</button>
-        </div>
-      </form>
+          <div className="tenants-create-actions">
+            <button className="btn-secondary" type="button" onClick={createAndSendCreds}>
+              Create &amp; Send Creds
+            </button>
+            <button className="btn-primary" type="submit">
+              Create tenant
+            </button>
+          </div>
+        </form>
 
-      <DataTable
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "code", label: "Code" },
-          { key: "email", label: "Admin Email" },
-          { key: "plan", label: "Plan" },
-          { key: "status", label: "Status" },
-          {
-            key: "actions",
-            label: "Actions",
-            render: (row) => (
-              <span className="table-row-actions">
-                <button className="btn-secondary" type="button" onClick={() => openEdit(row)}>Edit</button>
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={() => sendCreds(row)}
-                  disabled={sendingCredsId === row._id}
+        <form className="tenants-search" onSubmit={runSearch} role="search">
+          <label className="tenants-field tenants-search-field">
+            <span className="tenants-search-label">Search</span>
+            <input
+              type="search"
+              placeholder="Search tenants"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </label>
+          <button className="btn-secondary tenants-search-btn" type="submit">
+            Search
+          </button>
+        </form>
+
+        <DataTable
+          columns={[
+            { key: "name", label: "Name" },
+            { key: "code", label: "Code" },
+            { key: "email", label: "Admin email" },
+            {
+              key: "plan",
+              label: "Plan",
+              render: (row) => planLabel(row.plan),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (row) => statusLabel(row.status),
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              render: (row) => (
+                <span className="table-row-actions">
+                  <button className="btn-secondary" type="button" onClick={() => openEdit(row)}>
+                    Edit
+                  </button>
+                  {sendCredsAction(row)}
+                  {statusAction(row)}
+                  {deleteAction(row)}
+                </span>
+              ),
+            },
+          ]}
+          rows={filteredItems}
+          emptyText={searchQuery ? "No tenants match your search." : "No tenants found."}
+        />
+
+        <div className="tenants-cards">
+          {filteredItems.length === 0 ? (
+            <p className="tenants-cards-empty">
+              {searchQuery ? "No tenants match your search." : "No tenants found."}
+            </p>
+          ) : (
+            filteredItems.map((row) => (
+              <article className="tenant-card" key={row._id || row.id}>
+                <div className="tenant-card-top">
+                  <div className="tenant-card-id">
+                    <span className="tenant-card-name">{row.name}</span>
+                    <span className="tenant-card-code">{row.code}</span>
+                    <span className="tenant-card-email">{row.email || "—"}</span>
+                  </div>
+                  <div className="tenant-card-pills">
+                    <span className="tenant-pill tenant-pill--plan">{planLabel(row.plan)}</span>
+                    <span className="tenant-pill tenant-pill--status">{statusLabel(row.status)}</span>
+                  </div>
+                </div>
+                <div className="tenant-card-actions">
+                  <button className="btn-secondary" type="button" onClick={() => openEdit(row)}>
+                    Edit
+                  </button>
+                  {sendCredsAction(row)}
+                  {statusAction(row)}
+                  {deleteAction(row)}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        {editModal && (
+          <div className="modal-overlay" onClick={() => setEditModal(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3>Edit Tenant</h3>
+              <div className="modal-form">
+                <label>Name</label>
+                <input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
+                <label>Code</label>
+                <input value={editForm.code} disabled style={{ opacity: 0.6 }} />
+                <label>Admin Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                />
+                <label>Address (agreement header)</label>
+                <input
+                  value={editForm.address}
+                  onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Registered office address"
+                />
+                <label>Phone (agreement header)</label>
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+91 …"
+                />
+                <label>Registration no. (agreement header)</label>
+                <input
+                  value={editForm.registrationNumber}
+                  onChange={(e) => setEditForm((p) => ({ ...p, registrationNumber: e.target.value }))}
+                  placeholder="CIN / registration number"
+                />
+                <label>Plan</label>
+                <select
+                  value={editForm.plan}
+                  onChange={(e) => setEditForm((p) => ({ ...p, plan: e.target.value }))}
                 >
-                  {sendingCredsId === row._id ? "Sending…" : "Send Creds"}
+                  <option value="starter">Starter</option>
+                  <option value="basic">Basic</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              <div className="modal-actions">
+                <button className="btn-primary" onClick={saveEdit}>
+                  Save
                 </button>
-                {isPlatformTenant(row) ? (
-                  <button
-                    className="btn-secondary"
-                    type="button"
-                    disabled
-                    title="The platform tenant powers super-admin access for every workspace and cannot be suspended"
-                  >
-                    Always Active
-                  </button>
-                ) : (
-                  <button className="btn-secondary" type="button" onClick={() => toggleTenantStatus(row)}>
-                    {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                  </button>
-                )}
-                {String(row._id) !== String(user?.tenantId) && !isPlatformTenant(row) ? (
-                  <button className="btn-secondary" type="button" onClick={() => deleteTenant(row)}>Delete</button>
-                ) : null}
-              </span>
-            ),
-          },
-        ]}
-        rows={items}
-      />
-
-      {editModal && (
-        <div className="modal-overlay" onClick={() => setEditModal(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Edit Tenant</h3>
-            <div className="modal-form">
-              <label>Name</label>
-              <input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
-              <label>Code</label>
-              <input value={editForm.code} disabled style={{ opacity: 0.6 }} />
-              <label>Admin Email</label>
-              <input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
-              <label>Address (agreement header)</label>
-              <input
-                value={editForm.address}
-                onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))}
-                placeholder="Registered office address"
-              />
-              <label>Phone (agreement header)</label>
-              <input
-                value={editForm.phone}
-                onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
-                placeholder="+91 …"
-              />
-              <label>Registration no. (agreement header)</label>
-              <input
-                value={editForm.registrationNumber}
-                onChange={(e) => setEditForm((p) => ({ ...p, registrationNumber: e.target.value }))}
-                placeholder="CIN / registration number"
-              />
-              <label>Plan</label>
-              <select value={editForm.plan} onChange={(e) => setEditForm((p) => ({ ...p, plan: e.target.value }))}>
-                <option value="starter">Starter</option>
-                <option value="basic">Basic</option>
-                <option value="pro">Pro</option>
-                <option value="enterprise">Enterprise</option>
-              </select>
-            </div>
-            <div className="modal-actions">
-              <button className="btn-primary" onClick={saveEdit}>Save</button>
-              <button className="btn-secondary" onClick={() => setEditModal(null)}>Cancel</button>
+                <button className="btn-secondary" onClick={() => setEditModal(null)}>
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </ModulePage>
   );
 }

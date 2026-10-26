@@ -1,9 +1,30 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import "../styles/wf-dashboard.css";
+
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
 import { useToast } from "../components/common/ToastProvider";
-import { Link } from "react-router-dom";
+import buildDashboardModel, {
+  buildAttentionItems,
+  buildStatCards,
+  buildWeekSeries,
+  capitalizeWord,
+  tenantLastActivity,
+} from "../components/dashboard/dashboardModel";
+import useRecentActivity, { usePlatformActivity } from "../components/dashboard/useRecentActivity";
+import {
+  AttentionCard,
+  HappeningCard,
+  HeaderButtons,
+  IconArrow,
+  IconSpark,
+  StatCards,
+} from "../components/dashboard/DashboardBlocks";
+import { downloadReport } from "../components/dashboard/reportDownload";
 
+/* The banner of Screen 1: whichever step the account is on, phrased the
+ * same way the wireframe phrases it, with the button label it draws. */
 function getDashboardNextStep(data) {
   if (!data) return null;
 
@@ -15,6 +36,7 @@ function getDashboardNextStep(data) {
         detail: "Tenants keep each organization's people, forms and doctor records separate.",
         to: "/app/tenants",
         action: "Create a tenant",
+        cta: "Create a tenant",
       };
     }
     if (!summary.totalEmployees) {
@@ -23,6 +45,7 @@ function getDashboardNextStep(data) {
         detail: "Create roles and add employees so each tenant can manage its own work.",
         to: "/app/roles",
         action: "Set up roles",
+        cta: "Set up roles",
       };
     }
     if (!summary.totalForms) {
@@ -31,6 +54,7 @@ function getDashboardNextStep(data) {
         detail: "Build and publish a form before assigning it to doctors.",
         to: "/app/forms",
         action: "Create a form",
+        cta: "Create a form",
       };
     }
     if (!summary.totalDoctors) {
@@ -39,13 +63,15 @@ function getDashboardNextStep(data) {
         detail: "Create a doctor profile, then attach the relevant compliance form.",
         to: "/app/doctors",
         action: "Add a doctor",
+        cta: "Add a doctor",
       };
     }
     return {
       title: "Review tenant progress",
-      detail: "Open a tenant to inspect its team and doctor activity.",
+      detail: "Check which tenants are active, invite their teams, and keep forms moving.",
       to: "/app/tenants",
       action: "View tenants",
+      cta: "Open tenant overview",
     };
   }
 
@@ -56,6 +82,7 @@ function getDashboardNextStep(data) {
         detail: "Set up employees and reporting lines before assigning work.",
         to: "/app/employee-management",
         action: "Add employees",
+        cta: "Add employees",
       };
     }
     if (!summary.formsCreated) {
@@ -64,6 +91,7 @@ function getDashboardNextStep(data) {
         detail: "Build and publish a reusable form for your doctor workflows.",
         to: "/app/forms",
         action: "Create a form",
+        cta: "Create a form",
       };
     }
     if (!summary.totalDoctors) {
@@ -72,6 +100,7 @@ function getDashboardNextStep(data) {
         detail: "Create a doctor profile, then assign the right form.",
         to: "/app/doctors",
         action: "Add a doctor",
+        cta: "Add a doctor",
       };
     }
     return {
@@ -79,6 +108,7 @@ function getDashboardNextStep(data) {
       detail: "Open a doctor profile to check submitted forms and approvals.",
       to: "/app/doctors",
       action: "View doctors",
+      cta: "Open doctor overview",
     };
   }
 
@@ -88,6 +118,7 @@ function getDashboardNextStep(data) {
       detail: "Add a doctor profile, then open it to continue with assigned work.",
       to: "/app/doctors",
       action: "Open doctors",
+      cta: "Open doctors",
     };
   }
   return {
@@ -95,24 +126,26 @@ function getDashboardNextStep(data) {
     detail: "Choose a doctor to review their forms and any work waiting for you.",
     to: "/app/doctors",
     action: "View doctors",
+    cta: "Open doctors",
   };
-}
-
-function StatCard({ label, value, sub }) {
-  return (
-    <div className="dash-stat-card">
-      <span className="dash-stat-label">{label}</span>
-      <span className="dash-stat-value">{value ?? "—"}</span>
-      {sub ? <span className="dash-stat-sub">{sub}</span> : null}
-    </div>
-  );
 }
 
 function ExpandToggle({ expanded, label }) {
   return (
-    <span className="dash-expand-toggle">
-      <span className={`dash-expand-caret ${expanded ? "dash-expand-caret--open" : ""}`}>&#9654;</span>
-      <span className="dash-expand-text">{label}</span>
+    <span className="wf-row-toggle">
+      <svg
+        className={`wf-caret${expanded ? " is-open" : ""}`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M9.5 5.5 16 12l-6.5 6.5" />
+      </svg>
+      <span className="wf-row-name">{label}</span>
     </span>
   );
 }
@@ -135,11 +168,12 @@ function statusMeta(status) {
   if (key === "OTP_PENDING") return { text: "Invite", mod: "invite" };
   if (key === "ACTIVE") return { text: "Active", mod: "active" };
   if (key === "INVITED") return { text: "Invited", mod: "invited" };
+  if (key === "SUSPENDED") return { text: "Suspended", mod: "suspended" };
   return { text: status || "—", mod: key ? key.toLowerCase() : "unknown" };
 }
 
-function SuperAdminDashboard({ data, onReload, refreshTick = 0 }) {
-  const { summary, tenants } = data;
+function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
+  const { tenants } = data;
   const { showToast } = useToast();
   const [expandedTenant, setExpandedTenant] = useState(null);
   const [tenantEmployees, setTenantEmployees] = useState({});
@@ -275,29 +309,30 @@ function SuperAdminDashboard({ data, onReload, refreshTick = 0 }) {
   const cols = 8;
 
   return (
-    <div className="dash-role-view">
-      <div className="dash-stats-grid">
-        <StatCard label="Total Tenants" value={summary.totalTenants} />
-        <StatCard label="Total Doctors" value={summary.totalDoctors} />
-        <StatCard label="Forms Created" value={summary.totalForms} />
-        <StatCard label="Forms Submitted" value={summary.formsSubmitted} />
-      </div>
+    <section className="wf-dash-card wf-tenants-card">
+      <header className="wf-card-head wf-tenants-head">
+        <div className="wf-tenants-headcopy">
+          <h2 className="wf-card-title">All tenants</h2>
+          <p className="wf-card-sub">Select a tenant to see its people, doctors, and forms</p>
+        </div>
+        <Link className="wf-btn wf-btn--light wf-tenants-all" to="/app/tenants">
+          View all tenants
+          <IconArrow />
+        </Link>
+      </header>
 
-      <h3 className="dash-section-title">
-        All Tenants &mdash; click a tenant to view its employees & doctors
-      </h3>
-      <div className="dash-table-wrap">
-        <table className="dash-table">
+      <div className="wf-table-wrap">
+        <table className="wf-tenants-table">
           <thead>
             <tr>
-              <th>Tenant</th>
-              <th>Plan</th>
-              <th>Status</th>
-              <th className="dash-num">Emps</th>
-              <th className="dash-num">Doctors Created</th>
-              <th className="dash-num">Forms Created</th>
-              <th className="dash-num">Forms Submitted</th>
-              <th>Start Date</th>
+              <th className="wf-c-tenant">Tenant</th>
+              <th className="wf-c-plan">Plan</th>
+              <th className="wf-c-status">Status</th>
+              <th className="wf-c-people">People</th>
+              <th className="wf-c-doctors">Doctors</th>
+              <th className="wf-c-forms">Forms</th>
+              <th className="wf-c-activity">Last activity</th>
+              <th className="wf-c-meta">Details</th>
             </tr>
           </thead>
           <tbody>
@@ -310,29 +345,35 @@ function SuperAdminDashboard({ data, onReload, refreshTick = 0 }) {
               const expanded = expandedTenant === t.tenantId;
               const empState = tenantEmployees[t.tenantId];
               const docState = tenantDoctors[t.tenantId];
+              const status = statusMeta(t.status);
+              const people = Number(t.employeeCount) || 0;
+              const doctors = Number(t.doctorCount) || 0;
               return (
                 <Fragment key={t.tenantId}>
                   <tr
-                    className={`dash-row-clickable ${expanded ? "dash-row-expanded" : ""}`}
+                    className={`wf-tenant-row${expanded ? " is-open" : ""}`}
                     onClick={() => toggleTenant(t.tenantId)}
                   >
-                    <td className="dash-td-name">
+                    <td className="wf-c-tenant">
                       <ExpandToggle expanded={expanded} label={t.name} />
                     </td>
-                    <td><span className="dash-badge">{t.plan}</span></td>
-                    <td>
-                      <span className={`dash-status dash-status--${t.status?.toLowerCase()}`}>
-                        {t.status}
-                      </span>
+                    <td className="wf-c-plan">{capitalizeWord(t.plan)}</td>
+                    <td className="wf-c-status">
+                      <span className={`dash-status dash-status--${status.mod}`}>{status.text}</span>
                     </td>
-                    <td className="dash-num">{t.employeeCount || "—"}</td>
-                    <td className="dash-num">{t.doctorCount || "—"}</td>
-                    <td className="dash-num">{t.formCount || "—"}</td>
-                    <td className="dash-num">{t.formSubmittedCount || "—"}</td>
-                    <td>{t.startDate ? new Date(t.startDate).toLocaleDateString() : "—"}</td>
+                    <td className="wf-c-people">{t.employeeCount || "—"}</td>
+                    <td className="wf-c-doctors">{t.doctorCount || "—"}</td>
+                    <td className="wf-c-forms">
+                      {t.formCount || 0} created / {t.formSubmittedCount || 0} submitted
+                    </td>
+                    <td className="wf-c-activity">{tenantLastActivity(t, feed)}</td>
+                    <td className="wf-c-meta">
+                      {capitalizeWord(t.plan)} · {people} {people === 1 ? "person" : "people"} · {doctors}{" "}
+                      {doctors === 1 ? "doctor" : "doctors"}
+                    </td>
                   </tr>
                   {expanded && (
-                    <tr className="dash-expand-row">
+                    <tr className="wf-expand-row">
                       <td colSpan={cols}>
                         <div className="dash-expand-panel">
                           <SubSection
@@ -521,7 +562,7 @@ function SuperAdminDashboard({ data, onReload, refreshTick = 0 }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -611,14 +652,13 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
   const cols = 9;
 
   return (
-    <div className="dash-role-view">
-      <h3 className="dash-section-title">Tenant Overview</h3>
-      <div className="dash-stats-grid">
-        <StatCard label="Total Employees" value={summary.totalEmployees} />
-        <StatCard label="Doctors Created" value={summary.totalDoctors} />
-        <StatCard label="Forms Created" value={summary.formsCreated} />
-        <StatCard label="Forms Submitted" value={summary.formsSubmitted} />
-      </div>
+    <section className="wf-dash-card wf-sec-card">
+      <header className="wf-card-head">
+        <h2 className="wf-card-title">Tenant overview</h2>
+        <p className="wf-card-sub">
+          {summary.totalEmployees} people and {summary.totalDoctors} doctors in this tenant
+        </p>
+      </header>
 
       <SubSection
         open={isSubOpen("employees")}
@@ -686,9 +726,7 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
                                 <input
                                   type="text"
                                   value={editForm.empCode}
-                                  onChange={(e) =>
-                                    setEditForm((p) => ({ ...p, empCode: e.target.value }))
-                                  }
+                                  onChange={(e) => setEditForm((p) => ({ ...p, empCode: e.target.value }))}
                                   placeholder="Employee code"
                                 />
                               </label>
@@ -779,7 +817,7 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
           </table>
         </div>
       </SubSection>
-    </div>
+    </section>
   );
 }
 
@@ -791,16 +829,21 @@ function EmployeeDashboard({ data }) {
   const hasReports = directReports.length > 0;
 
   return (
-    <div className="dash-role-view">
-      <h3 className="dash-section-title">My Overview</h3>
-      <div className="dash-stats-grid">
-        {hasReports && <StatCard label="Employees Under Me" value={summary.directReports} />}
-        <StatCard label="Doctors I onboarded" value={summary.usersCreated} />
-      </div>
+    <section className="wf-dash-card wf-sec-card">
+      <header className="wf-card-head">
+        <h2 className="wf-card-title">My overview</h2>
+        <p className="wf-card-sub">
+          {summary.formsCreated} forms created · {summary.usersCreated} doctors onboarded
+        </p>
+      </header>
 
       {hasReports && (
-        <>
-          <h3 className="dash-section-title">Employees Under Me</h3>
+        <SubSection
+          open
+          onToggle={() => {}}
+          title="Employees Under Me"
+          count={directReports.length}
+        >
           <div className="dash-table-wrap">
             <table className="dash-table">
               <thead>
@@ -834,49 +877,50 @@ function EmployeeDashboard({ data }) {
               </tbody>
             </table>
           </div>
-        </>
+        </SubSection>
       )}
 
-      <h3 className="dash-section-title">Doctors I onboarded</h3>
-      <div className="dash-table-wrap">
-        <table className="dash-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Emp Code</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {usersCreated.length === 0 && (
+      <SubSection open onToggle={() => {}} title="Doctors I onboarded" count={usersCreated.length}>
+        <div className="dash-table-wrap">
+          <table className="dash-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="dash-empty">You have not onboarded any doctors yet</td>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Emp Code</th>
+                <th>Status</th>
+                <th>Created</th>
               </tr>
-            )}
-            {usersCreated.map((u) => (
-              <tr key={u.userId}>
-                <td className="dash-td-name">{u.name}</td>
-                <td>{u.email}</td>
-                <td><code>{u.empCode || "—"}</code></td>
-                <td>
-                  <span className={`dash-status dash-status--${(u.status || "").toLowerCase()}`}>
-                    {u.status}
-                  </span>
-                </td>
-                <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            </thead>
+            <tbody>
+              {usersCreated.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="dash-empty">You have not onboarded any doctors yet</td>
+                </tr>
+              )}
+              {usersCreated.map((u) => (
+                <tr key={u.userId}>
+                  <td className="dash-td-name">{u.name}</td>
+                  <td>{u.email}</td>
+                  <td><code>{u.empCode || "—"}</code></td>
+                  <td>
+                    <span className={`dash-status dash-status--${(u.status || "").toLowerCase()}`}>
+                      {u.status}
+                    </span>
+                  </td>
+                  <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SubSection>
+    </section>
   );
 }
 
 function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isSuperAdmin: authSuperAdmin, accountRole } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -927,62 +971,98 @@ function DashboardPage() {
     };
   }, [refresh]);
 
-  const isSuperAdmin = data?.role === "super_admin";
-  const roleLabel = isSuperAdmin ? "Pinktech Super Admin" : data?.role === "tenant_admin" ? "Admin" : "Employee";
+  const isSuperAdmin = data ? data.role === "super_admin" : Boolean(authSuperAdmin);
+  const model = useMemo(() => buildDashboardModel(data), [data]);
+  const feed = usePlatformActivity(data);
+  const activity = useRecentActivity();
   const dashboardStep = getDashboardNextStep(data);
 
+  const statCards = useMemo(() => buildStatCards(data, feed), [data, feed]);
+  const series = useMemo(() => buildWeekSeries(feed), [feed]);
+  const attention = useMemo(() => buildAttentionItems(data), [data]);
+
+  const firstName = String(user?.name || data?.currentUser?.name || "")
+    .trim()
+    .split(/\s+/)[0];
+  const audience = isSuperAdmin
+    ? "Platform admin"
+    : firstName || (data?.role === "tenant_admin" || accountRole === "tenant_admin" ? "Admin" : "Employee");
+  const now = new Date();
+  const dateLine = now.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const greeting = `${now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening"}, ${audience}`;
+
+  const primary = isSuperAdmin
+    ? { label: "Create a tenant", to: "/app/tenants" }
+    : data?.role === "tenant_admin" || accountRole === "tenant_admin"
+      ? { label: "Add employee", to: "/app/employee-management" }
+      : { label: "New form", to: "/app/forms" };
+
   return (
-    <section className="module-page">
-      <div className="dash-header">
-        <div>
-          <h1>Dashboard</h1>
-          <p className="dash-subtitle">
-            Welcome back{user?.name ? `, ${user.name}` : ""} &mdash; {roleLabel}
-          </p>
+    <section className="wf-dash">
+      <header className="wf-head">
+        <div className="wf-head-copy">
+          <p className="wf-head-date">{dateLine}</p>
+          <h1 className="wf-head-title">{greeting}</h1>
+          <p className="wf-head-lede">Here&rsquo;s what needs your attention today.</p>
         </div>
-        {data?.currentUser && (
-          <div className="dash-profile-card">
-            <span className="dash-profile-label">Logged in as</span>
-            <span className="dash-profile-name">{data.currentUser.name}</span>
-            <span className="dash-profile-email">{data.currentUser.email}</span>
-            {data.currentUser.empCode ? (
-              <span className="dash-profile-code">ID: {data.currentUser.empCode}</span>
-            ) : null}
-            {data.currentUser.roles && data.currentUser.roles !== "—" ? (
-              <span className="dash-profile-code">{data.currentUser.roles}</span>
-            ) : null}
-          </div>
-        )}
-      </div>
+        <HeaderButtons
+          primary={primary}
+          onDownload={() => model && downloadReport(model.report)}
+          ready={Boolean(model?.report?.rows?.length)}
+        />
+      </header>
 
-      {!loading && !error && data ? (
-        <section className="dashboard-next-step" aria-labelledby="dashboard-next-title">
-          <div className="dashboard-next-copy">
-            <span className="dashboard-next-label">A good place to start</span>
-            <h2 id="dashboard-next-title">{dashboardStep.title}</h2>
-            <p>{dashboardStep.detail}</p>
-          </div>
-          <Link className="dashboard-next-action" to={dashboardStep.to}>
-            {dashboardStep.action}
-            <span aria-hidden="true">→</span>
-          </Link>
-        </section>
-      ) : null}
+      {loading ? <p className="wf-state">Loading dashboard...</p> : null}
+      {error ? <p className="wf-state wf-state--error">{error}</p> : null}
 
-      {loading && <p className="dash-loading">Loading dashboard...</p>}
-      {error && <p className="dash-error">{error}</p>}
-
-      {!loading && !error && data && (
+      {!loading && !error && data && model ? (
         <>
+          {dashboardStep ? (
+            <section className="wf-nba">
+              <span className="wf-nba-mark" aria-hidden="true">
+                <IconSpark />
+              </span>
+              <div className="wf-nba-copy">
+                <p className="wf-nba-kicker">Your next best action</p>
+                <p className="wf-nba-title">{dashboardStep.title}</p>
+                <p className="wf-nba-detail">{dashboardStep.detail}</p>
+              </div>
+              <div className="wf-nba-action">
+                <Link className="wf-nba-btn" to={dashboardStep.to}>
+                  {dashboardStep.cta || dashboardStep.action}
+                  <IconArrow />
+                </Link>
+                <span className="wf-nba-note">Takes about 2 minutes</span>
+              </div>
+            </section>
+          ) : null}
+
+          <StatCards cards={statCards} />
+
+          <div className={`wf-mid${attention.length ? "" : " wf-mid--solo"}`}>
+            <HappeningCard series={series} activity={activity} />
+            <AttentionCard items={attention} />
+          </div>
+
           {isSuperAdmin ? (
-            <SuperAdminDashboard data={data} onReload={load} refreshTick={refreshTick} />
+            <SuperAdminDashboard data={data} feed={feed} onReload={load} refreshTick={refreshTick} />
           ) : data.role === "tenant_admin" ? (
             <AdminDashboard data={data} onReload={load} refreshTick={refreshTick} />
           ) : (
             <EmployeeDashboard data={data} />
           )}
+
+          <p className="wf-foot">
+            <i className="wf-dot wf-dot--green" aria-hidden="true" />
+            Pinktech Platform &bull; Data refreshed just now
+          </p>
         </>
-      )}
+      ) : null}
     </section>
   );
 }

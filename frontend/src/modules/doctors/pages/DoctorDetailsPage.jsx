@@ -12,6 +12,9 @@ import ApprovalChainPicker from "../ApprovalChainPicker";
 import PlaceholderChips from "../../../components/schema-forms/PlaceholderChips";
 import { appUrl } from "../doctorLinks";
 import "../../../styles/doctors.css";
+// Wireframe alignment layer (light theme) — loaded after doctors.css so its
+// page-scoped rules win; wireframe.css still loads after everything.
+import "../../../styles/wf-doctors.css";
 
 function fmtDate(value) {
   if (!value) return null;
@@ -369,9 +372,7 @@ function DoctorDetailsPage() {
           : doctor.status;
 
   return (
-    <ModulePage
-      title="Doctor Profile Details"
-    >
+    <section className="module-page doc-profile-page">
       <button
         type="button"
         className="doc-back"
@@ -382,7 +383,15 @@ function DoctorDetailsPage() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M19 12H5m7-7-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        <span className="doc-back-label">Doctors</span>
       </button>
+
+      <div className="module-header">
+        <div className="module-header-text">
+          <h1>Doctor Profile Details</h1>
+        </div>
+        <div className="module-header-actions" />
+      </div>
 
       {/* --- top section --- */}
       <header className="doc-card doc-hero doc-profile-hero">
@@ -398,23 +407,42 @@ function DoctorDetailsPage() {
           </div>
           <p className="doc-hero-meta">
             {doctor.specialization || "Specialization not set"}
-            {doctor.yearsOfExperience !== null && doctor.yearsOfExperience !== undefined
-              ? ` · ${doctor.yearsOfExperience} yrs experience`
-              : ""}
-            {doctor.clinicHospitalName ? ` · ${doctor.clinicHospitalName}` : ""}
           </p>
-          <span className="doc-profile-id">ID: {doctor.doctorCode}</span>
+          <dl className="doc-hero-stats">
+            <div className="doc-hero-stat">
+              <dt>Experience</dt>
+              <dd>
+                {doctor.yearsOfExperience !== null && doctor.yearsOfExperience !== undefined ? (
+                  <>
+                    {doctor.yearsOfExperience}
+                    <span className="doc-hero-unit"> yrs</span>
+                    <span className="doc-hero-extra"> experience</span>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div className="doc-hero-stat">
+              <dt>Location</dt>
+              <dd>{doctor.clinicHospitalName || "—"}</dd>
+            </div>
+            <div className="doc-hero-stat">
+              <dt>Doctor ID</dt>
+              <dd>{doctor.doctorCode}</dd>
+            </div>
+          </dl>
           {doctor.draft ? <span className="doc-cell-sub">Draft profile — finish it with Edit Profile</span> : null}
         </div>
         <div className="doc-profile-actions">
           {canManage ? (
             <button type="button" className="btn-secondary" onClick={() => setEditOpen(true)}>
-              Edit Profile
+              Edit profile
             </button>
           ) : null}
           {canAssignForm ? (
             <button type="button" className="btn-primary" onClick={() => setAssignOpen(true)}>
-              Assign New Form
+              Assign new form
             </button>
           ) : null}
           {canManage ? (
@@ -427,7 +455,7 @@ function DoctorDetailsPage() {
 
       <div className="doc-grid doc-profile-layout">
         <section className="doc-card doc-profile-credentials">
-          <h3 className="doc-card-title">Professional Credentials</h3>
+          <h3 className="doc-card-title">Professional credentials</h3>
           <dl className="doc-credential-list">
             <DetailRow label="Medical license" value={doctor.medicalRegistrationNumber} />
             <DetailRow label="Qualification" value={doctor.qualification} />
@@ -637,29 +665,29 @@ function DoctorDetailsPage() {
               </div>
             )}
           </section>
-
-          <section className="doc-card doc-profile-activity">
-            <h3 className="doc-card-title">Recent Activity Logs</h3>
-            {activityItems.length ? (
-              <ol className="doc-activity-list">
-                {activityItems.map((item, index) => (
-                  <li className="doc-activity-item" key={`${item.type}-${item.at}-${index}`}>
-                    <span className={`doc-activity-marker doc-activity-marker--${item.type}`} aria-hidden="true">
-                      <ProfileIcon name={item.type} size={15} />
-                    </span>
-                    <div className="doc-activity-copy">
-                      <strong>{item.title}</strong>
-                      <span>{item.description}</span>
-                    </div>
-                    <time dateTime={new Date(item.at).toISOString()}>{fmtDate(item.at)}</time>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="doc-empty">Activity will appear here when dated profile or form events are available.</div>
-            )}
-          </section>
         </div>
+
+        <section className="doc-card doc-profile-activity">
+          <h3 className="doc-card-title">Recent Activity Logs</h3>
+          {activityItems.length ? (
+            <ol className="doc-activity-list">
+              {activityItems.map((item, index) => (
+                <li className="doc-activity-item" key={`${item.type}-${item.at}-${index}`}>
+                  <span className={`doc-activity-marker doc-activity-marker--${item.type}`} aria-hidden="true">
+                    <ProfileIcon name={item.type} size={15} />
+                  </span>
+                  <div className="doc-activity-copy">
+                    <strong>{item.title}</strong>
+                    <span>{item.description}</span>
+                  </div>
+                  <time dateTime={new Date(item.at).toISOString()}>{fmtDate(item.at)}</time>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="doc-empty">Activity will appear here when dated profile or form events are available.</div>
+          )}
+        </section>
       </div>
 
       {editOpen ? (
@@ -701,7 +729,7 @@ function DoctorDetailsPage() {
           onCopyLink={() => copyPath(templateForm.publicPath)}
         />
       ) : null}
-    </ModulePage>
+    </section>
   );
 }
 

@@ -1,0 +1,1597 @@
+/* ================================================================== *
+ * Forms screens — wireframe layer (Screen 15/16 templates,          *
+ * Screen 17 agreement designer, Screen 19/20 form builder).         *
+ *                                                                    *
+ * Light theme only; every rule is scoped to this page's markup so    *
+ * dark mode and the shared stylesheets stay untouched.              *
+ * Loaded after schema-forms.css / sign-designer.css, but before      *
+ * wireframe.css — anything wireframe.css also sets needs a higher    *
+ * specificity than its `html[data-theme] .app-shell …` selectors.    *
+ *                                                                    *
+ * Ground #f4f5e9 · cards #ffffff · ink #202018 · line #d4d5c8        *
+ * khaki #e8e9dc / #eff0dd · accent #ffdf00 · red #c8402f            *
+ * ================================================================== */
+
+/* --------------------------- page shell -------------------------- */
+
+/* The global hint sits above the header; the wireframes put the tip
+   below the segmented control, so the page renders its own copy. */
+html[data-theme="light"] .content-inner:has(.wf-forms) .workflow-hint {
+  display: none;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms) .module-header,
+html[data-theme="light"] .wf-forms--builder .module-header {
+  border-bottom-color: #d4d5c8;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms) .module-header h1,
+html[data-theme="light"] .wf-forms--builder .module-header h1 {
+  margin: 0 0 6px;
+  color: #202018;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms) .module-page-desc,
+html[data-theme="light"] .wf-forms--builder .module-page-desc {
+  margin: 7px 0 0;
+  color: #515045;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms) .module-header-actions,
+html[data-theme="light"] .wf-forms--builder .module-header-actions {
+  align-items: center;
+  gap: 12px;
+}
+
+/* Compact "Organization data (Party 1)" summary parked in the header. */
+html[data-theme="light"] .module-page:has(> .wf-forms) .org-summary {
+  min-height: 0;
+  padding: 8px 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms) .org-summary__data {
+  font-size: 13px;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms) .org-summary__edit {
+  border-color: #d4d5c8;
+  background: #ffffff;
+  color: #202018;
+}
+
+/* ------------------------- segmented toggle ---------------------- */
+
+html[data-theme="light"] .wf-seg-row .segmented-toggle,
+html[data-theme="light"] .wf-forms--builder .module-header .segmented-toggle,
+html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d4d5c8;
+  border-radius: 999px;
+  background: #e8e9dc;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-seg-row .segmented-toggle-btn,
+html[data-theme="light"] .wf-forms--builder .module-header .segmented-toggle-btn,
+html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle-btn {
+  min-height: 32px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #515045;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+html[data-theme="light"] .wf-seg-row .segmented-toggle-btn:not(.active):hover,
+html[data-theme="light"] .wf-forms--builder .module-header .segmented-toggle-btn:not(.active):hover,
+html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle-btn:not(.active):hover {
+  background: #f4f5e9;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-seg-row .segmented-toggle-btn.active,
+html[data-theme="light"] .wf-forms--builder .module-header .segmented-toggle-btn.active,
+html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle-btn.active {
+  border-color: #d4d5c8;
+  background: #f4f5e9;
+  color: #202018;
+  box-shadow: none;
+}
+
+.wf-seg-row {
+  margin: 22px 0 0;
+}
+
+/* ------------------------------ tip ------------------------------ */
+
+html[data-theme="light"] .wf-tip {
+  margin: 24px 0 26px;
+  color: #202018;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.wf-tip__line {
+  display: none;
+}
+
+/* --------------------------- shared bits ------------------------- */
+
+.wfBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: #e8e9dc;
+  color: #45443c;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.schema-forms .wfBtn,
+.schema-forms .wfIconBtn,
+.schema-forms .wf-backLink {
+  width: auto;
+  margin: 0;
+  font-family: inherit;
+}
+
+.wfBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wfBtn--khaki {
+  border-color: #d4d5c8;
+  background: #e8e9dc;
+  color: #202018;
+}
+
+.wfBtn--khaki:hover:not(:disabled) {
+  border-color: #c6c7b9;
+  background: #e0e1d0;
+}
+
+.wfBtn--yellow {
+  border-color: #e6c800;
+  background: #ffdf00;
+  color: #202018;
+}
+
+.wfBtn--yellow:hover:not(:disabled) {
+  border-color: #d3bd00;
+  background: #f2d400;
+}
+
+.wfBtn--ghost {
+  border-color: #d4d5c8;
+  background: #ffffff;
+  color: #202018;
+}
+
+.wfBtn--ghost:hover:not(:disabled) {
+  border-color: #c6c7b9;
+  background: #f4f5e9;
+}
+
+.wfBtn:disabled {
+  border-color: #e0e0d3;
+  background: #f0f0e6;
+  color: #a3a196;
+  cursor: not-allowed;
+}
+
+.wfBtn--sm {
+  min-height: 36px;
+  padding: 0 15px;
+  font-size: 14px;
+}
+
+.wfIconBtn {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #d4d5c8;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #515045;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.wfIconBtn:hover:not(:disabled) {
+  border-color: #c6c7b9;
+  background: #f4f5e9;
+  color: #202018;
+}
+
+.wfIconBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.wf-backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 8px;
+  border: 0;
+  background: transparent;
+  color: #515045;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.wf-backLink:hover {
+  color: #202018;
+}
+
+.wf-builderTitle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.wf-builderTitle h1 {
+  margin-bottom: 0 !important;
+}
+
+.wfEmpty {
+  padding: 26px 20px;
+  border: 1px dashed #d4d5c8;
+  border-radius: 14px;
+  background: #f4f5e9;
+  text-align: center;
+}
+
+.wfEmpty strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #202018;
+  font-size: 16px;
+}
+
+.wfEmpty p {
+  margin: 0;
+  color: #515045;
+  font-size: 14.5px;
+}
+
+/* ================= Templates tab (Screen 15 / 16) ================ */
+
+.wfTemplates__section {
+  margin-bottom: 34px;
+}
+
+.wfSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 16px;
+  flex-wrap: wrap;
+}
+
+.wfSectionHead h2 {
+  margin: 0;
+  color: #202018;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.wfTmplGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 24px;
+}
+
+.wfTmplCard {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid #d4d5c8;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.wfTmplCard__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wfTmplCard__head h3 {
+  margin: 0;
+  color: #202018;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.wfTmplCard__desc {
+  margin: 8px 0 0;
+  color: #515045;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.wfTmplCard__stats {
+  display: flex;
+  gap: 46px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #d4d5c8;
+}
+
+.wfStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wfStat span {
+  color: #515045;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.wfStat strong {
+  color: #202018;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.wfTmplCard__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.wfTmplCard__actions .wfBtn {
+  flex: 1 1 0;
+}
+
+/* Agreement template cards — same card language as the form modules. */
+.wfSignGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 24px;
+  margin-top: 0;
+}
+
+html[data-theme="light"] .wf-forms .signCard {
+  border: 1px solid #d4d5c8;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-theme="light"] .wf-forms .signCard:hover {
+  border-color: #c6c7b9;
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-theme="light"] .wf-forms .signCard__thumb {
+  height: 96px;
+  border-bottom: 1px solid #e6e7dc;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .wf-forms .signCard__thumbDoc {
+  border-color: #d4d5c8;
+  background: #ffffff;
+  color: #515045;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms .signCard__thumbCount {
+  background: #e8e9dc;
+  color: #45443c;
+}
+
+html[data-theme="light"] .wf-forms .signCard__body {
+  padding: 18px 20px 6px;
+}
+
+html[data-theme="light"] .wf-forms .signCard__titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+html[data-theme="light"] .wf-forms .signCard__title {
+  color: #202018;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .wf-forms .signCard__meta {
+  color: #515045;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .wf-forms .signCard__meta--sub {
+  color: #7f7c6e;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .wf-forms .signCard__actions {
+  gap: 12px;
+  padding: 14px 20px 20px;
+}
+
+html[data-theme="light"] .wf-forms .signCard__actions .wfBtn {
+  flex: 1 1 0;
+}
+
+/* ================== Agreement designer (Screen 17) =============== */
+
+html[data-theme="light"] .wf-forms .signDesigner {
+  --designer-ink: #202018;
+  --designer-muted: #515045;
+  --designer-line: #d4d5c8;
+  gap: 20px;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__bar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-color: #d4d5c8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+/* Screen 17: one bar — row 1 back + view toggle, row 2 name + actions.
+   sign-designer.css lays the bar out as `auto | 1fr | auto`; with our two
+   rows that squeezes row 1 into an auto column, so stack them instead. */
+html[data-theme="light"] .wf-forms .signDesigner__bar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__barTop {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.signDesigner__barMain {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__close.ghostBtn {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #e8e9dc;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__close.ghostBtn:hover {
+  border-color: #c6c7b9;
+  background: #e0e1d0;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__nameField {
+  flex: 1 1 auto;
+  gap: 8px;
+  color: #202018;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__nameInput {
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #f4f5e9;
+  color: #202018;
+  font-size: 15px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__nameInput:focus {
+  border-color: #202018;
+  outline: none;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__actions {
+  display: flex;
+  gap: 12px;
+  align-self: flex-end;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__uploadButton,
+html[data-theme="light"] .wf-forms .signDesigner__saveButton {
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #e8e9dc;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__uploadButton:hover {
+  border-color: #c6c7b9;
+  background: #e0e1d0;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__saveButton.ioButton {
+  border-color: #e6c800;
+  background: #ffdf00;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__saveButton.ioButton:hover:not(:disabled) {
+  border-color: #d3bd00;
+  background: #f2d400;
+}
+
+/* Designer body: library | document | properties. */
+html[data-theme="light"] .wf-forms .signDesigner__body,
+html[data-theme="light"] .wf-forms .signDesigner__body--editing {
+  grid-template-columns: minmax(200px, 232px) minmax(0, 1fr) minmax(250px, 300px);
+  gap: 20px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__palette,
+html[data-theme="light"] .wf-forms .signDesigner__canvas,
+html[data-theme="light"] .wf-forms .signDesigner__props {
+  border: 1px solid #d4d5c8;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__palette {
+  padding: 18px;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__panelHeading h3,
+html[data-theme="light"] .wf-forms .signDesigner__canvasHeader h3 {
+  margin: 0 0 3px;
+  color: #202018;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__panelHeading p {
+  color: #515045;
+  font-size: 13.5px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__count {
+  background: #e8e9dc;
+  color: #45443c;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__sectionHeading strong {
+  color: #202018;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__sectionHeading span {
+  color: #7f7c6e;
+  font-size: 12.5px;
+}
+
+html[data-theme="light"] .wf-forms .signPaletteItem {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+html[data-theme="light"] .wf-forms .signPaletteItem:hover {
+  border-color: #202018;
+  background: #f4f5e9;
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-theme="light"] .wf-forms .signPaletteItem__details code {
+  display: none;
+}
+
+html[data-theme="light"] .wf-forms .signPaletteItem__details span {
+  color: #202018;
+}
+
+.signPaletteItem__icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #515045;
+}
+
+.signPaletteItem__icon--text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__stampCard {
+  border: 1px solid #d4d5c8;
+  border-radius: 12px;
+  background: #eff0dd;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__stampCard strong {
+  color: #202018;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__stampCard .doc-form-note {
+  color: #515045;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__stampUpload {
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__stampUpload:hover {
+  border-color: #c6c7b9;
+  background: #f4f5e9;
+  box-shadow: none;
+}
+
+/* Document area */
+html[data-theme="light"] .wf-forms .signDesigner__canvas {
+  min-height: 520px;
+  max-height: calc(100vh - 230px);
+  padding: 18px;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__canvasHeader {
+  padding: 0 2px 12px;
+  border-bottom: 1px solid #d4d5c8;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__pageCount {
+  border: 1px solid #d4d5c8;
+  background: #ffffff;
+  color: #515045;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__canvasTip {
+  border: 1px solid #d4d5c8;
+  background: #ffffff;
+  color: #515045;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__canvasTip span {
+  background: #e8e9dc;
+  color: #45443c;
+}
+
+html[data-theme="light"] .wf-forms .signCanvasEmpty {
+  color: #515045;
+}
+
+html[data-theme="light"] .wf-forms .signCanvasEmpty strong {
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms .signCanvasEmpty--upload {
+  border-color: #d4d5c8;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .wf-forms .signCanvasEmpty__icon {
+  border-color: #d4d5c8;
+  background: #e8e9dc;
+  color: #45443c;
+}
+
+html[data-theme="light"] .wf-forms .signCanvasEmpty__upload {
+  border-color: #d4d5c8;
+  background: #e8e9dc;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms .signCanvasEmpty__upload:hover {
+  border-color: #c6c7b9;
+  background: #e0e1d0;
+}
+
+/* Properties panel — always visible with a Preview / Properties strip. */
+html[data-theme="light"] .wf-forms .signDesigner__props {
+  gap: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.signDesigner__propsTabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d4d5c8;
+  border-radius: 999px;
+  background: #e8e9dc;
+}
+
+.signDesigner__propsTab {
+  flex: 1 1 0;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #515045;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.signDesigner__propsTab.is-active {
+  border-color: #d4d5c8;
+  background: #f4f5e9;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__propsClose {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d4d5c8;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #515045;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__propsClose:hover {
+  border-color: #202018;
+  background: #f4f5e9;
+  color: #202018;
+}
+
+.wfPropsCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 12px;
+  background: #f4f5e9;
+}
+
+.wfPropsCard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.wfPropsCard__head strong {
+  color: #202018;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.wfPropsCard__grip {
+  width: 18px;
+  height: 18px;
+  color: #7f7c6e;
+}
+
+.wfPropsCard label {
+  display: block;
+  margin: 6px 0 0;
+  color: #202018;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wfPropsCard input:not([type="checkbox"]),
+.wfPropsCard textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font: inherit;
+  font-size: 14px;
+  box-shadow: none;
+}
+
+.wfPropsCard input:focus,
+.wfPropsCard textarea:focus {
+  border-color: #202018;
+  outline: none;
+  box-shadow: none;
+}
+
+.wfPropsCard input:disabled {
+  background: #eff0dd;
+  color: #515045;
+}
+
+.wfPropsCard .wfPropsCard__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+html[data-theme="light"] .wf-forms .wfPropsCard .signDesigner__coords {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+html[data-theme="light"] .wf-forms .wfPropsCard .signDesigner__coords label {
+  gap: 4px;
+  color: #515045;
+  font-size: 11.5px;
+  text-transform: uppercase;
+}
+
+html[data-theme="light"] .wf-forms .wfPropsCard .signDesigner__coords input {
+  min-height: 36px;
+  border: 1px solid #d4d5c8;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__deleteField {
+  min-height: 40px;
+  margin-top: 8px;
+  border: 1px solid #ecc9c3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #c8402f;
+}
+
+html[data-theme="light"] .wf-forms .signDesigner__deleteField:hover {
+  border-color: #e0aaa1;
+  background: #fdf3f1;
+  color: #c8402f;
+}
+
+.wfPropsEmpty {
+  margin: 0;
+  padding: 18px 12px;
+  border: 1px dashed #d4d5c8;
+  border-radius: 12px;
+  background: #f4f5e9;
+  color: #515045;
+  font-size: 13.5px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.wfPropsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wfPropsList__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wfPropsList__head strong {
+  color: #202018;
+  font-size: 14.5px;
+}
+
+.wfPropsList__head span {
+  color: #515045;
+  font-size: 13px;
+}
+
+.wfPropsList__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wfPropsItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wfPropsItem:hover,
+.wfPropsItem.is-active {
+  border-color: #202018;
+  background: #f4f5e9;
+}
+
+.wfPropsItem__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.wfPropsItem code {
+  color: #7f7c6e;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.wfPropsItem__page {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8e9dc;
+  color: #45443c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =============== Form builder list + editor (Screen 19/20) ======== */
+
+html[data-theme="light"] .wf-forms--builder {
+  margin-bottom: 0;
+}
+
+.wf-forms--builder .schema-forms-module-grid {
+  gap: 20px;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card {
+  padding: 22px;
+  border: 1px solid #d4d5c8;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card:hover {
+  border-color: #c6c7b9;
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card__title {
+  color: #202018;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card__badge {
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: #e8e9dc;
+  color: #45443c;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card__badge--live {
+  background: #e8e9dc;
+  color: #45443c;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card__meta {
+  color: #515045;
+  font-size: 14.5px;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card__url {
+  color: #7f7c6e;
+  font-size: 12.5px;
+}
+
+html[data-theme="light"] .wf-forms--builder .schema-forms-module-card__actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Cards */
+html[data-theme="light"] .wf-forms--builder .builderCard {
+  margin: 0 0 24px;
+  padding: 24px;
+  border: 1px solid #d4d5c8;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard > h2,
+html[data-theme="light"] .wf-forms--builder .builderCard > .adminRow h2 {
+  margin: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d4d5c8;
+  color: #202018;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard > .adminRow {
+  gap: 12px;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard label {
+  margin-bottom: 7px;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard .doc-form-note {
+  color: #515045;
+  font-size: 13.5px;
+}
+
+html[data-theme="light"] .wf-forms--builder .wfCard .optionLabel.adminInline {
+  margin: 4px 0 14px;
+  font-size: 14.5px;
+}
+
+.wf-forms--builder .grid {
+  gap: 18px;
+}
+
+.wfGrid--split {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+/* Question cards */
+html[data-theme="light"] .wf-forms--builder .questionCard {
+  display: flex;
+  flex-direction: column;
+  margin: 16px 0 0;
+  padding: 20px;
+  border: 1px solid #d4d5c8;
+  border-left: 1px solid #d4d5c8;
+  border-radius: 14px;
+  background: #f4f5e9;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionCard:hover {
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionCard .adminRow {
+  margin-bottom: 14px;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionCard__label {
+  display: none;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionActions {
+  gap: 8px;
+  margin-left: auto;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionActions .ghostBtn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionActions .ghostBtn:hover:not(:disabled) {
+  border-color: #c6c7b9;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionActions .dangerBtn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #ecc9c3;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #c8402f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionActions .dangerBtn:hover:not(:disabled) {
+  border-color: #e0aaa1;
+  background: #fdf3f1;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionCard .fieldKeyHint {
+  margin: -4px 0 14px;
+  color: #7f7c6e;
+  font-size: 12.5px;
+}
+
+html[data-theme="light"] .wf-forms--builder .questionCard .fieldKeyHint code {
+  background: #eff0dd;
+  color: #515045;
+}
+
+html[data-theme="light"] .wf-forms--builder .emptyBuilder {
+  border: 1px dashed #d4d5c8;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .wf-forms--builder .emptyBuilder__illu {
+  background: #e8e9dc;
+  color: #45443c;
+}
+
+html[data-theme="light"] .wf-forms--builder .emptyBuilder__title {
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms--builder .emptyBuilder__hint {
+  color: #515045;
+}
+
+html[data-theme="light"] .wf-forms--builder .fieldError {
+  color: #c8402f;
+}
+
+html[data-theme="light"] .wf-forms--builder .alert--error {
+  border-color: #ecc9c3;
+  background: #fdf3f1;
+  color: #c8402f;
+}
+
+html[data-theme="light"] .wf-forms--builder .alert--success {
+  border-color: #cfe0d2;
+  background: #f0f7f1;
+  color: #1c7a45;
+}
+
+/* Desktop builder inputs are white sheets (Screen 19); the global
+   light rule keeps them khaki, which is what mobile shows (Screen 20). */
+@media (min-width: 861px) {
+  html[data-theme="light"] .wf-forms--builder .builderCard input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  html[data-theme="light"] .wf-forms--builder .builderCard select,
+  html[data-theme="light"] .wf-forms--builder .builderCard textarea {
+    border-color: #d4d5c8;
+    background: #ffffff;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .builderCard input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):focus,
+  html[data-theme="light"] .wf-forms--builder .builderCard select:focus,
+  html[data-theme="light"] .wf-forms--builder .builderCard textarea:focus {
+    border-color: #202018;
+    background: #ffffff;
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+html[data-theme="light"] .wf-forms--builder .builderCard select,
+html[data-theme="light"] .wf-forms--builder .builderCard textarea {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard textarea {
+  min-height: 72px;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard input:focus,
+html[data-theme="light"] .wf-forms--builder .builderCard select:focus,
+html[data-theme="light"] .wf-forms--builder .builderCard textarea:focus {
+  border-color: #202018;
+  outline: none;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .builderCard input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  accent-color: #ffdf00;
+}
+
+/* Buttons inside the builder cards */
+html[data-theme="light"] .wf-forms--builder .ioButton,
+html[data-theme="light"] .wf-forms--builder .wfBtn {
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #e8e9dc;
+  color: #202018;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .ioButton:hover:not(:disabled),
+html[data-theme="light"] .wf-forms--builder .wfBtn:hover:not(:disabled) {
+  border-color: #c6c7b9;
+  background: #e0e1d0;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .wf-forms--builder .ioButton--sm {
+  min-height: 38px;
+  padding: 0 16px;
+  font-size: 14.5px;
+}
+
+html[data-theme="light"] .wf-forms--builder .ghostBtn {
+  border: 1px solid #d4d5c8;
+  background: #ffffff;
+  color: #202018;
+}
+
+html[data-theme="light"] .wf-forms--builder .ghostBtn:hover:not(:disabled) {
+  border-color: #c6c7b9;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .wf-forms--builder .dangerBtn {
+  border: 1px solid #ecc9c3;
+  background: #ffffff;
+  color: #c8402f;
+}
+
+html[data-theme="light"] .wf-forms--builder .dangerBtn:hover:not(:disabled) {
+  border-color: #e0aaa1;
+  background: #fdf3f1;
+}
+
+html[data-theme="light"] .wf-forms--builder .module-header-actions .wfBtn--ghost {
+  background: #ffffff;
+}
+
+/* ============================== mobile =========================== */
+
+@media (max-width: 860px) {
+  html[data-theme="light"] .module-page:has(> .wf-forms) .module-header,
+  html[data-theme="light"] .wf-forms--builder .module-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+
+  html[data-theme="light"] .module-page:has(> .wf-forms) .module-header h1,
+  html[data-theme="light"] .wf-forms--builder .module-header h1 {
+    font-size: 27px;
+  }
+
+  html[data-theme="light"] .module-page:has(> .wf-forms) .module-header-actions,
+  html[data-theme="light"] .wf-forms--builder .module-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+  }
+
+  html[data-theme="light"] .module-page:has(> .wf-forms) .org-summary {
+    width: 100%;
+  }
+
+  .wf-seg-row {
+    margin: 16px 0 0;
+  }
+
+  /* Full-width toggle (Screen 16). */
+  .wf-seg-row .segmented-toggle {
+    display: flex;
+    width: 100%;
+  }
+
+  .wf-seg-row .segmented-toggle-btn {
+    flex: 1 1 0;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .wf-tip {
+    margin: 18px 0 20px;
+    padding: 14px 16px;
+    border: 1px solid #d4d5c8;
+    border-radius: 12px;
+    background: #eff0dd;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .wf-tip__full {
+    display: none;
+  }
+
+  .wf-tip__line {
+    display: block;
+    font-weight: 400;
+    font-size: 16.5px;
+  }
+
+  .wf-tip__line:first-of-type {
+    font-weight: 700;
+  }
+
+  .wfTmplGrid,
+  .wfSignGrid {
+    gap: 16px;
+  }
+
+  .wfTmplCard {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .wfTmplCard__head h3 {
+    font-size: 19px;
+  }
+
+  .wfTmplCard__desc {
+    display: none;
+  }
+
+  .wfTmplCard__stats {
+    margin-top: 12px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .wfTmplCard__stats .wfStat--status,
+  .wfTmplCard__stats .wfStat + .wfStat,
+  .wfTmplCard__stats .wfStat span {
+    display: none;
+  }
+
+  .wfStat strong {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .wfTmplCard__actions {
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .wfTmplCard__actions .wfBtn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .signCard__actions {
+    flex-direction: column;
+  }
+
+  .signCard__actions .wfBtn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* Builder header: back link, title, then stacked actions (Screen 20). */
+  .wf-forms--builder .module-header-actions .segmented-toggle {
+    width: 100%;
+  }
+
+  .wf-forms--builder .module-header-actions .segmented-toggle-btn {
+    flex: 1 1 0;
+  }
+
+  .wf-forms--builder .module-header-actions .wfBtn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  /* Screen 20: Preview stays white, Save changes goes yellow in the editor. */
+  html[data-theme="light"] .wf-forms--builder .module-header:has(.wf-backLink) .wfBtn--khaki {
+    background: #ffdf00;
+    border-color: #ffdf00;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .builderCard {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .builderCard > h2,
+  html[data-theme="light"] .wf-forms--builder .builderCard > .adminRow h2 {
+    display: none;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .builderCard > .adminRow.wfCard__head {
+    justify-content: flex-end;
+    margin-bottom: 12px;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .builderCard > .adminRow.wfCard__head .ioButton {
+    width: auto;
+  }
+
+  .wfGrid--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-theme="light"] .wf-forms--builder .questionCard {
+    padding: 16px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .questionCard__label {
+    display: block;
+  }
+
+  /* Screen 20 order: title, type/width, required, placeholder. */
+  html[data-theme="light"] .wf-forms--builder .questionCard .wfQPlaceholder {
+    order: 1;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .questionCard .wfQExtra {
+    order: 2;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .questionActions {
+    gap: 6px;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .questionActions .ghostBtn,
+  html[data-theme="light"] .wf-forms--builder .questionActions .dangerBtn {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 13.5px;
+  }
+
+  /* Agreement designer stacks into one column. */
+  html[data-theme="light"] .wf-forms .signDesigner__barMain {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__actions {
+    width: 100%;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__actions .signDesigner__uploadButton,
+  html[data-theme="light"] .wf-forms .signDesigner__actions .signDesigner__saveButton {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__barTop {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__barToolbar .segmented-toggle {
+    width: 100%;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__barToolbar .segmented-toggle-btn {
+    flex: 1 1 0;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__body,
+  html[data-theme="light"] .wf-forms .signDesigner__body--editing {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__canvas {
+    min-height: 340px;
+    max-height: none;
+    padding: 14px;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__palette {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  html[data-theme="light"] .wf-forms .signDesigner__panelHeading,
+  html[data-theme="light"] .wf-forms .signDesigner__stampCard {
+    grid-column: 1 / -1;
+  }
+}

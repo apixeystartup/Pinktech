@@ -1,0 +1,497 @@
+/* ================================================================== *
+ * Roles — wireframe alignment (Screens 5 & 6).                       *
+ * Light theme only: every rule is scoped to html[data-theme="light"] *
+ * so the dark theme keeps its own styling.                           *
+ *                                                                    *
+ * wireframe.css is imported after this file, so rules that fight it  *
+ * carry extra specificity (see the create-role input below).         *
+ * ================================================================== */
+
+/* ------------------------------- page ----------------------------- */
+
+html[data-theme="light"] .content:has(.roles-page) .module-page h1 {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+html[data-theme="light"] .content:has(.roles-page) .workflow-hint-copy strong {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The wireframes split the copy between desktop and mobile. */
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-desc-mobile {
+  display: none;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-note {
+  display: none;
+}
+
+/* ---------------------------- create role ------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-form {
+  margin: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-form .roles-create-fields {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+/* Screen 5 paints this one input white, unlike the khaki global fields. */
+html[data-theme="light"] .app-shell .content:has(.roles-page) .module-page .roles-page
+  form.roles-create-form .roles-create-fields input:not([type="checkbox"]) {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 46px;
+  padding: 0 16px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 15.5px;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-fields .btn-primary {
+  flex: none;
+  min-width: 176px;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-fields .btn-secondary {
+  flex: none;
+  height: 46px;
+  padding: 0 18px;
+  border: 1px solid #d4d5c8;
+  border-radius: 10px;
+  background: #f4f5e9;
+  color: #202018;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .form-editing-hint {
+  flex: none;
+  color: #515045;
+  font-size: 14px;
+}
+
+/* --------------------------- section label ------------------------ */
+
+html[data-theme="light"] .app-shell .module-page .roles-page h3 {
+  margin: 4px 0 0;
+  color: #202018;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+/* ---------------------------- bulk actions ------------------------ */
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk > * {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk .btn-secondary {
+  border: 1px solid #d4d5c8;
+  background: #f4f5e9;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk .btn-secondary:hover:not(:disabled) {
+  background: #e8e9dc;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk .btn-primary:disabled {
+  border: 1px solid #f0e6a8;
+  background: #fff8cb;
+  color: #8d8a7c;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk-invite-mobile {
+  display: none;
+}
+
+/* ------------------------------ table ----------------------------- */
+
+html[data-theme="light"] .app-shell .module-page .roles-page .table-wrap {
+  overflow: hidden;
+  border: 1px solid #d4d5c8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th,
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td {
+  padding: 17px 14px;
+  border-bottom-color: #e6e7dc;
+  font-size: 14.5px;
+  line-height: 1.35;
+  vertical-align: middle;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table thead th {
+  border-bottom: 1px solid #d4d5c8;
+  background: #e8e9dc;
+  color: #45443c;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table tbody tr:hover {
+  background: #f7f8ef;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table .table-empty {
+  padding: 36px 16px;
+  color: #515045;
+}
+
+/* NAME reads left, the metric columns centre, ACTION sits right (Screen 5). */
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th:nth-child(1),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td:nth-child(1) {
+  width: 52px;
+  padding-right: 4px;
+  text-align: center;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th:nth-child(3),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td:nth-child(3),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th:nth-child(4),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td:nth-child(4),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th:nth-child(5),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td:nth-child(5),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th:nth-child(6),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td:nth-child(6) {
+  text-align: center;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table th:nth-child(7),
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table td:nth-child(7) {
+  text-align: right;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .table-row-actions {
+  gap: 8px;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .table-row-actions .btn-secondary {
+  min-width: 74px;
+  padding: 7px 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 9px;
+  background: #f4f5e9;
+  color: #202018;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .table-row-actions .btn-secondary:hover:not(:disabled) {
+  background: #e8e9dc;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .module-page .roles-page .data-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #202018;
+  cursor: pointer;
+}
+
+/* ------------------------- mobile: card list ---------------------- */
+
+html[data-theme="light"] .app-shell .module-page .roles-page .roles-cards {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* The mobile screen sits on the warm ground with white cards. */
+  html[data-theme="light"] .content:has(.roles-page) {
+    background: #f4f5e9;
+  }
+
+  html[data-theme="light"] .content:has(.roles-page) .module-header {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  html[data-theme="light"] .content:has(.roles-page) .workflow-hint {
+    align-items: flex-start;
+    gap: 0;
+    margin: 0 0 16px;
+    padding: 13px 15px;
+    border: 1px solid #d4d5c8;
+    border-radius: 12px;
+    background: #f6f3d2;
+  }
+
+  html[data-theme="light"] .content:has(.roles-page) .workflow-hint-mark {
+    display: none;
+  }
+
+  html[data-theme="light"] .content:has(.roles-page) .workflow-hint-copy strong {
+    font-size: 16px;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-desc-desktop {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-desc-mobile {
+    display: inline;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-note-mark {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-note {
+    display: block;
+    margin: 16px 0 0;
+    padding: 13px 15px;
+    border: 1px solid #d4d5c8;
+    border-radius: 12px;
+    background: #f6f3d2;
+    color: #202018;
+    font-size: 15.5px;
+    line-height: 1.45;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-form {
+    margin-top: 16px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-form .roles-create-fields {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  html[data-theme="light"] .app-shell .content:has(.roles-page) .module-page .roles-page
+    form.roles-create-form .roles-create-fields input:not([type="checkbox"]) {
+    width: 100%;
+    height: 48px;
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-fields .btn-primary,
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-create-fields .btn-secondary {
+    width: 100%;
+    min-width: 0;
+    height: 48px;
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page h3 {
+    margin: 20px 0 0;
+    font-size: 19px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk > * {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk .btn-secondary {
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk .btn-primary:disabled {
+    background: #fff8cb;
+    color: #8d8a7c;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk-invite-desktop {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-bulk-invite-mobile {
+    display: inline;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .table-wrap {
+    display: none;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 16px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .roles-cards-empty {
+    margin: 0;
+    padding: 20px 4px;
+    color: #515045;
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto auto;
+    column-gap: 12px;
+    padding: 16px;
+    border: 1px solid #d4d5c8;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card::after {
+    content: "";
+    grid-area: 3 / 1 / 4 / 4;
+    height: 1px;
+    margin: 13px 0;
+    background: #e6e7dc;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-check {
+    grid-area: 1 / 1 / 2 / 2;
+    align-self: center;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-name {
+    grid-area: 1 / 2 / 2 / 3;
+    align-self: center;
+    color: #202018;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-edit {
+    grid-area: 1 / 3 / 2 / 4;
+    align-self: start;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-edit .btn-secondary {
+    min-width: 74px;
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid #d4d5c8;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #202018;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-edit .btn-secondary:hover:not(:disabled) {
+    background: #f4f5e9;
+    color: #202018;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-level {
+    grid-area: 2 / 2 / 3 / 3;
+    color: #515045;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-level::before {
+    content: "Org level: ";
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-scope,
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-people,
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-id {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-scope {
+    grid-area: 4 / 1 / 5 / 2;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-people {
+    grid-area: 4 / 2 / 5 / 3;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-id {
+    grid-area: 5 / 1 / 6 / 4;
+    margin-top: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-scope::before {
+    content: "Scope";
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-people::before {
+    content: "People";
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-id::before {
+    content: "Role ID";
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-scope::before,
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-people::before,
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-id::before {
+    color: #515045;
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card-value {
+    color: #202018;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .roles-page .role-card input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #202018;
+    cursor: pointer;
+  }
+}

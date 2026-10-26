@@ -1,0 +1,1219 @@
+/* ==========================================================================
+   wf-dashboard.css — Dashboard (/app) aligned to wire-frame/Screen 1 (1440)
+   and Screen 2 (390). Page-owned stylesheet, imported by DashboardPage.jsx.
+
+   Only light-theme overrides are defined here: the dark theme keeps the
+   shared product styles untouched. Every selector is scoped to this page's
+   .wf-* markup and out-specifies wireframe.css (which loads later and wins
+   specificity ties).
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Page shell + shared building blocks
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] body .content:has(.wf-dash) {
+  background: #f4f5e9;
+}
+
+html[data-theme='light'] .wf-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1288px;
+  margin-inline: auto;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-dash-card {
+  background: #fff;
+  border: 1px solid #e6e7dc;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(32, 32, 24, 0.04);
+}
+
+html[data-theme='light'] .wf-card-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+html[data-theme='light'] .wf-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-card-sub {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #515045;
+}
+
+/* Buttons ------------------------------------------------------------------- */
+html[data-theme='light'] .wf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 33px;
+  padding: 0 14px;
+  border: 1px solid #d4d5c8;
+  border-radius: 8px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #202018;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+html[data-theme='light'] .wf-btn:hover {
+  background: #f7f7ec;
+  border-color: #c6c7b9;
+}
+
+html[data-theme='light'] .wf-btn:active { transform: translateY(1px); }
+
+html[data-theme='light'] .wf-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+html[data-theme='light'] .wf-btn--primary {
+  background: #ffdf00;
+  border-color: #e6cf00;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-btn--primary:hover {
+  background: #f5d400;
+  border-color: #d9c400;
+}
+
+html[data-theme='light'] .wf-btn--light {
+  background: #fff;
+  border-color: #d4d5c8;
+  color: #202018;
+}
+
+/* Pills / dots -------------------------------------------------------------- */
+html[data-theme='light'] .wf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid #e6e7dc;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #515045;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .wf-pill--green {
+  background: #cee4d2;
+  border-color: #cee4d2;
+  color: #1c7a45;
+}
+
+html[data-theme='light'] .wf-pill--yellow,
+html[data-theme='light'] .wf-pill--khaki,
+html[data-theme='light'] .wf-pill--amber {
+  background: #ecede2;
+  border-color: #ecede2;
+  color: #515045;
+}
+
+html[data-theme='light'] .wf-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a9ac8a;
+}
+
+html[data-theme='light'] .wf-dot--green { background: #1c7a45; }
+html[data-theme='light'] .wf-dot--yellow { background: #e8b400; }
+html[data-theme='light'] .wf-dot--khaki { background: #a9ac8a; }
+html[data-theme='light'] .wf-dot--person { background: #515045; }
+
+/* Loading / error state ------------------------------------------------------ */
+html[data-theme='light'] .wf-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  margin: 0;
+  padding: 32px 20px;
+  border: 1px dashed #d3d5c2;
+  border-radius: 16px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #515045;
+  text-align: center;
+}
+
+html[data-theme='light'] .wf-state--error {
+  border-style: solid;
+  border-color: #edd2cd;
+  color: #c8402f;
+}
+
+/* --------------------------------------------------------------------------
+   2. Header: date, greeting, lede, action buttons
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] .wf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+html[data-theme='light'] .wf-head-date {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #515045;
+}
+
+html[data-theme='light'] .wf-head-title {
+  margin: 5px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-head-lede {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #515045;
+}
+
+html[data-theme='light'] .wf-dash-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+/* --------------------------------------------------------------------------
+   3. "Your next best action" banner
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] .wf-nba {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  padding: 24px;
+  border: 1px solid #f0e2a4;
+  border-radius: 16px;
+  background: #faeea3;
+}
+
+html[data-theme='light'] .wf-nba-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 47px;
+  height: 47px;
+  border-radius: 50%;
+  background: #ffdf00;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-nba-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+html[data-theme='light'] .wf-nba-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #6f6a3d;
+}
+
+html[data-theme='light'] .wf-nba-title {
+  margin: 3px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-nba-detail {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #57543c;
+}
+
+html[data-theme='light'] .wf-nba-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  flex: none;
+  margin-left: auto;
+}
+
+html[data-theme='light'] .wf-nba-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 33px;
+  padding: 0 16px;
+  border: 1px solid #202018;
+  border-radius: 8px;
+  background: #202018;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+html[data-theme='light'] .wf-nba-btn:hover { background: #000; }
+
+html[data-theme='light'] .wf-nba-btn:active { transform: translateY(1px); }
+
+html[data-theme='light'] .wf-nba-note {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #7a7552;
+}
+
+/* --------------------------------------------------------------------------
+   4. Stat cards
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] .wf-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+html[data-theme='light'] .wf-stat {
+  display: flex;
+  flex-direction: column;
+  min-height: 166px;
+  padding: 20px;
+}
+
+html[data-theme='light'] .wf-stat-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+html[data-theme='light'] .wf-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-stat-ico {
+  color: #9a9d84;
+}
+
+html[data-theme='light'] .wf-stat-value {
+  margin: 8px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #202018;
+}
+
+/* sub text on the left, badge / trend glyph pinned to the card's right edge */
+html[data-theme='light'] .wf-stat-mid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+html[data-theme='light'] .wf-stat-sub {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #6d6d60;
+}
+
+html[data-theme='light'] .wf-stat-trend {
+  color: #1c7a45;
+}
+
+html[data-theme='light'] .wf-stat-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+html[data-theme='light'] .wf-stat-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #202018;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .wf-stat-link:hover { color: #1c7a45; }
+
+html[data-theme='light'] .wf-stat-art {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+html[data-theme='light'] .wf-stat-art--trend {
+  width: 92px;
+  height: 26px;
+}
+
+html[data-theme='light'] .wf-stat-dots {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 26px;
+}
+
+html[data-theme='light'] .wf-stat-dots i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #cee4d2;
+}
+
+html[data-theme='light'] .wf-stat-dots i:nth-child(2) { background: #f3e3a3; }
+html[data-theme='light'] .wf-stat-dots i:last-child { background: #1c7a45; }
+
+/* Bar glyphs live in the DOM for the phone layout only (Screen 2). */
+html[data-theme='light'] .wf-stat-bars { display: none; }
+
+/* --------------------------------------------------------------------------
+   5. Mid grid: "What's happening" + "Recent activity" (left) /
+      "Needs your attention" (right)
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] .wf-mid {
+  display: grid;
+  grid-template-columns: minmax(0, 771.7fr) minmax(0, 497.2fr);
+  grid-template-areas:
+    'happen attn'
+    'activity attn';
+  column-gap: 20px;
+  row-gap: 0;
+}
+
+html[data-theme='light'] .wf-mid > .wf-happen { grid-area: happen; }
+html[data-theme='light'] .wf-mid > .wf-activity { grid-area: activity; }
+html[data-theme='light'] .wf-mid > .wf-attn { grid-area: attn; }
+
+/* Desktop: one visual card — the plot card flows straight into the activity
+ * card below it (the attention card spans both rows on the right). */
+html[data-theme='light'] .wf-happen {
+  padding: 20px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+html[data-theme='light'] .wf-activity {
+  padding: 0 20px 18px;
+  border-top: 0;
+  border-radius: 0 0 16px 16px;
+}
+
+html[data-theme='light'] .wf-activity-title { display: none; }
+
+/* No attention list: the left column stands on its own. */
+html[data-theme='light'] .wf-mid--solo {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'happen'
+    'activity';
+}
+
+/* Plot ---------------------------------------------------------------------- */
+html[data-theme='light'] .wf-plot {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+  padding: 15px 15px 6px;
+  border-radius: 14px;
+  background: #f3f4ed;
+}
+
+html[data-theme='light'] .wf-plot-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 144px;
+  padding: 0 9px;
+  border: 1px solid rgba(32, 32, 24, 0.07);
+  border-radius: 10px;
+  background: transparent;
+}
+
+html[data-theme='light'] .wf-col {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: #cee4d2;
+  overflow: hidden;
+}
+
+html[data-theme='light'] .wf-bar {
+  display: block;
+  width: 100%;
+  border-radius: 5px;
+}
+
+html[data-theme='light'] .wf-bar--sub { background: #1c7a45; }
+
+/* New-tenant marker: sits on top of the submission bar at the baseline. */
+html[data-theme='light'] .wf-bar--ten {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: #ffdf00;
+}
+
+html[data-theme='light'] .wf-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: #6d6d60;
+}
+
+html[data-theme='light'] .wf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+html[data-theme='light'] .wf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid #e6e7dc;
+  border-radius: 13px;
+  background: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #515045;
+  white-space: nowrap;
+}
+
+/* Activity rows ------------------------------------------------------------- */
+html[data-theme='light'] .wf-act-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-theme='light'] .wf-act-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 0;
+  border-top: 1px solid #ecede2;
+}
+
+html[data-theme='light'] .wf-act-row:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+html[data-theme='light'] .wf-act-row.is-skeleton { pointer-events: none; }
+
+html[data-theme='light'] .wf-act-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f3f4ed;
+  color: #515045;
+}
+
+html[data-theme='light'] .wf-act-row.is-skeleton .wf-act-ico {
+  background: #ecede2;
+}
+
+html[data-theme='light'] .wf-act-ico--green { background: #e2f0e6; color: #1c7a45; }
+html[data-theme='light'] .wf-act-ico--yellow { background: #fdf5d2; color: #b98a00; }
+html[data-theme='light'] .wf-act-ico--amber { background: #fdf5d2; color: #b98a00; }
+html[data-theme='light'] .wf-act-ico--person { background: #e8effc; color: #2f6fed; }
+html[data-theme='light'] .wf-act-ico--khaki { background: #f3f4ed; color: #515045; }
+
+html[data-theme='light'] .wf-act-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-act-text strong { font-weight: 700; }
+
+html[data-theme='light'] .wf-act-row.is-skeleton .wf-act-text {
+  height: 12px;
+  border-radius: 6px;
+  background: #ecede2;
+}
+
+html[data-theme='light'] .wf-act-link {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #202018;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .wf-act-link:hover { color: #1c7a45; }
+
+html[data-theme='light'] .wf-act-empty {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: #6d6d60;
+}
+
+/* Attention list ------------------------------------------------------------- */
+html[data-theme='light'] .wf-attn {
+  padding: 20px;
+}
+
+html[data-theme='light'] .wf-attn-list {
+  display: flex;
+  flex-direction: column;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+html[data-theme='light'] .wf-attn-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 0;
+}
+
+html[data-theme='light'] .wf-attn-item + .wf-attn-item {
+  border-top: 1px solid #ecede2;
+}
+
+html[data-theme='light'] .wf-attn-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: #515045;
+}
+
+html[data-theme='light'] .wf-attn-ico--amber { color: #d9a400; }
+html[data-theme='light'] .wf-attn-ico--yellow { color: #d9a400; }
+html[data-theme='light'] .wf-attn-ico--person { color: #2f6fed; }
+html[data-theme='light'] .wf-attn-ico--green { color: #1c7a45; }
+
+html[data-theme='light'] .wf-attn-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+html[data-theme='light'] .wf-attn-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-attn-body {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #6d6d60;
+}
+
+html[data-theme='light'] .wf-attn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 74px;
+  padding: 8px 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #202018;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+html[data-theme='light'] .wf-attn-btn:hover {
+  background: #f7f7ec;
+  border-color: #c6c7b9;
+}
+
+/* --------------------------------------------------------------------------
+   6. Role sections (tenants / tenant overview / my overview)
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] .wf-tenants-card,
+html[data-theme='light'] .wf-sec-card {
+  padding: 20px;
+}
+
+html[data-theme='light'] .wf-tenants-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+html[data-theme='light'] .wf-tenants-all { margin-top: 2px; }
+
+/* Neutralise the shared table-wrap chrome: the card is already the frame. */
+html[data-theme='light'] .wf-tenants-card .wf-table-wrap,
+html[data-theme='light'] .wf-sec-card .dash-table-wrap {
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none; /* taste-skill-ignore */
+  backdrop-filter: none;
+}
+
+html[data-theme='light'] .wf-tenants-card .wf-table-wrap { margin-top: 16px; }
+
+html[data-theme='light'] .wf-sec-card .dash-table-wrap { margin-top: 16px; }
+
+html[data-theme='light'] .wf-sec-card .dash-sub-section + .dash-sub-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #ecede2;
+}
+
+/* Tenants table -------------------------------------------------------------- */
+html[data-theme='light'] .wf-tenants-table {
+  width: 100%;
+  border: 1px solid #e6e7dc;
+  border-radius: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-tenants-table thead th {
+  height: 30px;
+  padding: 8px 15px;
+  border-bottom: 1px solid #dcddce;
+  background: #e8e9dc;
+  color: #515045;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .wf-tenants-table tbody td {
+  height: 40px;
+  padding: 8px 15px;
+  border-bottom: 1px solid #ecede2;
+  color: #202018;
+  vertical-align: middle;
+}
+
+html[data-theme='light'] .wf-tenants-table tbody tr:last-child td { border-bottom: 0; }
+
+html[data-theme='light'] .wf-tenants-table tbody tr { cursor: pointer; }
+
+html[data-theme='light'] .wf-tenants-table tbody tr:hover { background: #faf9f0; }
+
+html[data-theme='light'] .wf-tenants-table tbody tr.is-open { background: #f6f6ec; }
+
+html[data-theme='light'] .wf-c-tenant { font-weight: 700; }
+
+/* Shared status pills render uppercase; the wireframe writes "Active". */
+html[data-theme='light'] .wf-tenants-table .dash-status {
+  text-transform: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+html[data-theme='light'] .wf-c-meta { display: none; }
+
+html[data-theme='light'] .wf-tenants-table th.wf-c-tenant { width: 23.1%; }
+html[data-theme='light'] .wf-tenants-table th.wf-c-plan { width: 8.5%; }
+html[data-theme='light'] .wf-tenants-table th.wf-c-status { width: 10.2%; }
+html[data-theme='light'] .wf-tenants-table th.wf-c-people { width: 8.5%; }
+html[data-theme='light'] .wf-tenants-table th.wf-c-doctors { width: 10.1%; }
+html[data-theme='light'] .wf-tenants-table th.wf-c-forms { width: 20.6%; }
+html[data-theme='light'] .wf-tenants-table th.wf-c-activity { width: 19%; }
+
+html[data-theme='light'] .wf-row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: -4px;
+}
+
+html[data-theme='light'] .wf-caret {
+  width: 13px;
+  height: 13px;
+  color: #8a8a7c;
+  transition: transform 0.15s ease;
+}
+
+html[data-theme='light'] .wf-caret.is-open {
+  transform: rotate(90deg);
+  color: #1c7a45;
+}
+
+html[data-theme='light'] .wf-row-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #202018;
+}
+
+/* Expanded tenant panel (desktop row) */
+html[data-theme='light'] .wf-expand-row td {
+  padding: 0;
+  background: #faf9f0;
+}
+
+html[data-theme='light'] .wf-expand-row .dash-expand-panel { padding: 16px 18px 18px; }
+
+html[data-theme='light'] .wf-expand-row .dash-sub-toggle {
+  margin-bottom: 12px;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-expand-row .dash-table {
+  border: 1px solid #e6e7dc;
+  border-radius: 10px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+/* Nested lists inside a tenant row scroll instead of breaking the card. */
+html[data-theme='light'] .wf-expand-row .dash-table-wrap {
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none; /* taste-skill-ignore */
+  overflow-x: auto;
+}
+
+/* Role sections' inner tables ------------------------------------------------ */
+html[data-theme='light'] .wf-sec-card .dash-table {
+  border: 1px solid #e6e7dc;
+  border-radius: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+html[data-theme='light'] .wf-sec-card .dash-table thead th {
+  padding: 8px 15px;
+  background: #e8e9dc;
+  border-bottom: 1px solid #dcddce;
+  color: #515045;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+html[data-theme='light'] .wf-sec-card .dash-table tbody td {
+  padding: 9px 15px;
+  border-bottom: 1px solid #ecede2;
+  color: #202018;
+}
+
+html[data-theme='light'] .wf-sec-card .dash-table tbody tr:last-child td { border-bottom: 0; }
+
+html[data-theme='light'] .wf-sec-card .dash-expand-panel {
+  border: 1px solid #e6e7dc;
+  border-radius: 12px;
+  background: #faf9f0;
+}
+
+/* --------------------------------------------------------------------------
+   7. Footer
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] .wf-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding-top: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #515045;
+}
+
+/* ==========================================================================
+   8. Mobile — wire-frame/Screen 2 (390px)
+   ========================================================================== */
+@media (max-width: 767px) {
+  /* Match the wireframe's 17px page gutters (content padding is 14px). */
+  html[data-theme='light'] .wf-dash {
+    margin-inline: 3px;
+    gap: 24px;
+  }
+
+  html[data-theme='light'] .wf-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  html[data-theme='light'] .wf-head-title { font-size: 26px; }
+
+  html[data-theme='light'] .wf-dash-head-actions { gap: 8px; }
+
+  html[data-theme='light'] .wf-dash-head-actions .wf-btn {
+    flex: 1 1 0;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+
+  /* Banner: icon + copy on top, full-width CTA below */
+  html[data-theme='light'] .wf-nba {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px;
+  }
+
+  html[data-theme='light'] .wf-nba-mark {
+    width: 42px;
+    height: 42px;
+  }
+
+  html[data-theme='light'] .wf-nba-copy { flex: 1 1 200px; }
+
+  html[data-theme='light'] .wf-nba-title { font-size: 17px; }
+
+  html[data-theme='light'] .wf-nba-action {
+    flex: 1 1 100%;
+    align-items: stretch;
+    margin-left: 0;
+    gap: 8px;
+  }
+
+  html[data-theme='light'] .wf-nba-btn {
+    height: 40px;
+    font-size: 12.5px;
+  }
+
+  html[data-theme='light'] .wf-nba-note {
+    text-align: center;
+    font-size: 11px;
+  }
+
+  /* Stat cards stack one per row with phone glyphs */
+  html[data-theme='light'] .wf-stats {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+  }
+
+  html[data-theme='light'] .wf-stat { min-height: 190px; }
+
+  html[data-theme='light'] .wf-stat-dots { display: none; }
+
+  html[data-theme='light'] .wf-stat-art--trend { display: none; }
+
+  html[data-theme='light'] .wf-stat-bars {
+    display: flex;
+    height: 36px;
+    max-width: 100%;
+  }
+
+  /* Screen 2 stacks the glyph above the card link instead of beside it. */
+  html[data-theme='light'] .wf-stat-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding-top: 18px;
+  }
+
+  html[data-theme='light'] .wf-stat-link { align-self: flex-start; }
+
+  html[data-theme='light'] .wf-stat-bars--h {
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 34px;
+  }
+
+  html[data-theme='light'] .wf-stat-bars--h .wf-stat-bar {
+    height: 6px;
+    border-radius: 3px;
+  }
+
+  html[data-theme='light'] .wf-stat-bars--v {
+    width: 132px;
+    align-items: flex-end;
+    gap: 7px;
+  }
+
+  html[data-theme='light'] .wf-stat-bars--v .wf-stat-bar {
+    flex: 1 1 0;
+    border-radius: 4px;
+  }
+
+  html[data-theme='light'] .wf-stat-bar--green { background: #1c7a45; }
+  html[data-theme='light'] .wf-stat-bar--yellow { background: #ffdf00; }
+  html[data-theme='light'] .wf-stat-bar--khaki { background: #a9ac8a; }
+  html[data-theme='light'] .wf-stat-bar--person { background: #515045; }
+
+  /* Mid grid stacks: happening → attention → recent activity */
+  html[data-theme='light'] .wf-mid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'happen'
+      'attn'
+      'activity';
+    row-gap: 24px;
+  }
+
+  html[data-theme='light'] .wf-mid--solo {
+    grid-template-areas:
+      'happen'
+      'activity';
+  }
+
+  html[data-theme='light'] .wf-happen {
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  html[data-theme='light'] .wf-activity {
+    border-top: 1px solid #e6e7dc;
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  html[data-theme='light'] .wf-activity-title {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #202018;
+  }
+
+  html[data-theme='light'] .wf-plot { margin-top: 14px; }
+
+  html[data-theme='light'] .wf-plot-area { height: 150px; gap: 10px; }
+
+  html[data-theme='light'] .wf-axis { font-size: 10px; }
+
+  html[data-theme='light'] .wf-legend { margin-top: 13px; }
+
+  html[data-theme='light'] .wf-attn { padding: 18px; }
+
+  html[data-theme='light'] .wf-attn-item {
+    gap: 10px;
+    padding: 16px 0;
+  }
+
+  html[data-theme='light'] .wf-attn-copy { flex: 1 1 auto; min-width: 120px; }
+
+  html[data-theme='light'] .wf-attn-btn {
+    flex: none;
+    min-width: 74px;
+    min-height: 34px;
+    font-size: 11.5px;
+  }
+
+  html[data-theme='light'] .wf-act-row {
+    align-items: flex-start;
+    padding: 12px 0;
+  }
+
+  html[data-theme='light'] .wf-act-text { font-size: 13px; }
+
+  html[data-theme='light'] .wf-foot { display: none; }
+
+  /* Tenants table becomes stacked cards (Screen 2) instead of overflowing */
+  html[data-theme='light'] .wf-tenants-card { padding: 16px; }
+
+  html[data-theme='light'] .wf-tenants-head { flex-direction: column; gap: 12px; }
+
+  html[data-theme='light'] .wf-tenants-all { align-self: flex-start; }
+
+  html[data-theme='light'] .wf-tenants-card .wf-table-wrap {
+    margin-top: 14px;
+    overflow: visible;
+  }
+
+  html[data-theme='light'] .wf-tenants-table,
+  html[data-theme='light'] .wf-tenants-table tbody,
+  html[data-theme='light'] .wf-tenants-table tbody tr,
+  html[data-theme='light'] .wf-tenants-table tbody td {
+    display: block;
+    width: auto;
+    height: auto;
+  }
+
+  html[data-theme='light'] .wf-tenants-table {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  html[data-theme='light'] .wf-tenants-table thead { display: none; }
+
+  html[data-theme='light'] .wf-tenants-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* One card per tenant: name + status pill on top, detail line below. */
+  html[data-theme='light'] .wf-tenants-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 4px;
+    padding: 14px;
+    border: 1px solid #e6e7dc;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  html[data-theme='light'] .wf-tenants-table tbody tr.is-open { background: #f6f6ec; }
+
+  html[data-theme='light'] .wf-tenants-table tbody td {
+    padding: 0;
+    border: 0;
+    font-size: 13px;
+  }
+
+  html[data-theme='light'] .wf-tenants-table tbody td { display: none; }
+
+  html[data-theme='light'] .wf-tenants-table .wf-c-tenant {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  html[data-theme='light'] .wf-tenants-table .wf-c-status {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  html[data-theme='light'] .wf-tenants-table .wf-c-meta {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 2px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #6d6d60;
+  }
+
+  html[data-theme='light'] .wf-tenants-table .dash-empty {
+    display: block;
+    grid-column: 1 / -1;
+    padding: 12px 0;
+    text-align: center;
+  }
+
+  html[data-theme='light'] .wf-expand-row {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 4px;
+    padding: 12px 0 0;
+    border-top: 1px solid #ecede2;
+    background: transparent;
+  }
+
+  html[data-theme='light'] .wf-expand-row td {
+    display: block;
+    grid-column: 1 / -1;
+    padding: 0;
+    background: transparent;
+  }
+
+  html[data-theme='light'] .wf-expand-row .dash-expand-panel {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  /* Role-section tables keep horizontal scrolling on phones (they are wide). */
+  html[data-theme='light'] .wf-sec-card .dash-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

@@ -1,3 +1,4 @@
+import "../../../styles/wf-audit.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
@@ -219,11 +220,11 @@ function AuditPage() {
       description={`${roleLabel} view · ${meta.scope || "Your scoped audit trail."} Every action is recorded with its outcome.`}
       actions={
         <span className={`audit-role-pill audit-role-pill--${role}`}>
-          <Icon name="shield" />
           {roleLabel}
         </span>
       }
     >
+      <div className="audit-page">
       <div className="audit-stat-row">
         <div className="audit-stat">
           <span className="audit-stat__icon audit-stat__icon--total"><Icon name="clock" /></span>
@@ -297,7 +298,7 @@ function AuditPage() {
             <p>{statusFilter === "ERROR" ? "No errors have been recorded in your scope." : "Try clearing the search or switching tabs."}</p>
           </div>
         ) : (
-          <div className="audit-table-scroll">
+          <div className="audit-table-scroll audit-only-desk">
             <table className="audit-table">
               <thead>
                 <tr>
@@ -361,6 +362,50 @@ function AuditPage() {
             </table>
           </div>
         )}
+
+        {!loading && items.length > 0 ? (
+          <div className="audit-cards audit-only-mob">
+            <div className="audit-cards__label">
+              <span>At</span>
+              <span>Activity</span>
+            </div>
+            {items.map((item) => {
+              const when = formatDate(item.createdAt);
+              const user = item.user;
+              return (
+                <article key={`m-${item._id}`} className="audit-card">
+                  <div className="audit-card__head">
+                    <div className="audit-card__when">
+                      <strong>{when.date}</strong>
+                      <span>{when.time}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={`audit-status audit-status--${String(item.status || "success").toLowerCase()}`}
+                      onClick={() => setSelectedError(item)}
+                      title={item.status === "ERROR" ? "View error details" : "View activity details"}
+                    >
+                      {String(item.status || "SUCCESS").toUpperCase()}
+                    </button>
+                  </div>
+                  <div className="audit-card__body">
+                    <div className="audit-card__row">
+                      <strong>{actionLabel(item.action)}</strong>
+                      <span>{item.action}</span>
+                    </div>
+                    <div className="audit-card__row">
+                      <strong>{user?.name || "System"}</strong>
+                      <span>
+                        {user?.empCode ? `EMP ${user.empCode} · ` : ""}
+                        {item.tenantOrgLabel || "Platform"}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
 
         <div className="audit-pager">
           <span>
@@ -463,6 +508,7 @@ function AuditPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </ModulePage>
   );
 }

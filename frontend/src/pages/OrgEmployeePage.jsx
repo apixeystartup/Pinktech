@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import ModulePage from "../components/common/ModulePage";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
+import "../styles/wf-org.css";
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -309,16 +310,17 @@ function OrgExplorerPage() {
   const noTeam = !isAdmin && !statsLoading && Number(stats?.total ?? 0) <= 1;
   return (
     <div className="org-explorer-shell flex flex-col" style={{ minHeight: "calc(100vh - 160px)" }}>
-      <OrgTopBar />
       <main className="org-explorer-main px-6 py-6 max-w-[1920px] mx-auto w-full">
         {noTeam ? (
-          <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
-            <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Nothing to explore yet</h2>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">
-              Nobody reports to you right now, so there is no team to show here. Your own profile still lives on the
-              Employee Management page.
-            </p>
-          </section>
+          <OrgFrame wide>
+            <section className="org-wf-empty bg-white rounded-xl border border-slate-200 shadow-sm p-8">
+              <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Nothing to explore yet</h2>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">
+                Nobody reports to you right now, so there is no team to show here. Your own profile still lives on the
+                Employee Management page.
+              </p>
+            </section>
+          </OrgFrame>
         ) : tab === "org-tree" ? (
           <ExplorerView variant="tree" />
         ) : tab === "org-explorer" ? (
@@ -330,6 +332,17 @@ function OrgExplorerPage() {
         )}
       </main>
       <ModalRoot />
+    </div>
+  );
+}
+
+// Shared frame: the stats/controls row sits above both panels on desktop and
+// drops between the Directory and the tree on mobile (Screens 7 & 8).
+function OrgFrame({ wide, children }) {
+  return (
+    <div className={`org-explorer-layout org-wf-grid${wide ? " org-wf-grid--wide" : ""}`}>
+      <OrgTopBar />
+      {children}
     </div>
   );
 }
@@ -365,8 +378,8 @@ function OrgTopBar() {
   const removedCount = removed?.count ?? 0;
 
   return (
-    <header className="org-explorer-header border-b border-pink-100 bg-white px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
-      <div className="org-explorer-header__identity flex items-center gap-4 min-w-0">
+    <header className="org-explorer-header org-wf-topbar border-b border-pink-100 bg-white px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
+      <div className="org-explorer-header__identity org-wf-identity flex items-center gap-4 min-w-0">
         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-pink-700 grid place-items-center text-white font-bold text-lg shrink-0">P</div>
         <div className="min-w-0">
           <h1 className="text-base font-semibold text-slate-900 tracking-tight">Org Explorer</h1>
@@ -375,7 +388,7 @@ function OrgTopBar() {
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="org-wf-chips flex items-center gap-2 flex-wrap">
         <span className="stat-pill stat-filled">{stats?.filled ?? "—"} filled</span>
         <span className="stat-pill stat-vacant">{stats?.vacant ?? "—"} vacant</span>
         <span className="stat-pill stat-roles">{stats?.roles ?? "—"} roles</span>
@@ -386,8 +399,8 @@ function OrgTopBar() {
           </button>
         )}
       </div>
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 flex-wrap">
+      <div className="org-wf-controls flex items-center gap-3 flex-wrap">
+        <div className="org-wf-tabs flex items-center gap-1 p-1 rounded-lg bg-slate-100 flex-wrap">
           {(isSuperAdmin
             ? [["org-tree", "Org tree"], ["org-explorer", "Org explorer"], ["roles", "Roles"]]
             : [["org-tree", "Org tree"], ["org-explorer", "Org explorer"]]
@@ -416,12 +429,9 @@ function OrgTopBar() {
 
 function ExplorerView({ variant }) {
   const selectedId = useOrgStore((s) => s.selectedId);
-  const gridCols = variant === "tree"
-    ? "minmax(260px, 340px) minmax(0, 1fr)"
-    : "minmax(260px, 340px) minmax(280px, min(520px, 52vw))";
 
   return (
-    <div className="org-explorer-layout grid gap-4 items-stretch w-full min-w-0" style={{ gridTemplateColumns: gridCols }}>
+    <OrgFrame>
       <DirectoryColumn />
       {variant === "tree" ? (
         <section className="org-canvas bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
@@ -440,7 +450,7 @@ function ExplorerView({ variant }) {
           <div className="min-h-0 flex-1 flex flex-col"><DetailPanel /></div>
         </section>
       )}
-    </div>
+    </OrgFrame>
   );
 }
 
@@ -468,8 +478,8 @@ function DirectoryColumn() {
         <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Directory</h2>
         <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Search, filters, and the employee list.</p>
       </div>
-      <div className="px-5 py-4 border-b border-slate-100 space-y-3">
-        <input type="text" className="filter-select w-full" placeholder="Search by name, EMP ID, email, designation…"
+      <div className="org-wf-filters px-5 py-4 border-b border-slate-100 space-y-3">
+        <input type="text" className="filter-select org-wf-search w-full" placeholder="Search by name, EMP ID, email, designation…"
           value={filters.q || ""} onChange={(e) => patchFilters({ q: e.target.value })} />
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map((f) => (
@@ -489,7 +499,7 @@ function DirectoryColumn() {
             {filterData.data?.levels?.map((l) => <option key={l.value} value={l.value}>Level {l.value} ({l.count})</option>)}
           </select>
         </div>
-        <div className="flex items-center justify-between gap-3 pt-1 text-xs">
+        <div className="org-wf-checks flex items-center justify-between gap-3 pt-1 text-xs">
           <label className="flex items-center gap-2 text-slate-600">
             <input type="checkbox" checked={!!filters.vacant_only} onChange={(e) => patchFilters({ vacant_only: e.target.checked, filled_only: false })} />
             Vacant only
@@ -498,11 +508,11 @@ function DirectoryColumn() {
             <input type="checkbox" checked={!!filters.filled_only} onChange={(e) => patchFilters({ filled_only: e.target.checked, vacant_only: false })} />
             Filled only
           </label>
-          <button type="button" className="text-pink-700 font-medium" onClick={clearFilters}>Clear all</button>
+          <button type="button" className="org-wf-clear text-pink-700 font-medium" onClick={clearFilters}>Clear all</button>
         </div>
       </div>
       <div>
-        <div className="px-5 py-3 text-xs font-medium text-slate-500 sticky top-0 bg-white border-b border-slate-100 z-[1]">
+        <div className="org-wf-count px-5 py-3 text-xs font-medium text-slate-500 sticky top-0 bg-white border-b border-slate-100 z-[1]">
           {isLoading ? "Loading…" : `${data?.count ?? 0} people`}
         </div>
         <div className="divide-y divide-slate-100">
@@ -606,7 +616,7 @@ function TreeLi({ node }) {
                 {node.zone && <span className="tag zone">{node.zone}</span>}
                 {node.is_vacant && <span className="tag vacant">Vacant</span>}
                 {node.added_manually && <span className="tag reports">Added</span>}
-                {node.children?.length > 0 && <span className="tag reports">{node.children.length} reports · {node.total_descendants} total</span>}
+                {node.children?.length > 0 && <span className="tag reports reports-count">{node.children.length} reports · {node.total_descendants} total</span>}
                 {node.external_manager && <span className="tag ext">External boss</span>}
               </div>
             </div>
@@ -770,7 +780,8 @@ function RolesView() {
   const toggleRoleExpansion = useOrgStore((s) => s.toggleRoleExpansion);
 
   return (
-    <section className="bg-white rounded-xl border border-slate-200 shadow-sm">
+    <OrgFrame wide>
+    <section className="org-role-panel bg-white rounded-xl border border-slate-200 shadow-sm">
       <div className="px-6 py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-900 tracking-tight">Roles</h2>
@@ -816,6 +827,7 @@ function RolesView() {
         )}
       </div>
     </section>
+    </OrgFrame>
   );
 }
 

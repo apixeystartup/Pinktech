@@ -6,7 +6,10 @@ import './index.css'
 import './org-explorer.css'
 import './product-redesign.css'
 import './product-workspace.css'
+import './figma-skin.css'
 import App from './App.jsx'
+// Wireframe alignment layer: must come after App so its shell rules win.
+import './wireframe.css'
 
 const storedTheme = localStorage.getItem('theme')
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches

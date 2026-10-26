@@ -10,6 +10,9 @@ import useAuth from "../../../hooks/useAuth";
 import api from "../../../lib/api";
 import { getErrorMessage } from "../../../lib/error";
 import "../../../styles/schema-forms.css";
+// Page-scoped redesign styles — imported last so they win ties against the
+// module's other stylesheets (wireframe.css still loads after everything).
+import "../../../styles/wf-forms.css";
 
 const EMPTY_ORG = { name: "", code: "", email: "", phone: "", address: "", registrationNumber: "", signature: "", stamp: "" };
 
@@ -74,6 +77,12 @@ function FormsPage() {
   })();
 
   const [tab, setTab] = useState("builder");
+  // True while the agreement/signature designer is open inside the Templates
+  // tab — the page header then collapses to the designer's own toolbar row.
+  const [designing, setDesigning] = useState(false);
+  // Set by a "Edit template" card action on the Templates tab so the Builder
+  // tab opens straight into that form.
+  const [openModuleId, setOpenModuleId] = useState("");
   const [org, setOrg] = useState(() => tenantToOrg(currentTenant || cachedTenant || EMPTY_ORG));
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgNote, setOrgNote] = useState("");
@@ -217,40 +226,87 @@ function FormsPage() {
     </span>
   );
 
-  return (
-    <ModulePage
-      title={tab === "builder" ? "Forms" : orgSummary}
-      description={
-        tab === "builder"
-          ? "Schema-driven forms (pink-form): design questions, share the public link, and review submissions with PDF receipts."
-          : null
-      }
-      actions={
-        <div className="segmented-toggle" role="tablist" aria-label="Forms view">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "builder"}
-            className={`segmented-toggle-btn${tab === "builder" ? " active" : ""}`}
-            onClick={() => setTab("builder")}
-          >
-            Builder
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "templates"}
-            className={`segmented-toggle-btn${tab === "templates" ? " active" : ""}`}
-            onClick={() => setTab("templates")}
-          >
-            Templates
-          </button>
+  // Templates | Builder — the wireframe's order (Screen 15 / Screen 17).
+  const segToggle = (
+    <div className="segmented-toggle" role="tablist" aria-label="Forms view">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tab === "templates"}
+        className={`segmented-toggle-btn${tab === "templates" ? " active" : ""}`}
+        onClick={() => setTab("templates")}
+      >
+        Templates
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tab === "builder"}
+        className={`segmented-toggle-btn${tab === "builder" ? " active" : ""}`}
+        onClick={() => {
+          // Leaving the Templates tab also closes the agreement designer, so
+          // the page header never hides for a screen that is no longer shown.
+          setDesigning(false);
+          setTab("builder");
+        }}
+      >
+        Builder
+      </button>
+    </div>
+  );
+
+  // "Edit template" on a form card → Builder tab, straight into that form.
+  const openBuilderFor = (moduleId) => {
+    setOpenModuleId(moduleId);
+    setDesigning(false);
+    setTab("builder");
+  };
+
+  const content =
+    tab === "builder" ? (
+      // The builder owns its whole page (list + inline editor) so the header
+      // can switch to the "Edit form builder" row of Screen 19.
+      <SchemaFormsBuilder org={org} toolbar={segToggle} openModuleId={openModuleId} />
+    ) : (
+      <ModulePage
+        title={designing ? null : "Forms templates"}
+        description={
+          designing ? null : "Choose a template to edit, or open Builder to create a new form."
+        }
+        actions={designing ? null : orgSummary}
+      >
+        <div className="wf-forms wf-forms--templates">
+          {designing ? null : (
+            <div className="wf-seg-row">{segToggle}</div>
+          )}
+          {designing ? null : (
+            <p className="wf-tip">
+              <span className="wf-tip__full">
+                Next: choose a template, then open Builder to create the form.
+              </span>
+              <span className="wf-tip__line">Next: choose a template</span>
+              <span className="wf-tip__line">
+                Then open Builder to create the form.
+              </span>
+            </p>
+          )}
+          {/* key=tenant: a tenant switch remounts the tab, so the editor,
+              banner, and detected fields reset instead of carrying the old
+              tenant's work. */}
+          <TemplatesTab
+            key={tenantKey || "home"}
+            org={org}
+            toolbar={segToggle}
+            onDesigningChange={setDesigning}
+            onEditTemplate={openBuilderFor}
+          />
         </div>
-      }
-    >
-      {/* key=tenant: a tenant switch remounts the tab, so the editor, banner,
-          and detected fields reset instead of carrying the old tenant's work. */}
-      {tab === "builder" ? <SchemaFormsBuilder org={org} /> : <TemplatesTab key={tenantKey || "home"} org={org} />}
+      </ModulePage>
+    );
+
+  return (
+    <>
+      {content}
       {showOrgEdit
         ? createPortal(
           <div className="form-editor-backdrop" onClick={() => setShowOrgEdit(false)}>
@@ -385,7 +441,7 @@ function FormsPage() {
           document.body
         )
         : null}
-    </ModulePage>
+    </>
   );
 }
 

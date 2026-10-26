@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import "../../../styles/wf-roles.css";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import DataTable from "../../../components/common/DataTable";
@@ -286,17 +287,45 @@ function RolesPage() {
     }
   };
 
+  const orgLevelOf = (row) => {
+    const a = row.auto?.level;
+    const o = row.override?.level;
+    const eff = o != null ? o : a != null ? a : 1;
+    return o != null ? `${eff} (override)` : eff;
+  };
+
+  const orgScopeOf = (row) => {
+    const a = row.auto?.scope;
+    const o = row.override?.scope;
+    const eff = o || a || "HQ";
+    return o ? `${eff} (override)` : eff;
+  };
+
   return (
     <ModulePage
       title="Roles"
-      description="Manage seats and org levels. Access control is disabled — every signed-in user has all permissions, so permission selection is not required. Use Org Explore for the org directory, workbook import, and seat roles."
+      description={
+        <>
+          <span className="roles-desc-desktop">
+            Manage seats and org levels. Access control is disabled — every signed-in user has all
+            permissions, so permission selection is not required. Use Org Explore for the org
+            directory, workbook import, and seat roles.
+          </span>
+          <span className="roles-desc-mobile">Manage access roles for your organization.</span>
+        </>
+      }
     >
+      <div className="roles-page">
       {isHome ? (
         <p className="notifications-empty">
           Home shows every tenant at once — pick a tenant in the switcher above to manage its roles.
         </p>
       ) : (
       <>
+      <div className="roles-note" role="note">
+        <span className="roles-note-mark" aria-hidden="true"></span>
+        <span>Roles control who belongs in each team. Everyone currently has full permissions.</span>
+      </div>
       <form className="stacked-form roles-create-form" onSubmit={submitRole}>
         <div className="inline-form roles-create-fields">
           {editingRoleId ? <span className="small-note form-editing-hint">Editing role</span> : null}
@@ -317,7 +346,7 @@ function RolesPage() {
         </div>
       </form>
       <h3>Existing roles</h3>
-      <div className="inline-form">
+      <div className="roles-bulk">
         <button type="button" className="btn-secondary" onClick={toggleSelectAll}>
           {allSelected ? "Clear all" : "Select all"}
         </button>
@@ -326,12 +355,13 @@ function RolesPage() {
         </button>
         <button
           type="button"
-          className="btn-primary"
+          className="btn-primary roles-bulk-invite"
           onClick={() => setInviteOpen(true)}
           disabled={selectedRoleIds.length !== 1}
           title={selectedRoleIds.length !== 1 ? "Select exactly one role for the invite" : "Send employee invites"}
         >
-          Invite by selected role
+          <span className="roles-bulk-invite-desktop">Invite by selected role</span>
+          <span className="roles-bulk-invite-mobile">Invite selected</span>
         </button>
       </div>
       {inviteOpen ? (
@@ -484,8 +514,49 @@ function RolesPage() {
         ]}
         rows={items}
       />
+      <div className="roles-cards">
+        {items.length === 0 ? (
+          <p className="roles-cards-empty">No records found.</p>
+        ) : (
+          items.map((row) => (
+            <div className="role-card" key={row._id}>
+              <span className="role-card-check">
+                {row.type === "SYSTEM" ? (
+                  "—"
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={selectedRoleIds.includes(String(row._id))}
+                    onChange={() => toggleRoleSelection(row._id)}
+                    aria-label={`Select ${row.name}`}
+                  />
+                )}
+              </span>
+              <span className="role-card-name">{row.name}</span>
+              <span className="role-card-edit">
+                {row.type === "SYSTEM" ? null : (
+                  <button className="btn-secondary" type="button" onClick={() => startEdit(row)}>
+                    Edit
+                  </button>
+                )}
+              </span>
+              <span className="role-card-level">{orgLevelOf(row)}</span>
+              <span className="role-card-scope">
+                <span className="role-card-value">{orgScopeOf(row)}</span>
+              </span>
+              <span className="role-card-people">
+                <span className="role-card-value">{row.employeeCount ?? "-"}</span>
+              </span>
+              <span className="role-card-id">
+                <span className="role-card-value">{row._id}</span>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
       </>
       )}
+      </div>
     </ModulePage>
   );
 }
