@@ -32,6 +32,69 @@ html[data-theme="light"] .wf-forms--builder .module-header h1 {
   line-height: 1.15;
 }
 
+html[data-theme="light"] .app-shell .module-page .wf-forms .signDesigner__barMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+
+html[data-theme="light"] .app-shell .module-page .wf-forms .signDesigner__actions {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.signField.is-draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.signField.is-draggable:active {
+  cursor: grabbing;
+}
+
+.signField__dragHandle {
+  right: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 0;
+}
+
+.signField__dragHandle svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.signField__resize {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+@media (max-width: 860px) {
+  html[data-theme="light"] .wf-forms--templates .wf-seg-row {
+    margin: 16px 0 24px;
+  }
+
+  html[data-theme="light"] .wf-forms--templates .wfSignGrid {
+    gap: 20px;
+  }
+
+  html[data-theme="light"] .wf-forms--templates .signCard__thumb {
+    height: 128px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .wf-forms .signDesigner__barMain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-theme="light"] .app-shell .module-page .wf-forms .signDesigner__actions {
+    width: 100%;
+  }
+}
+
 html[data-theme="light"] .module-page:has(> .wf-forms) .module-page-desc,
 html[data-theme="light"] .wf-forms--builder .module-page-desc {
   margin: 7px 0 0;
@@ -44,6 +107,16 @@ html[data-theme="light"] .module-page:has(> .wf-forms) .module-header-actions,
 html[data-theme="light"] .wf-forms--builder .module-header-actions {
   align-items: center;
   gap: 12px;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms--templates) > .module-header,
+html[data-theme="light"] .wf-forms--builder > .module-header {
+  height: 132px;
+  box-sizing: border-box;
+}
+
+html[data-theme="light"] .module-page:has(> .wf-forms--templates .signDesigner) > .module-header {
+  display: none;
 }
 
 /* Compact "Organization data (Party 1)" summary parked in the header. */
@@ -78,10 +151,20 @@ html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle {
   box-shadow: none;
 }
 
+html[data-theme="light"] .wf-seg-row .segmented-toggle {
+  width: 218px;
+  height: 42px;
+  box-sizing: border-box;
+  gap: 8px;
+}
+
 html[data-theme="light"] .wf-seg-row .segmented-toggle-btn,
 html[data-theme="light"] .wf-forms--builder .module-header .segmented-toggle-btn,
 html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle-btn {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 32px;
+  margin: 0;
   padding: 0 18px;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -90,6 +173,10 @@ html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle-btn {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0;
+}
+
+html[data-theme="light"] .wf-seg-row .segmented-toggle-btn:first-child {
+  flex-grow: 1.25;
 }
 
 html[data-theme="light"] .wf-seg-row .segmented-toggle-btn:not(.active):hover,
@@ -109,7 +196,19 @@ html[data-theme="light"] .signDesigner__barToolbar .segmented-toggle-btn.active 
 }
 
 .wf-seg-row {
-  margin: 22px 0 0;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  margin: 22px 0 26px;
+}
+
+html[data-theme="light"] .wf-forms--builder .wf-seg-row {
+  margin: 22px 0 24px;
+}
+
+html[data-theme="light"] .wf-forms--builder .wf-seg-row .segmented-toggle {
+  height: 42px;
+  box-sizing: border-box;
 }
 
 /* ------------------------------ tip ------------------------------ */
@@ -392,7 +491,7 @@ html[data-theme="light"] .wf-tip {
 
 /* Agreement template cards — same card language as the form modules. */
 .wfSignGrid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 24px;
   margin-top: 0;
 }
@@ -412,7 +511,7 @@ html[data-theme="light"] .wf-forms .signCard:hover {
 }
 
 html[data-theme="light"] .wf-forms .signCard__thumb {
-  height: 96px;
+  height: 128px;
   border-bottom: 1px solid #e6e7dc;
   background: #f4f5e9;
 }
@@ -465,6 +564,18 @@ html[data-theme="light"] .wf-forms .signCard__actions .wfBtn {
   flex: 1 1 0;
 }
 
+html[data-theme="light"] .wf-forms--templates .wf-seg-row {
+  margin-bottom: 28px;
+}
+
+html[data-theme="light"] .wf-forms--templates .wfSignGrid {
+  gap: 26px;
+}
+
+html[data-theme="light"] .wf-forms--templates .signCard {
+  min-height: 350px;
+}
+
 /* ================== Agreement designer (Screen 17) =============== */
 
 html[data-theme="light"] .wf-forms .signDesigner {
@@ -498,8 +609,9 @@ html[data-theme="light"] .wf-forms .signDesigner__barTop {
 }
 
 .signDesigner__barMain {
-  display: flex;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
   gap: 16px;
 }
 
@@ -546,8 +658,10 @@ html[data-theme="light"] .wf-forms .signDesigner__nameInput:focus {
 
 html[data-theme="light"] .wf-forms .signDesigner__actions {
   display: flex;
+  align-items: center;
   gap: 12px;
   align-self: flex-end;
+  flex-wrap: nowrap;
 }
 
 html[data-theme="light"] .wf-forms .signDesigner__uploadButton,
@@ -761,7 +875,7 @@ html[data-theme="light"] .wf-forms .signCanvasEmpty__upload:hover {
   background: #e0e1d0;
 }
 
-/* Properties panel — always visible with a Preview / Properties strip. */
+/* Properties panel appears only after a field is selected. */
 html[data-theme="light"] .wf-forms .signDesigner__props {
   gap: 14px;
   padding: 16px;
@@ -1336,6 +1450,24 @@ html[data-theme="light"] .wf-forms--builder .module-header-actions .wfBtn--ghost
 /* ============================== mobile =========================== */
 
 @media (max-width: 860px) {
+  html[data-theme="light"] .wf-forms--builder .wfSectionHead {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  html[data-theme="light"] .wf-forms--builder .wfSectionHead .wfBtn--sm {
+    width: 140px;
+    min-height: 45px;
+    padding: 0 15px;
+    font-size: 14px;
+  }
+
+  html[data-theme="light"] .module-page:has(> .wf-forms--templates) > .module-header,
+  html[data-theme="light"] .wf-forms--builder > .module-header {
+    height: auto;
+    min-height: 187px;
+  }
   html[data-theme="light"] .module-page:has(> .wf-forms) .module-header,
   html[data-theme="light"] .wf-forms--builder .module-header {
     flex-direction: column;
@@ -1366,16 +1498,22 @@ html[data-theme="light"] .wf-forms--builder .module-header-actions .wfBtn--ghost
     margin: 16px 0 0;
   }
 
-  /* Full-width toggle (Screen 16). */
-  .wf-seg-row .segmented-toggle {
-    display: flex;
-    width: 100%;
+  html[data-theme="light"] .wf-forms--builder .wf-seg-row {
+    margin: 16px 0 24px;
   }
 
-  .wf-seg-row .segmented-toggle-btn {
+  /* Full-width toggle (Screen 16). */
+  html[data-theme="light"] .wf-seg-row .segmented-toggle {
+    display: flex;
+    width: 218px;
+    height: 42px;
+  }
+
+  html[data-theme="light"] .wf-seg-row .segmented-toggle-btn {
     flex: 1 1 0;
-    min-height: 44px;
-    padding: 0 12px;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0 8px;
     font-size: 16px;
   }
 
@@ -1573,6 +1711,9 @@ html[data-theme="light"] .wf-forms--builder .module-header-actions .wfBtn--ghost
     min-height: 340px;
     max-height: none;
     padding: 14px;
+    overflow-x: clip;
+    overflow-y: visible;
+    overscroll-behavior-y: auto;
   }
 
   html[data-theme="light"] .wf-forms .signDesigner__palette {

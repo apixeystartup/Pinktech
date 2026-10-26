@@ -633,6 +633,46 @@ textarea {
   font-size: 14px;
 }
 
+.password-input-wrap {
+  position: relative;
+}
+
+.taste-login-panel .auth-card .password-input-wrap input {
+  padding-right: 52px;
+}
+
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #465449;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.password-visibility-toggle:hover {
+  background: #f2f3ed;
+  color: #173d2a;
+}
+
+.password-visibility-toggle:focus-visible {
+  outline: 3px solid rgb(23 61 42 / 30%);
+  outline-offset: 1px;
+}
+
+.password-visibility-toggle svg {
+  width: 19px;
+  height: 19px;
+}
+
 .taste-login-panel .auth-card input:focus {
   border-color: #173d2a;
   outline: 3px solid rgb(23 61 42 / 18%);

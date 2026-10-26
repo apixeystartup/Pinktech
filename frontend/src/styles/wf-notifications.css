@@ -517,6 +517,99 @@ html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty p {
   html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-only-desk {
     display: none;
   }
+}
+
+.notifw-recipient-picker {
+  position: relative;
+  width: 100%;
+}
+
+.notifw-recipient-picker__trigger {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--border, #d4d5c8);
+  border-radius: 10px;
+  background: var(--bg-elevated, #fff);
+  color: var(--text, #202018);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notifw-recipient-picker__trigger:focus-visible {
+  outline: 3px solid rgba(32, 32, 24, .16);
+  outline-offset: 2px;
+}
+
+.notifw-recipient-picker__chevron {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .15s ease;
+}
+
+.notifw-recipient-picker.is-open .notifw-recipient-picker__chevron {
+  transform: rotate(225deg) translate(-2px, -1px);
+}
+
+.notifw-recipient-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: min(340px, 55vh);
+  overflow: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #d4d5c8);
+  border-radius: 10px;
+  background: var(--bg-elevated, #fff);
+  box-shadow: 0 8px 22px rgba(20, 24, 16, .15);
+}
+
+.notifw-recipient-menu .notifw-recipients__list {
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.notifw-recipient-menu .notifw-recipient--all {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  height: 42px;
+  border-bottom: 1px solid var(--border, #d4d5c8);
+  background: var(--bg-elevated, #fff);
+  font-weight: 700;
+}
+
+.notifw-recipient-menu .notifw-recipients__filter {
+  margin-top: 8px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-recipient-picker__trigger,
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-recipient-menu {
+  border-color: #d4d5c8;
+  background: #fff;
+  color: #202018;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-recipient-menu .notifw-recipient--all {
+  border-bottom-color: #d4d5c8;
+  background: #fff;
+}
+
+@media (max-width: 860px) {
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-recipient-picker__trigger {
+    min-height: 46px;
+  }
 
   html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-only-mob {
     display: flex;

@@ -99,9 +99,8 @@
 .signField.is-selected { z-index: 2; border-color: #5535d4; background: rgba(85,53,212,.10); box-shadow: 0 0 0 2px rgba(85,53,212,.2); }
 .signField.is-editable input, .signField.is-editable textarea { border: none; width: 100%; height: 100%; padding: 2px; }
 .signField__tag { position: absolute; bottom: 0; left: 0; font-size: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 0 4px; border-radius: 0 3px 0 0; pointer-events: none; }
-.signField__dragHandle, .signField__delete { position: absolute; top: 2px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid #d9d2ff; border-radius: 7px; background: #fff; color: #5535d4; box-shadow: 0 1px 4px rgba(15,23,42,.18); cursor: grab; touch-action: none; }
+.signField__dragHandle { position: absolute; top: 2px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid #d9d2ff; border-radius: 7px; background: #fff; color: #5535d4; box-shadow: 0 1px 4px rgba(15,23,42,.18); cursor: grab; touch-action: none; }
 .signField__dragHandle { right: 29px; font-size: 17px; line-height: 1; }
-.signField__delete { right: 2px; color: #be123c; cursor: pointer; font-size: 18px; line-height: 1; }
 .signField__dragHandle:active { cursor: grabbing; }
 .signField__resize { position: absolute; bottom: 2px; right: 2px; width: 18px; height: 18px; background: #5535d4; border: 2px solid #fff; border-radius: 6px; cursor: se-resize; touch-action: none; }
 .signField img { width: 100%; height: 100%; object-fit: contain; }

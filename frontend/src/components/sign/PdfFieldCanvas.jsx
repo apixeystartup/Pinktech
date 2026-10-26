@@ -16,7 +16,7 @@ function fieldsOverlap(candidate, other) {
   );
 }
 
-function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, onChange, onDelete, onSign, onAdd, onCollision }) {
+function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, onChange, onSign, onAdd, onCollision }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const [drag, setDrag] = useState(null);
@@ -181,6 +181,15 @@ function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, 
               key={f.cid}
               className={cls}
               style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
+              onPointerDown={(e) => {
+                if (mode !== "design" || e.button !== 0) return;
+                if (e.target.closest(".signField__dragHandle, .signField__resize")) return;
+                onSelect?.(f.cid);
+                if (e.pointerType === "mouse") {
+                  e.preventDefault();
+                  beginDrag(f, e);
+                }
+              }}
               onClick={(e) => { e.stopPropagation(); onSelect?.(f.cid); if (mode === "sign" && ["SIGNATURE", "INITIALS"].includes(f.type) && signerOwned) onSign?.(f.cid); }}
             >
               {f.type === "IMAGE" && f.value ? <img src={f.value} alt={f.label || f.tag} draggable={false} /> : null}
@@ -217,15 +226,25 @@ function PageCanvas({ pageObj, pageWidth, overlays, selectedId, mode, onSelect, 
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    ⠿
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <circle cx="5" cy="4" r="1" />
+                      <circle cx="11" cy="4" r="1" />
+                      <circle cx="5" cy="8" r="1" />
+                      <circle cx="11" cy="8" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                      <circle cx="11" cy="12" r="1" />
+                    </svg>
                   </button>
-                  <button type="button" className="signField__delete" aria-label={`Delete ${f.label || f.tag}`} onClick={(e) => { e.stopPropagation(); onDelete?.(f.cid); }}>&times;</button>
-                  <span
+                  <button
+                    type="button"
                     className="signField__resize"
+                    aria-label={`Resize ${f.label || f.tag}`}
+                    title="Drag to resize"
                     onPointerDown={(e) => {
                       e.stopPropagation(); e.preventDefault();
                       beginDrag(f, e, true);
                     }}
+                    onClick={(e) => e.stopPropagation()}
                   />
                 </>
               ) : null}
@@ -246,7 +265,6 @@ export default function PdfFieldCanvas({
   onSelect,
   onAdd,
   onChange,
-  onDelete,
   onSignatureRequest,
   fitToContainer = false,
 }) {
@@ -348,7 +366,6 @@ export default function PdfFieldCanvas({
           mode={mode}
           onSelect={onSelect}
           onChange={onChange}
-          onDelete={onDelete}
           onSign={onSignatureRequest}
           onAdd={onAdd}
           onCollision={notifyCollision}

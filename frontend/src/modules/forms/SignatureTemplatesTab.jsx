@@ -95,7 +95,7 @@ function PaletteIcon({ type }) {
   );
 }
 
-export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange }) {
+export default function SignatureTemplatesTab({ org, onDesigningChange }) {
   const { tenantContextId, currentTenant } = useAuth();
   const mapOrg = (source) => ({
     name: source?.name || "",
@@ -393,7 +393,6 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange 
             <button type="button" className="ghostBtn signDesigner__close" onClick={closeDesign}>
               ← Back to templates
             </button>
-            <div className="signDesigner__barToolbar">{toolbar}</div>
           </div>
           <div className="signDesigner__barMain">
             <label className="signDesigner__nameField">
@@ -498,13 +497,6 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange 
                 onSelect={selectField}
                 onAdd={handleAddField}
                 onChange={handleFieldChange}
-                onDelete={(cid) => {
-                  updateEditing((p) => ({ ...p, fields: p.fields.filter((f) => f.cid !== cid) }));
-                  if (selectedCid === cid) {
-                    setSelectedCid("");
-                    setPropertiesOpen(false);
-                  }
-                }}
                 fitToContainer
               />
             ) : (
@@ -599,7 +591,7 @@ export default function SignatureTemplatesTab({ org, toolbar, onDesigningChange 
                       {k}
                       <input
                         type="number"
-                        min={0}
+                        min={k === "w" || k === "h" ? 3 : 0}
                         max={100}
                         value={Math.round(selectedField[k])}
                         onChange={(e) => handleFieldChange(selectedField.cid, { [k]: Number(e.target.value) || 0 })}

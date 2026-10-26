@@ -345,6 +345,12 @@ html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-cards {
     font-size: 15.5px;
   }
 
+  html[data-theme="light"] .app-shell .content:has(.tenants-page) .module-page .tenants-page
+    form.tenants-create-form .tenants-create-actions > button.btn-primary {
+    height: 42px;
+    min-height: 42px;
+  }
+
   html[data-theme="light"] .app-shell .module-page .tenants-page .tenants-create-actions .btn-secondary {
     background: #ffffff;
   }

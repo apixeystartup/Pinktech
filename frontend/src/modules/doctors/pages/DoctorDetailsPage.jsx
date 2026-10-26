@@ -453,9 +453,11 @@ function DoctorDetailsPage() {
           ) : null}
         </div>
       </header>
+      </section>
 
+      <div className="doc-grid doc-profile-layout">
       <section className="doc-profile-credentials">
-          <h3 className="doc-card-title">Professional, personal &amp; account details</h3>
+          <h3 className="doc-card-title">Doctor Details</h3>
           <dl className="doc-credential-list">
             <DetailRow label="Medical license" value={doctor.medicalRegistrationNumber} />
             <DetailRow label="Qualification" value={doctor.qualification} />
@@ -479,9 +481,7 @@ function DoctorDetailsPage() {
             <DetailRow label="Last updated" value={fmtDateTime(doctor.updatedAt)} />
           </dl>
       </section>
-      </section>
 
-      <div className="doc-grid doc-profile-layout">
         <div className="doc-profile-main">
           <section className="doc-card doc-profile-compliance">
             <div className="doc-profile-section-head">

@@ -1,5 +1,5 @@
 import "../../../styles/wf-notifications.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../lib/api";
 import ModulePage from "../../../components/common/ModulePage";
 import { getErrorMessage } from "../../../lib/error";
@@ -76,7 +76,9 @@ function NotificationsPage() {
   const [form, setForm] = useState({ message: "", subject: "" });
   const [recipientQuery, setRecipientQuery] = useState("");
   const [recipientNonce, setRecipientNonce] = useState(0);
+  const [recipientsOpen, setRecipientsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const recipientsRef = useRef(null);
   const currentUserId = user?._id || user?.id;
 
   const loadNotifications = useCallback(async () => {
@@ -165,9 +167,40 @@ function NotificationsPage() {
     });
   }, [composeUsers, recipientQuery]);
 
+  const recipientIds = useMemo(() => composeUsers.map((person) => String(person._id)), [composeUsers]);
+  const activeSelectedIds = selectedIds.filter((id) => recipientIds.includes(id));
+  const selectedRecipientCount = activeSelectedIds.length;
+  const allRecipientsSelected = recipientIds.length > 0 && selectedRecipientCount === recipientIds.length;
+  const someRecipientsSelected = selectedRecipientCount > 0 && !allRecipientsSelected;
+
+  useEffect(() => {
+    if (!recipientsOpen) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (recipientsRef.current && !recipientsRef.current.contains(event.target)) {
+        setRecipientsOpen(false);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setRecipientsOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [recipientsOpen]);
+
   const toggleRecipient = (id) => {
     const key = String(id);
-    setSelectedIds((prev) => (prev.includes(key) ? prev.filter((entry) => entry !== key) : [...prev, key]));
+    setSelectedIds((prev) => {
+      const active = prev.filter((entry) => recipientIds.includes(entry));
+      return active.includes(key) ? active.filter((entry) => entry !== key) : [...active, key];
+    });
+  };
+
+  const toggleAllRecipients = () => {
+    setSelectedIds(allRecipientsSelected ? [] : recipientIds);
   };
 
   const refreshRecipients = () => {
@@ -177,7 +210,7 @@ function NotificationsPage() {
 
   const create = async (event) => {
     event.preventDefault();
-    if (!selectedIds.length) {
+    if (!activeSelectedIds.length) {
       showToast("Select at least one recipient.", "error");
       return;
     }
@@ -191,7 +224,7 @@ function NotificationsPage() {
         message: form.message.trim(),
         eventType: "MANUAL",
         subject: form.subject.trim(),
-        recipientUserIds: selectedIds,
+        recipientUserIds: activeSelectedIds,
       });
       showToast("Notification sent", "success");
       setForm({ message: "", subject: "" });
@@ -275,36 +308,71 @@ function NotificationsPage() {
                   Recipients
                 </span>
                 <div
-                  className="notifw-recipients"
-                  role="group"
-                  aria-labelledby="notifw-recipients-label"
+                  className={`notifw-recipient-picker${recipientsOpen ? " is-open" : ""}`}
+                  ref={recipientsRef}
                 >
-                  {showFilter ? (
-                    <input
-                      className="notifw-recipients__filter"
-                      type="search"
-                      value={recipientQuery}
-                      onChange={(event) => setRecipientQuery(event.target.value)}
-                      placeholder="Search employees by name or email"
-                      aria-label="Filter recipients"
-                    />
+                  <button
+                    type="button"
+                    className="notifw-recipient-picker__trigger"
+                    aria-expanded={recipientsOpen}
+                    aria-controls="notifw-recipient-menu"
+                    aria-labelledby="notifw-recipients-label"
+                    onClick={() => setRecipientsOpen((open) => !open)}
+                  >
+                    <span>
+                      {selectedRecipientCount
+                        ? `${selectedRecipientCount} recipient${selectedRecipientCount === 1 ? "" : "s"} selected`
+                        : "Select recipients"}
+                    </span>
+                    <span className="notifw-recipient-picker__chevron" aria-hidden="true" />
+                  </button>
+                  {recipientsOpen ? (
+                    <div
+                      className="notifw-recipient-menu"
+                      id="notifw-recipient-menu"
+                      role="group"
+                      aria-labelledby="notifw-recipients-label"
+                    >
+                      <label className="notifw-recipient notifw-recipient--all">
+                        <input
+                          type="checkbox"
+                          checked={allRecipientsSelected}
+                          ref={(node) => {
+                            if (node) node.indeterminate = someRecipientsSelected;
+                          }}
+                          disabled={!recipientIds.length}
+                          onChange={toggleAllRecipients}
+                        />
+                        <span className="notifw-recipient__name">Select all recipients</span>
+                      </label>
+                      {showFilter ? (
+                        <input
+                          className="notifw-recipients__filter"
+                          type="search"
+                          value={recipientQuery}
+                          onChange={(event) => setRecipientQuery(event.target.value)}
+                          placeholder="Search employees by name or email"
+                          aria-label="Filter recipients"
+                        />
+                      ) : null}
+                      <div className="notifw-recipients__list">
+                        {filteredRecipients.length === 0 ? (
+                          <p className="notifw-recipients__empty">No active employees found.</p>
+                        ) : (
+                          filteredRecipients.map((person) => (
+                            <label key={person._id} className="notifw-recipient" title={person.email}>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(String(person._id))}
+                                onChange={() => toggleRecipient(person._id)}
+                              />
+                              <span className="notifw-recipient__name">{person.name}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   ) : null}
-                  <div className="notifw-recipients__list">
-                    {filteredRecipients.length === 0 ? (
-                      <p className="notifw-recipients__empty">No active employees found.</p>
-                    ) : (
-                      filteredRecipients.map((person) => (
-                        <label key={person._id} className="notifw-recipient" title={person.email}>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(String(person._id))}
-                            onChange={() => toggleRecipient(person._id)}
-                          />
-                          <span className="notifw-recipient__name">{person.name}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -340,7 +408,7 @@ function NotificationsPage() {
                 <button
                   className="notifw-btn notifw-btn--primary"
                   type="submit"
-                  disabled={!selectedIds.length || !form.message.trim()}
+                  disabled={!selectedRecipientCount || !form.message.trim()}
                 >
                   Send to selected
                 </button>

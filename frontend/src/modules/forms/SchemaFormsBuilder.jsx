@@ -494,13 +494,12 @@ function SchemaFormsBuilder({ org, toolbar, openModuleId }) {
           </div>
           {editing ? null : (
             <p className="module-page-desc">
-              Schema-driven forms (pink-form): design questions, share the public link, and review
-              submissions with PDF receipts.
+              Create forms, share links, and review responses via PDF receipts
             </p>
           )}
         </div>
-        <div className="module-header-actions">
-          {editing ? (
+        {editing ? (
+          <div className="module-header-actions">
             <>
               <button
                 type="button"
@@ -515,14 +514,8 @@ function SchemaFormsBuilder({ org, toolbar, openModuleId }) {
                 Save changes
               </button>
             </>
-          ) : (
-            <>
-              <button type="button" className="wfBtn wfBtn--khaki" onClick={onAddForm}>
-                + Add Form
-              </button>
-            </>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
       {!editing && toolbar ? <div className="wf-seg-row">{toolbar}</div> : null}
 
@@ -786,6 +779,12 @@ function SchemaFormsBuilder({ org, toolbar, openModuleId }) {
         </>
       ) : (
         <div className="schema-forms__modules-section">
+          <div className="wfSectionHead">
+            <h2>Forms</h2>
+            <button type="button" className="wfBtn wfBtn--khaki wfBtn--sm" onClick={onAddForm}>
+              + Add Form
+            </button>
+          </div>
           {!modules.length ? (
             <p className="hint">No saved modules yet. Use + Add Form to create the first one.</p>
           ) : (

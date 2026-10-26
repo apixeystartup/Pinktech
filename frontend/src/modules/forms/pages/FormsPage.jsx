@@ -281,7 +281,6 @@ function FormsPage() {
           <TemplatesTab
             key={tenantKey || "home"}
             org={org}
-            toolbar={segToggle}
             onDesigningChange={setDesigning}
           />
         </div>

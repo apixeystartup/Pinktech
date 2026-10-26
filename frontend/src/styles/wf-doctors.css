@@ -415,6 +415,10 @@ html[data-theme="light"] .app-shell .module-page .doc-profile-layout {
   align-items: stretch;
 }
 
+html[data-theme="light"] .app-shell .module-page .doc-profile-summary {
+  margin-bottom: 24px;
+}
+
 html[data-theme="light"] .doc-profile-layout > .doc-profile-activity {
   grid-column: 1 / -1;
 }
@@ -423,6 +427,12 @@ html[data-theme="light"] .doc-profile-credentials,
 html[data-theme="light"] .doc-profile-compliance,
 html[data-theme="light"] .doc-profile-activity {
   padding: 20px 22px;
+}
+
+html[data-theme="light"] .app-shell .module-page .doc-profile-credentials {
+  border: 1px solid #e6e7dc;
+  border-radius: 14px;
+  background: #ffffff;
 }
 
 html[data-theme="light"] .doc-profile-section-head,
@@ -1028,9 +1038,10 @@ html[data-theme="light"] .doc-activity-item time {
   html[data-theme="light"] .doc-profile-credentials,
   html[data-theme="light"] .doc-profile-compliance,
   html[data-theme="light"] .doc-profile-activity {
-    padding: 0;
-    border: 0;
-    background: transparent;
+    padding: 18px;
+    border: 1px solid #e6e7dc;
+    border-radius: 14px;
+    background: #ffffff;
     box-shadow: none;
   }
 
