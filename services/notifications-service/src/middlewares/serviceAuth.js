@@ -17,12 +17,18 @@ function serviceAuthMiddleware(req, res, next) {
     permissionCodes = [];
   }
 
+  const accountRole = req.headers["x-auth-account-role"] || "employee";
+  const isSuperAdmin = req.headers["x-auth-is-super-admin"] === "true";
+
   req.auth = {
     userId,
     tenantId,
     baseTenantId: baseTenantId || tenantId,
     actingAsTenantId: tenantId !== baseTenantId ? tenantId : null,
     permissionCodes,
+    accountRole,
+    isSuperAdmin,
+    isAdmin: isSuperAdmin || accountRole === "tenant_admin",
   };
   req.tenantId = tenantId;
 

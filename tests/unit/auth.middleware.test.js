@@ -1,4 +1,5 @@
 const serviceAuth = require("../../services/org-service/src/middlewares/serviceAuth");
+const notificationsServiceAuth = require("../../services/notifications-service/src/middlewares/serviceAuth");
 
 describe("serviceAuth middleware", () => {
   it("rejects requests without gateway auth context", () => {
@@ -49,6 +50,36 @@ describe("serviceAuth middleware", () => {
     serviceAuth(req, {}, next);
 
     expect(req.auth.permissionCodes).toEqual([]);
+    expect(next).toHaveBeenCalledWith();
+  });
+});
+
+describe("notifications serviceAuth middleware", () => {
+  it("maps gateway role headers into request auth context", () => {
+    const req = {
+      headers: {
+        "x-auth-user-id": "user-1",
+        "x-auth-tenant-id": "tenant-1",
+        "x-auth-base-tenant-id": "tenant-1",
+        "x-auth-permission-codes": '["*"]',
+        "x-auth-account-role": "employee",
+        "x-auth-is-super-admin": "false",
+      },
+    };
+    const next = jest.fn();
+
+    notificationsServiceAuth(req, {}, next);
+
+    expect(req.auth).toEqual({
+      userId: "user-1",
+      tenantId: "tenant-1",
+      baseTenantId: "tenant-1",
+      actingAsTenantId: null,
+      permissionCodes: ["*"],
+      accountRole: "employee",
+      isSuperAdmin: false,
+      isAdmin: false,
+    });
     expect(next).toHaveBeenCalledWith();
   });
 });

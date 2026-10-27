@@ -65,6 +65,7 @@ function NotificationsPage() {
     isSuperAdmin;
   const canCompose =
     isTenantAdmin ||
+    permissionCodes.includes("*") ||
     permissionCodes.includes("notification.compose") ||
     permissionCodes.includes("report.view");
 
