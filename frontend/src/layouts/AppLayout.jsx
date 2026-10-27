@@ -310,19 +310,19 @@ function AppLayout() {
             {accountOpen ? (
               <div className="account-menu" role="menu">
                 <div className="account-menu-head">
-                  <div className="account-menu-profile">
-                    <span className="account-menu-name">{displayName || "Signed in"}</span>
-                    <span className="account-menu-mail">{accountEmail}</span>
-                    {empCode ? <span className="account-menu-meta">Employee ID {empCode}</span> : null}
-                    <span className="account-menu-meta">{designation}</span>
-                  </div>
-                  <div className="account-menu-brand">
+                  <div className="account-menu-profile-row">
                     {tenantLogo ? (
                       <img src={tenantLogo} className="account-menu-brand-logo" alt="" />
                     ) : (
                       <span className="account-menu-brand-logo account-menu-brand-fallback">{initialsOf(tenantName)}</span>
                     )}
-                    <span className="account-menu-brand-name">{tenantName}</span>
+                    <div className="account-menu-profile">
+                      <span className="account-menu-name">{displayName || "Signed in"}</span>
+                      <span className="account-menu-designation">{designation}</span>
+                      <span className="account-menu-mail">{accountEmail}</span>
+                      {empCode ? <span className="account-menu-meta">Employee ID {empCode}</span> : null}
+                      <span className="account-menu-brand-name">{tenantName}</span>
+                    </div>
                     {canEditBrand ? (
                       <>
                         <input

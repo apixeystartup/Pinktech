@@ -379,21 +379,20 @@
   background: #ffffff;
 }
 
+.account-menu-profile-row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 .account-menu-profile {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 3px;
-}
-
-.account-menu-brand {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 9px;
-  margin-top: 9px;
-  padding-top: 10px;
-  border-top: 1px solid #eeece4;
+  padding-top: 1px;
 }
 
 .account-menu-nav {
@@ -424,11 +423,11 @@
 
 .account-menu-brand-name {
   min-width: 0;
-  flex: 1 1 auto;
   overflow: hidden;
-  color: #26251f;
+  margin-top: 5px;
+  color: #75726a;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -472,6 +471,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-menu-designation {
+  color: #57554d;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .account-menu-mail {
