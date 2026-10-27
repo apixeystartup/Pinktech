@@ -121,9 +121,123 @@
 /* ------------------------------ account ----------------------------- */
 
 .topbar-actions {
+  display: flex;
   flex: 0 0 auto;
+  gap: 8px;
   margin-left: 0;
   align-items: center;
+}
+
+.inbox-bell {
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #57554d;
+  text-decoration: none;
+}
+
+.inbox-bell.is-notification {
+  color: #b89a00;
+}
+
+.inbox-bell.is-error {
+  color: #dc2626;
+}
+
+.inbox-bell.is-split {
+  color: #b89a00;
+}
+
+.inbox-bell:hover {
+  background: #f1f0e9;
+  color: #202018;
+}
+
+.inbox-bell.is-notification:hover {
+  color: #b89a00;
+}
+
+.inbox-bell.is-error:hover {
+  color: #dc2626;
+}
+
+.inbox-bell.is-split:hover {
+  color: #b89a00;
+}
+
+.inbox-bell:focus-visible {
+  outline: 2px solid #202018;
+  outline-offset: 2px;
+}
+
+.inbox-bell svg {
+  width: 21px;
+  height: 21px;
+}
+
+.inbox-bell__count {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  place-items: center;
+  border: 1px solid #ffffff;
+  border-radius: 999px;
+  background: #202018;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.inbox-bell__indicator {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.inbox-bell__indicator.is-notification {
+  background: #ffdf00;
+}
+
+.inbox-bell__indicator.is-error {
+  background: #dc2626;
+}
+
+.inbox-bell__indicator.is-split {
+  background: linear-gradient(90deg, #ffdf00 50%, #dc2626 50%);
+}
+
+[data-theme="dark"] .inbox-bell {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .inbox-bell.is-notification {
+  color: #ffdf00;
+}
+
+[data-theme="dark"] .inbox-bell.is-error {
+  color: #f87171;
+}
+
+[data-theme="dark"] .inbox-bell__count {
+  border-color: #020617;
+}
+
+[data-theme="dark"] .inbox-bell__indicator {
+  border-color: #020617;
 }
 
 .account {

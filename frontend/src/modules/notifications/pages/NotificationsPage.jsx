@@ -55,7 +55,7 @@ function attachmentOf(row) {
   };
 }
 
-function NotificationsPage() {
+function NotificationsPage({ embedded = false }) {
   const { showToast } = useToast();
   const { user, tenantContextId, permissionCodes = [], accountRole, isSuperAdmin } = useAuth();
   const isTenantAdmin =
@@ -81,47 +81,31 @@ function NotificationsPage() {
   const [recipientsOpen, setRecipientsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const recipientsRef = useRef(null);
+  const notificationsActive = useRef(true);
   const currentUserId = user?._id || user?.id;
 
   const loadNotifications = useCallback(async () => {
     try {
       const res = await api.get("/notifications");
-      setItems(res.data || []);
+      if (notificationsActive.current) setItems(res.data || []);
     } catch (error) {
-      showToast(getErrorMessage(error), "error");
+      if (notificationsActive.current) showToast(getErrorMessage(error), "error");
     } finally {
-      setLoading(false);
+      if (notificationsActive.current) setLoading(false);
     }
   }, [showToast]);
 
   useEffect(() => {
-    let active = true;
-    const load = async (markRead = false) => {
-      if (markRead) {
-        try {
-          await api.post("/notifications/read");
-        } catch (error) {
-          if (active) showToast(getErrorMessage(error), "error");
-        }
-      }
-      try {
-        const notifRes = await api.get("/notifications");
-        if (active) setItems(notifRes.data || []);
-      } catch (error) {
-        if (active) showToast(getErrorMessage(error), "error");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load(true);
-    const timer = setInterval(() => {
-      load(true);
-    }, 15000);
+    notificationsActive.current = true;
+    queueMicrotask(() => {
+      if (notificationsActive.current) loadNotifications();
+    });
+    const timer = setInterval(loadNotifications, 15000);
     return () => {
-      active = false;
+      notificationsActive.current = false;
       clearInterval(timer);
     };
-  }, [showToast, tenantContextId]);
+  }, [loadNotifications, tenantContextId]);
 
   useEffect(() => {
     if (!canCompose) return undefined;
@@ -305,12 +289,8 @@ function NotificationsPage() {
 
   const showFilter = composeUsers.length > FILTER_THRESHOLD;
 
-  return (
-    <ModulePage
-      title="Notifications"
-      description="Message employees, tenant administrators, and platform admins."
-    >
-      <div className="notifw-page">
+  const content = (
+    <div className="notifw-page">
         {canCompose ? (
           <section className="notifw-compose">
             <div className="notifw-compose__head">
@@ -455,7 +435,7 @@ function NotificationsPage() {
           </section>
         ) : null}
 
-        <h2 className="notifw-section">Inbox / activity</h2>
+        <h2 className="notifw-section">Notifications</h2>
 
         {loading ? (
           <div className="notifw-panel notifw-skeleton" aria-label="Loading messages">
@@ -553,9 +533,19 @@ function NotificationsPage() {
             </div>
           </>
         )}
-      </div>
-    </ModulePage>
+    </div>
   );
+
+  return embedded
+    ? content
+    : (
+      <ModulePage
+        title="Notifications"
+        description="Message employees, tenant administrators, and platform admins."
+      >
+        {content}
+      </ModulePage>
+    );
 }
 
 export default NotificationsPage;

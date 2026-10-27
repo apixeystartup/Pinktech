@@ -25,6 +25,7 @@ describe("audit.service", () => {
       status: "SUCCESS",
       errorMessage: null,
       metadata: { email: "john@test.com" },
+      durationMs: null,
     });
   });
 
@@ -42,6 +43,28 @@ describe("audit.service", () => {
       status: "SUCCESS",
       errorMessage: null,
       metadata: {},
+      durationMs: null,
     });
+  });
+
+  it("records elapsed request time when request context is available", async () => {
+    const { requestContextMiddleware } = require("../../shared/src/requestContext");
+    AuditLog.create.mockResolvedValue({ _id: "log-3" });
+
+    await new Promise((resolve, reject) => {
+      requestContextMiddleware({}, {}, async () => {
+        try {
+          await new Promise((done) => setTimeout(done, 2));
+          await auditService.writeAudit({ action: "SYSTEM_EVENT" });
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    expect(AuditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "SYSTEM_EVENT", durationMs: expect.any(Number) }),
+    );
   });
 });

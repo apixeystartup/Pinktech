@@ -7,7 +7,7 @@ export const ROUTE_PERMISSIONS = {
   "/forms": ["form.view"],
   "/kyc": ["kyc.manage", "workflow.submit"],
   "/notifications": [],
-  "/audit": ["audit.view"],
+  "/audit": [],
 };
 
 const NAV_SECTIONS = [
@@ -20,8 +20,7 @@ const NAV_SECTIONS = [
       { to: "/app/employee-management", label: "Employees", permissions: ROUTE_PERMISSIONS["/employee-management"], adminOnly: true },
       { to: "/app/doctors", label: "Doctors", permissions: ROUTE_PERMISSIONS["/doctors"] },
       { to: "/app/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"], adminOnly: true },
-      { to: "/app/notifications", label: "Notifications", permissions: ROUTE_PERMISSIONS["/notifications"] },
-      { to: "/app/audit", label: "Activity Log", permissions: ROUTE_PERMISSIONS["/audit"] },
+      { to: "/app/notifications", label: "Inbox & activity", permissions: ROUTE_PERMISSIONS["/notifications"] },
     ],
   },
 ];

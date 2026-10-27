@@ -6,6 +6,7 @@ const { connectMongo } = require("./db/mongoose");
 const errorMiddleware = require("./middlewares/error");
 const sanitizeMiddleware = require("./middlewares/sanitize");
 const requestLogger = require("./middlewares/requestLogger");
+const { requestContextMiddleware, getRequestDurationMs } = require("./requestContext");
 const upload = require("./middlewares/upload");
 const notificationAdapter = require("./mailer");
 const placeholders = require("./placeholders");
@@ -21,6 +22,8 @@ module.exports = {
   errorMiddleware,
   sanitizeMiddleware,
   requestLogger,
+  requestContextMiddleware,
+  getRequestDurationMs,
   upload,
   notificationAdapter,
   ...placeholders,

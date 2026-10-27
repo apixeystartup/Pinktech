@@ -11,6 +11,8 @@ const ACTION_LABELS = {
   AUTH_OTP_VERIFY: "OTP verification",
   AUTH_PASSWORD_SET: "Password set",
   AUTH_PASSWORD_RESET: "Password reset",
+  AUTH_PASSWORD_RESET_REQUESTED: "Password reset requested",
+  TENANT_ADMIN_ACCOUNT_UNLOCKED: "Admin unlocked",
   USER_INVITED: "Employee invited",
   USER_UPDATED: "Employee updated",
   USER_DELETED: "Employee deleted",
@@ -43,7 +45,7 @@ const ACTION_LABELS = {
   ROLE_UPDATED: "Role updated",
   ROLE_DELETED: "Role deleted",
   ROLE_DELETED_BULK: "Roles deleted",
-  ORG_ADD_EMPLOYEE: "Employee added to org",
+  ORG_ADD_EMPLOYEE: "Org employee added",
   ORG_SET_MANAGER: "Manager updated",
   ORG_SET_ROLE: "Org role updated",
   ORG_MARK_LEFT: "Employee marked left",
@@ -61,12 +63,46 @@ const ACTION_LABELS = {
 function actionLabel(action) {
   if (!action) return "Activity";
   if (ACTION_LABELS[action]) return ACTION_LABELS[action];
-  return String(action)
+  const rawAction = String(action).trim();
+  const request = rawAction.match(/^([A-Z]+)\s+(\/\S*)$/i);
+  if (request) {
+    const [, method, path] = request;
+    const segments = path.split("/").filter(Boolean);
+    if (segments[segments.length - 1]?.toLowerCase() === "ancestry") return "View ancestry";
+    const resource = segments.reverse().find((segment) => !/^(v\d+|\d+|[a-f\d]{16,}|<?:?[a-z]+id>?)$/i.test(segment));
+    const verb = {
+      GET: "View",
+      POST: "Create",
+      PUT: "Update",
+      PATCH: "Update",
+      DELETE: "Delete",
+    }[method.toUpperCase()] || "Process";
+    const subject = String(resource || "request")
+      .replace(/[-_]+/g, " ")
+      .replace(/s$/, "");
+    return `${verb} ${subject}`.trim().split(/\s+/).slice(0, 3).join(" ");
+  }
+  return rawAction
     .toLowerCase()
     .split("_")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .slice(0, 3)
     .join(" ");
+}
+
+function formatDuration(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  const durationMs = Number(value);
+  if (!Number.isFinite(durationMs) || durationMs < 0) return "—";
+  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
+  const totalSeconds = Math.round(durationMs / 1000);
+  if (totalSeconds < 60) {
+    return `${(durationMs / 1000).toFixed(1).replace(/\.0$/, "")} s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
 }
 
 function actionTone(action = "") {
@@ -130,7 +166,7 @@ function Icon({ name }) {
   );
 }
 
-function AuditPage() {
+function AuditPage({ embedded = false }) {
   const { showToast } = useToast();
   const { tenantContextId, accountRole, isSuperAdmin } = useAuth();
   const [items, setItems] = useState([]);
@@ -218,22 +254,28 @@ function AuditPage() {
     { key: "ERROR", label: "Errors", count: meta.errorCount, danger: true },
   ];
 
-  return (
-    <ModulePage
-      title="Activity Log"
-      description={
-        <>
-          <span className="audit-desc-prefix">{`${roleLabel} view · ${meta.scope || "Your scoped audit trail."} `}</span>
-          Every action is recorded with its outcome.
-        </>
-      }
-      actions={
-        <span className={`audit-role-pill audit-role-pill--${role}`}>
-          {roleLabel}
-        </span>
-      }
-    >
-      <div className="audit-page">
+  const description = (
+    <>
+      <span className="audit-desc-prefix">{`${roleLabel} view · ${meta.scope || "Your scoped audit trail."} `}</span>
+      Every action is recorded with its outcome.
+    </>
+  );
+  const rolePill = (
+    <span className={`audit-role-pill audit-role-pill--${role}`}>
+      {roleLabel}
+    </span>
+  );
+  const content = (
+    <div className="audit-page">
+      {embedded ? (
+        <div className="audit-embedded-header">
+          <div>
+            <h2>Activity log</h2>
+            <p>{description}</p>
+          </div>
+          {rolePill}
+        </div>
+      ) : null}
       <div className="audit-stat-row">
         <div className="audit-stat">
           <span className="audit-stat__icon audit-stat__icon--total"><Icon name="clock" /></span>
@@ -317,6 +359,7 @@ function AuditPage() {
                   <th>At</th>
                   <th>Action</th>
                   <th>User</th>
+                  <th>Time taken</th>
                   <th className="audit-table__status-col">Status</th>
                 </tr>
               </thead>
@@ -339,7 +382,6 @@ function AuditPage() {
                           </span>
                           <div>
                             <strong>{actionLabel(item.action)}</strong>
-                            <span className="audit-action__raw">{item.action}</span>
                           </div>
                         </div>
                       </td>
@@ -356,6 +398,7 @@ function AuditPage() {
                           </div>
                         </div>
                       </td>
+                      <td className="audit-duration">{formatDuration(item.durationMs)}</td>
                       <td className="audit-table__status-col">
                         <button
                           type="button"
@@ -403,14 +446,14 @@ function AuditPage() {
                   <div className="audit-card__body">
                     <div className="audit-card__row">
                       <strong>{actionLabel(item.action)}</strong>
-                      <span>{item.action}</span>
                     </div>
                     <div className="audit-card__row">
                       <strong>{userDisplayLabel(user)}</strong>
-                      <span>
-                        {user?.empCode ? `EMP ${user.empCode} · ` : ""}
-                        {item.tenantOrgLabel || "Platform"}
-                      </span>
+                      <span>{user?.empCode ? `EMP ${user.empCode} · ` : ""}{item.tenantOrgLabel || "Platform"}</span>
+                    </div>
+                    <div className="audit-card__row">
+                      <strong>Time taken</strong>
+                      <span>{formatDuration(item.durationMs)}</span>
                     </div>
                   </div>
                 </article>
@@ -500,6 +543,10 @@ function AuditPage() {
                     </span>
                   </dd>
                 </div>
+                <div>
+                  <dt>Time taken</dt>
+                  <dd>{formatDuration(selectedError.durationMs)}</dd>
+                </div>
               </dl>
 
               {selectedError.status === "ERROR" ? (
@@ -520,9 +567,16 @@ function AuditPage() {
           </div>
         </div>
       ) : null}
-      </div>
-    </ModulePage>
+    </div>
   );
+
+  return embedded
+    ? content
+    : (
+      <ModulePage title="Activity Log" description={description} actions={rolePill}>
+        {content}
+      </ModulePage>
+    );
 }
 
 export default AuditPage;

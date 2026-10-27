@@ -69,6 +69,31 @@ html[data-theme="light"] .content:has(.audit-page) .module-header {
   border-bottom: 1px solid #d4d5c8;
 }
 
+html[data-theme="light"] .content:has(.audit-page) .audit-embedded-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 34px 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d4d5c8;
+}
+
+html[data-theme="light"] .content:has(.audit-page) .audit-embedded-header h2 {
+  margin: 0;
+  color: #202018;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+html[data-theme="light"] .content:has(.audit-page) .audit-embedded-header p {
+  margin: 5px 0 0;
+  color: #515045;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 html[data-theme="light"] .content:has(.audit-page) .module-page h1 {
   margin: 0;
   color: #202018;
@@ -288,7 +313,7 @@ html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-tab
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 760px;
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -307,19 +332,23 @@ html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-tab
 }
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table th:nth-child(1) {
-  width: 21.5%;
+  width: 17%;
 }
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table th:nth-child(2) {
-  width: 26.3%;
+  width: 24%;
 }
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table th:nth-child(3) {
-  width: 30.3%;
+  width: 30%;
 }
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table th:nth-child(4) {
-  width: 22.1%;
+  width: 13%;
+}
+
+html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table th:nth-child(5) {
+  width: 16%;
 }
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-table td {
@@ -402,6 +431,11 @@ html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-use
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-user__text > span {
   color: #515045;
   font-size: 14px;
+}
+
+html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-duration {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-emp {
@@ -563,6 +597,12 @@ html[data-theme="light"] .app-shell .content .module-page .audit-page .audit-ske
     margin: 0 0 17px;
     padding: 0;
     border-bottom: 0;
+  }
+
+  html[data-theme="light"] .content:has(.audit-page) .audit-embedded-header {
+    align-items: flex-start;
+    gap: 8px;
+    margin: 28px 0 16px;
   }
 
   html[data-theme="light"] .content:has(.audit-page) .module-page h1 {

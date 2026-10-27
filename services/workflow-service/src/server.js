@@ -3,7 +3,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const compression = require("compression");
 const hpp = require("hpp");
-const { connectMongo, errorMiddleware, sanitizeMiddleware, requestLogger, logger } = require("@pink/shared");
+const { connectMongo, errorMiddleware, sanitizeMiddleware, requestLogger, requestContextMiddleware, logger } = require("@pink/shared");
 const env = require("./config/env");
 const serviceAuth = require("./middlewares/serviceAuth");
 const workflowsRoutes = require("./routes/workflows.route");
@@ -18,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(hpp());
 app.use(sanitizeMiddleware);
 app.use(requestLogger);
+app.use(requestContextMiddleware);
 
 app.get("/health", (req, res) => res.json({ status: "ok", service: "workflow" }));
 

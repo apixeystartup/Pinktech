@@ -16,8 +16,7 @@ import RolesPage from "./modules/roles/pages/RolesPage";
 import OrgEmployeePage from "./pages/OrgEmployeePage";
 import FormsPage from "./modules/forms/pages/FormsPage";
 import KycPage from "./modules/kyc/pages/KycPage";
-import NotificationsPage from "./modules/notifications/pages/NotificationsPage";
-import AuditPage from "./modules/audit/pages/AuditPage";
+import InboxActivityPage from "./modules/notifications/pages/InboxActivityPage";
 import EmployeeManagementPage from "./modules/users/pages/EmployeeManagementPage";
 import DoctorManagementPage from "./modules/doctors/pages/DoctorManagementPage";
 import DoctorDetailsPage from "./modules/doctors/pages/DoctorDetailsPage";
@@ -122,7 +121,7 @@ function App() {
                 path="notifications"
                 element={
                   <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/notifications"]}>
-                    <NotificationsPage />
+                    <InboxActivityPage />
                   </ProtectedRoute>
                 }
               />
@@ -130,7 +129,7 @@ function App() {
                 path="audit"
                 element={
                   <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/audit"]}>
-                    <AuditPage />
+                    <InboxActivityPage />
                   </ProtectedRoute>
                 }
               />

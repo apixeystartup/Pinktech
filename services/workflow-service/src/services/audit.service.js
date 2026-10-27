@@ -1,4 +1,5 @@
 const AuditLog = require("../models/auditLog.model");
+const { getRequestDurationMs } = require("@pink/shared");
 
 async function writeAudit({
   tenantId = null,
@@ -16,6 +17,7 @@ async function writeAudit({
       status,
       errorMessage,
       metadata,
+      durationMs: getRequestDurationMs(),
     });
   } catch (error) {
     // Auditing must never break the action it is recording.

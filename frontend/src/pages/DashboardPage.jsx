@@ -18,117 +18,9 @@ import {
   HappeningCard,
   HeaderButtons,
   IconArrow,
-  IconSpark,
   StatCards,
 } from "../components/dashboard/DashboardBlocks";
 import { downloadReport } from "../components/dashboard/reportDownload";
-
-/* The banner of Screen 1: whichever step the account is on, phrased the
- * same way the wireframe phrases it, with the button label it draws. */
-function getDashboardNextStep(data) {
-  if (!data) return null;
-
-  const summary = data.summary || {};
-  if (data.role === "super_admin") {
-    if (!summary.totalTenants) {
-      return {
-        title: "Create your first tenant",
-        detail: "Tenants keep each organization's people, forms and doctor records separate.",
-        to: "/app/tenants",
-        action: "Create a tenant",
-        cta: "Create a tenant",
-      };
-    }
-    if (!summary.totalEmployees) {
-      return {
-        title: "Set up tenant access",
-        detail: "Create roles and add employees so each tenant can manage its own work.",
-        to: "/app/roles",
-        action: "Set up roles",
-        cta: "Set up roles",
-      };
-    }
-    if (!summary.totalForms) {
-      return {
-        title: "Create a reusable form",
-        detail: "Build and publish a form before assigning it to doctors.",
-        to: "/app/forms",
-        action: "Create a form",
-        cta: "Create a form",
-      };
-    }
-    if (!summary.totalDoctors) {
-      return {
-        title: "Add your first doctor",
-        detail: "Create a doctor profile, then attach the relevant compliance form.",
-        to: "/app/doctors",
-        action: "Add a doctor",
-        cta: "Add a doctor",
-      };
-    }
-    return {
-      title: "Review tenant progress",
-      detail: "Check which tenants are active, invite their teams, and keep forms moving.",
-      to: "/app/tenants",
-      action: "View tenants",
-      cta: "Open tenant overview",
-    };
-  }
-
-  if (data.role === "tenant_admin") {
-    if (!summary.totalEmployees) {
-      return {
-        title: "Add your team",
-        detail: "Set up employees and reporting lines before assigning work.",
-        to: "/app/employee-management",
-        action: "Add employees",
-        cta: "Add employees",
-      };
-    }
-    if (!summary.formsCreated) {
-      return {
-        title: "Create your first form",
-        detail: "Build and publish a reusable form for your doctor workflows.",
-        to: "/app/forms",
-        action: "Create a form",
-        cta: "Create a form",
-      };
-    }
-    if (!summary.totalDoctors) {
-      return {
-        title: "Onboard a doctor",
-        detail: "Create a doctor profile, then assign the right form.",
-        to: "/app/doctors",
-        action: "Add a doctor",
-        cta: "Add a doctor",
-      };
-    }
-    return {
-      title: "Review doctor progress",
-      detail: "Open a doctor profile to check submitted forms and approvals.",
-      to: "/app/doctors",
-      action: "View doctors",
-      cta: "Open doctor overview",
-    };
-  }
-
-  if (!data.usersCreated?.length) {
-    return {
-      title: "Start by onboarding a doctor",
-      detail: "Add a doctor profile, then open it to continue with assigned work.",
-      to: "/app/doctors",
-      action: "Open doctors",
-      cta: "Open doctors",
-    };
-  }
-  return {
-    title: "Continue with a doctor profile",
-    detail: "Choose a doctor to review their forms and any work waiting for you.",
-    to: "/app/doctors",
-    action: "View doctors",
-    cta: "Open doctors",
-  };
-}
 
 function ExpandToggle({ expanded, label }) {
   return (
@@ -975,7 +867,6 @@ function DashboardPage() {
   const model = useMemo(() => buildDashboardModel(data), [data]);
   const feed = usePlatformActivity(data);
   const activity = useRecentActivity();
-  const dashboardStep = getDashboardNextStep(data);
 
   const statCards = useMemo(() => buildStatCards(data, feed), [data, feed]);
   const series = useMemo(() => buildWeekSeries(feed), [feed]);
@@ -1000,7 +891,7 @@ function DashboardPage() {
     ? { label: "Create a tenant", to: "/app/tenants" }
     : data?.role === "tenant_admin" || accountRole === "tenant_admin"
       ? { label: "Add employee", to: "/app/employee-management" }
-      : { label: "New form", to: "/app/forms" };
+      : null;
 
   return (
     <section className="wf-dash">
@@ -1022,26 +913,6 @@ function DashboardPage() {
 
       {!loading && !error && data && model ? (
         <>
-          {dashboardStep ? (
-            <section className="wf-nba">
-              <span className="wf-nba-mark" aria-hidden="true">
-                <IconSpark />
-              </span>
-              <div className="wf-nba-copy">
-                <p className="wf-nba-kicker">Your next best action</p>
-                <p className="wf-nba-title">{dashboardStep.title}</p>
-                <p className="wf-nba-detail">{dashboardStep.detail}</p>
-              </div>
-              <div className="wf-nba-action">
-                <Link className="wf-nba-btn" to={dashboardStep.to}>
-                  {dashboardStep.cta || dashboardStep.action}
-                  <IconArrow />
-                </Link>
-                <span className="wf-nba-note">Takes about 2 minutes</span>
-              </div>
-            </section>
-          ) : null}
-
           <StatCards cards={statCards} />
 
           <div className={`wf-mid${attention.length ? "" : " wf-mid--solo"}`}>

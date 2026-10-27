@@ -20,7 +20,7 @@ const PRIMARY_TABS = [
   { to: "/app", label: "Dashboard", icon: "dashboard" },
   { to: "/app/tenants", label: "Tenants", icon: "tenants" },
   { to: "/app/forms", label: "Forms", icon: "forms" },
-  { to: "/app/audit", label: "Activity", icon: "activity" },
+  { to: "/app/notifications", label: "Inbox", icon: "activity" },
 ];
 
 const TAB_ICONS = {
@@ -50,7 +50,9 @@ const TAB_ICONS = {
 };
 
 function isActivePath(pathname, to) {
-  return to === "/app" ? pathname === "/app" : pathname === to || pathname.startsWith(`${to}/`);
+  if (to === "/app") return pathname === "/app";
+  if (to === "/app/notifications" && pathname.startsWith("/app/audit")) return true;
+  return pathname === to || pathname.startsWith(`${to}/`);
 }
 
 function AppLayout() {
@@ -66,37 +68,46 @@ function AppLayout() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [auditErrorCount, setAuditErrorCount] = useState(0);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [savingLogo, setSavingLogo] = useState(false);
   const accountRef = useRef(null);
   const logoInputRef = useRef(null);
   const orgAdmin = isAdminRole(accountRole, isSuperAdmin);
 
-  // The badge counts errors since the current user's last visit to Activity.
+  // Counts stay unread until the user opens the shared inbox/activity page.
   useEffect(() => {
     let active = true;
-    const loadErrorCount = async () => {
-      try {
-        const res = await api.get("/audit/logs", { params: { limit: 1, status: "ERROR" } });
-        if (active) setAuditErrorCount(Number(res.data?.unreadErrorCount || 0));
-      } catch {
-        // Preserve the last known count when the badge refresh is temporarily unavailable.
+    const loadCounts = async () => {
+      const [auditResult, notificationResult] = await Promise.allSettled([
+        api.get("/audit/logs", { params: { limit: 1, status: "ERROR" } }),
+        api.get("/notifications/unread-count"),
+      ]);
+      if (!active) return;
+      if (auditResult.status === "fulfilled") {
+        setAuditErrorCount(Number(auditResult.value.data?.unreadErrorCount || 0));
+      }
+      if (notificationResult.status === "fulfilled") {
+        setNotificationUnreadCount(Number(notificationResult.value.data?.unreadCount || 0));
       }
     };
-    if (pathname.startsWith("/app/audit")) {
-      api
-        .post("/audit/logs/read")
-        .then(() => {
-          if (!active) return;
-          setAuditErrorCount(0);
-          loadErrorCount();
-        })
-        .catch((error) => {
-          if (active) showToast(getErrorMessage(error), "error");
-        });
+    const inboxIsOpen =
+      pathname.startsWith("/app/notifications") || pathname.startsWith("/app/audit");
+    if (inboxIsOpen) {
+      Promise.allSettled([
+        api.post("/notifications/read"),
+        api.post("/audit/logs/read"),
+      ]).then((results) => {
+        if (!active) return;
+        if (results[0].status === "fulfilled") setNotificationUnreadCount(0);
+        if (results[1].status === "fulfilled") setAuditErrorCount(0);
+        const failed = results.find((result) => result.status === "rejected");
+        if (failed) showToast(getErrorMessage(failed.reason), "error");
+        loadCounts();
+      });
     } else {
-      loadErrorCount();
+      loadCounts();
     }
-    const timer = setInterval(loadErrorCount, 30000);
+    const timer = setInterval(loadCounts, 30000);
     return () => {
       active = false;
       clearInterval(timer);
@@ -238,6 +249,8 @@ function AppLayout() {
   const mobileTitle =
     pathname.startsWith("/app/forms")
       ? "Forms templates"
+      : pathname.startsWith("/app/notifications") || pathname.startsWith("/app/audit")
+        ? "Inbox & activity"
       : navItems.find((item) => isActivePath(pathname, item.to))?.label || "Dashboard";
   const primaryTabs = PRIMARY_TABS.map((tab) => ({
     ...tab,
@@ -285,6 +298,34 @@ function AppLayout() {
         </nav>
 
         <div className="topbar-actions">
+          <Link
+            className={`inbox-bell${notificationUnreadCount && auditErrorCount ? " is-split" : notificationUnreadCount ? " is-notification" : auditErrorCount ? " is-error" : ""}`}
+            to="/app/notifications"
+            aria-label={`Inbox and activity: ${notificationUnreadCount} unread notifications and ${auditErrorCount} unread audit errors`}
+            title={`${notificationUnreadCount} unread notification${notificationUnreadCount === 1 ? "" : "s"} · ${auditErrorCount} unread audit error${auditErrorCount === 1 ? "" : "s"}`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke={notificationUnreadCount && auditErrorCount ? "url(#inbox-bell-split)" : "currentColor"} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <defs>
+                <linearGradient id="inbox-bell-split">
+                  <stop offset="50%" stopColor="#b89a00" />
+                  <stop offset="50%" stopColor="#dc2626" />
+                </linearGradient>
+              </defs>
+              <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+              <path d="M10 21h4" />
+            </svg>
+            {(notificationUnreadCount + auditErrorCount) > 0 ? (
+              <>
+                <span className="inbox-bell__count" aria-hidden="true">
+                  {(notificationUnreadCount + auditErrorCount) > 99 ? "99+" : notificationUnreadCount + auditErrorCount}
+                </span>
+                <span
+                  className={`inbox-bell__indicator${notificationUnreadCount && auditErrorCount ? " is-split" : notificationUnreadCount ? " is-notification" : " is-error"}`}
+                  aria-hidden="true"
+                />
+              </>
+            ) : null}
+          </Link>
           <div className="account" ref={accountRef}>
             <button
               type="button"

@@ -8,6 +8,7 @@ const auditLogSchema = new mongoose.Schema(
     status: { type: String, enum: ["SUCCESS", "ERROR"], default: "SUCCESS", index: true },
     errorMessage: { type: String, default: null },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    durationMs: { type: Number, min: 0, default: null },
   },
   { timestamps: true }
 );

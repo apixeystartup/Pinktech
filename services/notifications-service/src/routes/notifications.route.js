@@ -158,6 +158,22 @@ router.post("/read", serviceAuth, async (req, res, next) => {
   }
 });
 
+router.get("/unread-count", serviceAuth, async (req, res, next) => {
+  try {
+    const unreadCount = await Notification.countDocuments({
+      channel: "IN_APP",
+      readAt: null,
+      $or: [
+        { recipientUserId: req.auth.userId },
+        { recipientUserId: null, userId: req.auth.userId },
+      ],
+    });
+    res.status(200).json({ unreadCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/", serviceAuth, async (req, res, next) => {
   try {
     const isAdmin = isTenantAdminUser(req);
