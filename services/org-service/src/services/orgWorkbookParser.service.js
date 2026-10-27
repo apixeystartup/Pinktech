@@ -2,37 +2,29 @@ const ExcelJS = require("exceljs");
 const { clean } = require("../utils/orgNorm");
 
 const HEADER_MAP = {
-  "S.NO.": "sno",
-  "S NO": "sno",
-  SNO: "sno",
+  EMPLOYEE: "name",
+  "EMPLOYEE NAME": "name",
+  "NAME OF THE EMPLOYEE": "name",
+  NAME: "name",
+  "EMPLOYEE DESIGNATION": "designation",
+  DESIGNATION: "designation",
+  "EMAIL ID": "workEmail",
+  "EMAIL-ID": "workEmail",
+  "EMAIL I'D": "workEmail",
+  "E-MAIL ID": "workEmail",
+  HQ: "hq",
+  AREA: "area",
+  REGION: "region",
+  ZONE: "zone",
+  "REPORTING MANAGER": "reportingManagerRaw",
+  "REPORTING MANAGER NAME": "reportingManagerRaw",
+  "EMPLOYEE CODE": "empId",
   "EMP ID": "empId",
   "EMP CODE": "empId",
   "EMPLOYEE ID": "empId",
-  "EMPLOYEE CODE": "empId",
   "NAME OF THE EMPLOYEES": "name",
-  "EMPLOYEE NAME": "name",
-  NAME: "name",
-  DESIGNATION: "designation",
-  "REPORTING MANAGER": "reportingManagerRaw",
-  "REPORTING MANAGER NAME": "reportingManagerRaw",
   "REPORTS TO": "reportingManagerRaw",
   MANAGER: "reportingManagerRaw",
-  HQ: "hq",
-  REGION: "region",
-  STATE: "state",
-  ZONE: "zone",
-  DOJ: "doj",
-  DOB: "dob",
-  GENDER: "gender",
-  "PHONE NUMBER": "phone",
-  PHONE: "phone",
-  MOBILE: "phone",
-  "MOBILE NUMBER": "phone",
-  "CONTACT NUMBER": "phone",
-  "CONTACT NO": "phone",
-  "CONTACT NO.": "phone",
-  "PHONE NO": "phone",
-  "PHONE NO.": "phone",
   EMAIL: "workEmail",
   "E-MAIL": "workEmail",
   "E MAIL": "workEmail",
@@ -72,6 +64,7 @@ function normalizeHeaderKey(raw) {
     .replace(/[\t\n\r]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/:+\s*$/, "")
+    .replace(/['’]/g, "")
     .toUpperCase();
 }
 
@@ -168,18 +161,6 @@ function cellAsText(cell) {
   return null;
 }
 
-function valueDate(cellValue) {
-  if (cellValue === null || cellValue === undefined || cellValue === "") return null;
-  if (cellValue instanceof Date) return cellValue.toISOString().slice(0, 10);
-  if (typeof cellValue === "object" && cellValue && "result" in cellValue) {
-    const r = cellValue.result;
-    if (r instanceof Date) return r.toISOString().slice(0, 10);
-    if (r) return String(r).trim();
-    return null;
-  }
-  return clean(String(cellValue));
-}
-
 function buildHeaderToColForRow(headerRow) {
   const headerToCol = new Map();
   const headerMeta = [];
@@ -209,9 +190,20 @@ function scoreHeaderCandidate(headerToCol) {
   if (headerToCol.has("workEmail")) s += 50;
   if (headerToCol.has("designation")) s += 10;
   if (headerToCol.has("reportingManagerRaw")) s += 10;
-  if (headerToCol.has("phone")) s += 5;
   return s;
 }
+
+const REQUIRED_COLUMNS = [
+  ["name", "Employee"],
+  ["designation", "Employee Designation"],
+  ["workEmail", "Email ID"],
+  ["hq", "HQ"],
+  ["area", "Area"],
+  ["region", "Region"],
+  ["zone", "Zone"],
+  ["reportingManagerRaw", "Reporting Manager"],
+  ["empId", "Employee Code"],
+];
 
 function detectHeaderRowNumber(ws) {
   const maxScan = Math.min(5, ws.rowCount || 0);
@@ -241,6 +233,15 @@ async function parseOrgWorkbookBuffer(buf) {
 
   const headerRn = detectHeaderRowNumber(ws);
   const { headerToCol } = buildHeaderToColForRow(ws.getRow(headerRn));
+  const missingColumns = REQUIRED_COLUMNS
+    .filter(([key]) => !headerToCol.has(key))
+    .map(([, label]) => label);
+  if (missingColumns.length) {
+    throw new Error(
+      `Invalid organization workbook format. Missing columns: ${missingColumns.join(", ")}. ` +
+      "Use this header format: Employee, Employee Designation, Email ID, HQ, Area, Region, Zone, Reporting Manager, Employee Code."
+    );
+  }
 
   const out = [];
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
@@ -250,39 +251,25 @@ async function parseOrgWorkbookBuffer(buf) {
       if (!col) return null;
       return valueText(row.getCell(col).value);
     };
-    const dateAt = (k) => {
-      const col = headerToCol.get(k);
-      if (!col) return null;
-      return valueDate(row.getCell(col).value);
-    };
-
     const empId = v("empId");
     const name = v("name");
     if (!empId && !name) return;
 
-    const snoText = v("sno");
-    const snoNum = snoText && /^\d+$/.test(snoText) ? Number(snoText) : null;
     const isVacant = !empId || (name || "").toUpperCase().trim() === "VACANT";
 
-    const workEmailCol = headerToCol.get("workEmail");
-    const workEmail = workEmailCol ? cellAsText(row.getCell(workEmailCol)) : null;
+    const workEmail = cellAsText(row.getCell(headerToCol.get("workEmail")));
 
     out.push({
       rowNumber,
-      sno: snoNum,
       empId,
       name: name || "VACANT",
       designation: v("designation"),
       reportingManagerRaw: v("reportingManagerRaw"),
       workEmail,
-      phone: v("phone"),
       hq: v("hq"),
+      area: v("area"),
       region: v("region"),
-      state: v("state"),
       zone: v("zone"),
-      doj: dateAt("doj"),
-      dob: dateAt("dob"),
-      gender: v("gender"),
       isVacant,
     });
   });

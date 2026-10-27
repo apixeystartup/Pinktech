@@ -80,6 +80,7 @@ function NotificationsPage({ embedded = false }) {
   const [recipientNonce, setRecipientNonce] = useState(0);
   const [recipientsOpen, setRecipientsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
   const recipientsRef = useRef(null);
   const notificationsActive = useRef(true);
   const currentUserId = user?._id || user?.id;
@@ -147,6 +148,15 @@ function NotificationsPage({ embedded = false }) {
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
+
+  useEffect(() => {
+    if (!selectedMessage) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSelectedMessage(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [selectedMessage]);
 
   const filteredRecipients = useMemo(() => {
     const needle = recipientQuery.trim().toLowerCase();
@@ -282,6 +292,7 @@ function NotificationsPage({ embedded = false }) {
           status: titleCase(row.status),
           sent: sentLabel(row.createdAt),
           attachment: attachmentOf(row),
+          message: String(row.message || ""),
         };
       }),
     [threadItems, currentUserId],
@@ -454,25 +465,39 @@ function NotificationsPage({ embedded = false }) {
               <table className="notifw-table">
                 <colgroup>
                   <col style={{ width: "18%" }} />
-                  <col style={{ width: "27%" }} />
                   <col style={{ width: "21%" }} />
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "19%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "15%" }} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th>Recipient</th>
                     <th>Subject</th>
+                    <th>View message</th>
                     <th>Attachment</th>
                     <th>Status</th>
                     <th>Sent</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ row, party, subject, status, sent, attachment }) => (
+                  {rows.map(({ row, party, subject, status, sent, attachment, message }) => (
                     <tr key={row._id}>
                       <td>{party}</td>
                       <td className="notifw-cell-subject">{subject}</td>
+                      <td>
+                        {message ? (
+                          <button
+                            type="button"
+                            className="notifw-message-link"
+                            onClick={() => setSelectedMessage({ subject, message })}
+                            aria-label={`View message: ${subject}`}
+                          >
+                            View message
+                          </button>
+                        ) : <span className="notifw-muted">—</span>}
+                      </td>
                       <td className="notifw-cell-attachment">
                         {attachment.name ? (
                           attachment.href ? (
@@ -502,7 +527,7 @@ function NotificationsPage({ embedded = false }) {
             </div>
 
             <div className="notifw-cards notifw-only-mob">
-              {rows.map(({ row, isSent, party, subject, status, attachment }) => (
+              {rows.map(({ row, isSent, party, subject, status, attachment, message }) => (
                 <article key={row._id} className="notifw-card">
                   <div className="notifw-card__top">
                     <span className="notifw-kind">{isSent ? "Activity" : "Inbox"}</span>
@@ -528,11 +553,52 @@ function NotificationsPage({ embedded = false }) {
                       ) : null}
                     </p>
                   ) : null}
+                  {message ? (
+                    <button
+                      type="button"
+                      className="notifw-message-link notifw-card__message"
+                      onClick={() => setSelectedMessage({ subject, message })}
+                    >
+                      View message
+                    </button>
+                  ) : null}
                 </article>
               ))}
             </div>
           </>
         )}
+        {selectedMessage ? (
+          <div
+            className="notifw-message-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSelectedMessage(null);
+            }}
+          >
+            <section
+              className="notifw-message-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="notifw-message-title"
+            >
+              <div className="notifw-message-dialog__head">
+                <div>
+                  <h2 id="notifw-message-title">Message</h2>
+                  <p>{selectedMessage.subject}</p>
+                </div>
+                <button
+                  type="button"
+                  className="notifw-message-dialog__close"
+                  onClick={() => setSelectedMessage(null)}
+                  aria-label="Close message"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="notifw-message-dialog__body">{selectedMessage.message}</div>
+            </section>
+          </div>
+        ) : null}
     </div>
   );
 

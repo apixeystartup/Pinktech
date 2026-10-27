@@ -1,10 +1,36 @@
 /* Org Explore — page-scoped wireframe alignment (Screens 7 & 8).
-   Light theme only: every rule is scoped to html[data-theme="light"] so dark
-   mode keeps the existing product-workspace / index.css treatment.
-   This file loads after product-workspace.css, and all selectors here are at
-   least as specific as the .org-page rules they override. */
+   Visual rules are light-theme scoped; the page grid is shared so the
+   Directory layout stays consistent across themes.
+   This file loads after product-workspace.css, and the light-theme selectors
+   here are at least as specific as the .org-page rules they override. */
 
 /* ─── Page grid ───────────────────────────────────────────── */
+
+.org-page .org-wf-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "top"
+    "directory"
+    "body";
+  gap: 22px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.org-page .org-wf-grid--wide {
+  grid-template-areas:
+    "top"
+    "body";
+}
+
+.org-page .org-wf-topbar { grid-area: top; }
+.org-page .org-directory { grid-area: directory; }
+.org-page .org-canvas,
+.org-page .org-profile,
+.org-page .org-role-panel,
+.org-page .org-wf-empty { grid-area: body; }
 
 html[data-theme="light"] .org-page .org-explorer-main {
   max-width: none;
@@ -23,11 +49,12 @@ html[data-theme="light"] .module-page:has(.org-page) .module-title-tenant {
 
 html[data-theme="light"] .org-page .org-wf-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "top top"
-    "directory body";
-  gap: 26px 46px;
+    "top"
+    "directory"
+    "body";
+  gap: 22px;
   align-items: stretch;
   width: 100%;
   min-width: 0;
@@ -133,11 +160,15 @@ html[data-theme="light"] .org-page .org-directory > div:first-child p {
 }
 
 html[data-theme="light"] .org-page .org-directory .org-wf-filters {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   padding: 20px;
   background: #ffffff;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-filters > .grid {
+  display: contents;
 }
 
 html[data-theme="light"] .org-page .org-directory input.org-wf-search,
@@ -150,6 +181,12 @@ html[data-theme="light"] .org-page .org-directory select.filter-select {
   background: #ffffff;
   color: #202018;
   font-size: 14px;
+}
+
+html[data-theme="light"] .org-page .org-directory input.org-wf-search,
+html[data-theme="light"] .org-page .org-directory .org-wf-checks,
+html[data-theme="light"] .org-page .org-directory .org-wf-filters > [role="alert"] {
+  grid-column: 1 / -1;
 }
 
 html[data-theme="light"] .org-page .org-directory input.org-wf-search::placeholder {
@@ -709,8 +746,14 @@ html[data-theme="light"] .org-page .roles-table tbody tr:hover {
   }
 
   html[data-theme="light"] .org-page .org-directory .org-wf-filters {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     padding: 16px;
+  }
+
+  html[data-theme="light"] .org-page .org-directory .org-wf-filters > .grid {
+    display: grid;
   }
 
   html[data-theme="light"] .org-page .org-directory .org-wf-filters .grid {

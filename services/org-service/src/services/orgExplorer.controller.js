@@ -91,6 +91,7 @@ function employeeCriteria(query) {
     q: asStr(query.q),
     zone: asStr(query.zone),
     region: asStr(query.region),
+    area: asStr(query.area),
     state: asStr(query.state),
     hq: asStr(query.hq),
     designation: asStr(query.designation),
@@ -171,6 +172,7 @@ async function getFilters(req, res, next) {
     const params = {
       zone: asStr(req.query.zone),
       region: asStr(req.query.region),
+      area: asStr(req.query.area),
       state: asStr(req.query.state),
       hq: asStr(req.query.hq),
       designation: asStr(req.query.designation),

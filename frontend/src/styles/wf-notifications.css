@@ -386,6 +386,90 @@ html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-cell-sent 
   white-space: nowrap;
 }
 
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #202018;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-link:hover {
+  color: #6b5b00;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(25 25 20 / 48%);
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog {
+  width: min(100%, 680px);
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  border: 1px solid #d4d5c8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgb(25 25 20 / 22%);
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid #d4d5c8;
+  background: #f7f8ef;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__head h2 {
+  margin: 0;
+  color: #202018;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__head p {
+  margin: 5px 0 0;
+  color: #515045;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #d4d5c8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__body {
+  padding: 24px;
+  color: #202018;
+  font-size: 15px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ----------------------- skeleton / empty states ------------------ */
 
 html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-skeleton {
@@ -716,6 +800,22 @@ html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-recipient-
     color: #515045;
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-card__message {
+    display: inline-flex;
+    margin-top: 12px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-backdrop {
+    padding: 14px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__head,
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-message-dialog__body {
+    padding: 18px;
   }
 
   html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty {

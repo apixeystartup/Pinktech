@@ -465,7 +465,7 @@ function DirectoryColumn() {
   const fields = [
     { key: "zone", label: "Zone", facet: "zones" },
     { key: "region", label: "Region", facet: "regions" },
-    { key: "state", label: "State", facet: "states" },
+    { key: "area", label: "Area", facet: "areas" },
     { key: "hq", label: "HQ", facet: "hqs" },
   ];
 
@@ -646,12 +646,15 @@ function TreeLi({ node, onSelect }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="tree-name truncate">{node.name}</div>
-              <div className="tree-meta truncate">{node.role_name || node.designation || "Unspecified"}{node.emp_id ? ` · ${node.emp_id}` : ""}</div>
+              <div className="tree-meta truncate">{node.designation || node.role_name || "Unspecified"}{node.emp_id ? ` · ${node.emp_id}` : ""}</div>
               <div className="tree-tags">
                 <span className="tag level">L{node.level}</span>
                 <span className={scopeClass(node.scope)}>{scopeLabel(node.scope)}</span>
                 {node.pinktech_code && <span className="tag tenant">{node.pinktech_code}</span>}
                 {node.zone && <span className="tag zone">{node.zone}</span>}
+                {node.region && <span className="tag">{node.region}</span>}
+                {node.area && <span className="tag">{node.area}</span>}
+                {node.hq && <span className="tag">{node.hq}</span>}
                 {node.is_vacant && <span className="tag vacant">Vacant</span>}
                 {node.added_manually && <span className="tag reports">Added</span>}
                 {node.children?.length > 0 && <span className="tag reports reports-count">{node.children.length} reports · {node.total_descendants} total</span>}
@@ -782,16 +785,9 @@ function DetailPanel() {
           <div className={`dir-avatar shrink-0${emp.is_vacant ? " vacant" : ""}`}>{emp.is_vacant ? "V" : initials(emp.name)}</div>
           <div className="flex-1 min-w-0 space-y-2">
             <h2 className="text-lg font-semibold text-slate-900 break-words leading-snug" title={emp.name}>{emp.name}</h2>
-            <p className="text-sm text-slate-500 break-words leading-relaxed">{emp.role_name || emp.designation || "Unspecified"}{emp.emp_id ? ` · ${emp.emp_id}` : ""}</p>
+            <p className="text-sm text-slate-500 break-words leading-relaxed">{emp.designation || emp.role_name || "Unspecified"}{emp.emp_id ? ` · ${emp.emp_id}` : ""}</p>
             <div className="dir-tags pt-1">
-              <span className="tag level">L{emp.level}</span>
-              <span className={scopeClass(emp.scope)}>{scopeLabel(emp.scope)}</span>
-              {emp.pinktech_code && <span className="tag tenant">{emp.pinktech_code}</span>}
-              {emp.zone && <span className="tag zone">{emp.zone}</span>}
               {emp.is_vacant && <span className="tag vacant">Vacant</span>}
-              {emp.added_manually && <span className="tag reports">Added</span>}
-              {emp.direct_reports > 0 && <span className="tag reports">{emp.direct_reports} reports</span>}
-              {emp.external_manager && <span className="tag ext">External boss</span>}
               {canManage && !emp.is_virtual_root && (
                 <span className={`tag account-status account-status-${accountStatus.toLowerCase().replace(/\s+/g, "-")}`}>
                   {accountStatus}
@@ -804,8 +800,6 @@ function DetailPanel() {
       </div>
       <div className="px-6 py-6 space-y-5">
         <div className="grid grid-cols-2 gap-x-3 gap-y-3 min-w-0">
-          <Field label="EMP ID" value={emp.emp_id} />
-          <Field label="Pinktech code" value={emp.pinktech_code} />
           <div className="field col-span-2 min-w-0">
             <div className="flex items-center justify-between gap-3 mb-1">
               <div className="label">Official email (from sheet)</div>
@@ -816,17 +810,11 @@ function DetailPanel() {
             </div>
             <div className={`value${!emp.official_email ? " muted" : ""}`}>{emp.official_email || "—"}</div>
           </div>
-          <Field label="Designation" value={emp.designation} />
           <Field label="Manager" value={emp.manager?.name || emp.external_manager || "—"} />
-          <Field label="Role · Level · Scope" value={`${emp.role_name} · L${emp.level} · ${scopeLabel(emp.scope)}`} />
           <Field label="HQ" value={emp.hq} />
-          <Field label="Zone" value={emp.zone} />
+          <Field label="Area" value={emp.area} />
           <Field label="Region" value={emp.region} />
-          <Field label="State" value={emp.state} />
-          <Field label="DOJ" value={emp.doj} />
-          <Field label="DOB" value={emp.dob} />
-          <Field label="Gender" value={emp.gender} />
-          <Field label="Reporting Manager (raw)" value={emp.reporting_manager_raw} />
+          <Field label="Zone" value={emp.zone} />
         </div>
         {ancQ.data?.ancestry?.length > 0 && (
           <div className="text-xs text-slate-500 leading-relaxed pt-5 mt-2 border-t border-slate-100">
@@ -898,7 +886,7 @@ function DetailPanel() {
           Reassign reports…
         </button>
         <button type="button" className="action-btn"
-          onClick={() => openDialog({ kind: "add-employee", tenantId: emp.tenant_id, defaults: { name: "", manager_id: emp.id, role_id: emp.role_id, hq: emp.hq, zone: emp.zone, region: emp.region, state: emp.state } })}>
+          onClick={() => openDialog({ kind: "add-employee", tenantId: emp.tenant_id, defaults: { name: "", manager_id: emp.id, role_id: emp.role_id, hq: emp.hq, area: emp.area, zone: emp.zone, region: emp.region } })}>
           + Add direct report
         </button>
         <button type="button" className="action-btn" onClick={() => openDialog({ kind: "replace", subjectId: emp.id, tenantId: emp.tenant_id })}>
@@ -1276,14 +1264,11 @@ function AddEmployeeModal({ dialog, close }) {
   const [roleId, setRoleId] = useState(d.role_id || "");
   const [managerId, setManagerId] = useState(d.manager_id || "");
   const [hq, setHq] = useState(d.hq || "");
+  const [area, setArea] = useState(d.area || "");
   const [zone, setZone] = useState(d.zone || "");
   const [region, setRegion] = useState(d.region || "");
-  const [state, setState] = useState(d.state || "");
   const [designation, setDesignation] = useState("");
   const [email, setEmail] = useState("");
-  const [doj, setDoj] = useState("");
-  const [dob, setDob] = useState("");
-  const [gender, setGender] = useState("");
 
   const onSave = () => {
     if (!name.trim()) { toast.error("Name is required"); return; }
@@ -1293,8 +1278,7 @@ function AddEmployeeModal({ dialog, close }) {
       tenant_id: dialog.tenantId || undefined,
       name: name.trim(), emp_id: empId.trim() || undefined, contact_email: ce || undefined,
       designation: designation.trim() || undefined, role_id: roleId || undefined, manager_id: managerId || undefined,
-      hq: hq || undefined, zone: zone || undefined, region: region || undefined, state: state || undefined,
-      doj: doj || undefined, dob: dob || undefined, gender: gender || undefined,
+      hq: hq || undefined, area: area || undefined, zone: zone || undefined, region: region || undefined,
     }, { onSuccess: close });
   };
 
@@ -1329,20 +1313,9 @@ function AddEmployeeModal({ dialog, close }) {
           </select>
         </div>
         <ModalField label="HQ" value={hq} onChange={setHq} />
+        <ModalField label="Area" value={area} onChange={setArea} />
         <ModalField label="Zone" value={zone} onChange={setZone} />
         <ModalField label="Region" value={region} onChange={setRegion} />
-        <ModalField label="State" value={state} onChange={setState} />
-        <ModalField label="Date of joining" value={doj} onChange={setDoj} placeholder="YYYY-MM-DD" />
-        <ModalField label="Date of birth" value={dob} onChange={setDob} placeholder="YYYY-MM-DD" />
-        <div className="col-span-2">
-          <label className="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
-          <select className="filter-select w-full" value={gender} onChange={(e) => setGender(e.target.value)}>
-            <option value="">— unspecified —</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
       </div>
     </Dialog>
   );

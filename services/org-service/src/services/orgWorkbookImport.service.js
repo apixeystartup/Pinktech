@@ -184,6 +184,11 @@ function pickBest(candidates, empRow) {
   if (!candidates.length) return null;
   if (candidates.length === 1) return candidates[0];
   const subRank = ROLE_RANK[roleOf(empRow.designation) || ""] || 0;
+  const geographyScore = (candidate) =>
+    ["hq", "area", "region", "zone"].reduce((score, field) => {
+      const value = norm(empRow[field]);
+      return value && value === norm(candidate[field]) ? score + 1 : score;
+    }, 0);
   return [...candidates].sort((a, b) => {
     const ar = ROLE_RANK[roleOf(a.designation) || ""] || 0;
     const br = ROLE_RANK[roleOf(b.designation) || ""] || 0;
@@ -193,6 +198,8 @@ function pickBest(candidates, empRow) {
     const aGap = ar > subRank ? ar - subRank : 99;
     const bGap = br > subRank ? br - subRank : 99;
     if (aGap !== bGap) return aGap - bGap;
+    const geographyGap = geographyScore(b) - geographyScore(a);
+    if (geographyGap !== 0) return geographyGap;
     return (a.rowNumber || 1e9) - (b.rowNumber || 1e9);
   })[0];
 }
@@ -467,16 +474,17 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
       u.name = row.name || "VACANT";
       u.orgSeatVacant = row.isVacant;
       u.designationOverride = row.designation || null;
-      u.phone = row.phone || null;
+      u.phone = null;
       u.hq = row.hq || null;
+      u.area = row.area || null;
       u.zone = row.zone || null;
       u.region = row.region || null;
-      u.state = row.state || null;
+      u.state = null;
       u.orgRowNumber = row.rowNumber;
-      u.orgSno = row.sno;
-      u.doj = row.doj || null;
-      u.dob = row.dob || null;
-      u.gender = row.gender || null;
+      u.orgSno = null;
+      u.doj = null;
+      u.dob = null;
+      u.gender = null;
       u.reportingManagerRaw = row.reportingManagerRaw || null;
       u.orgFromWorkbook = true;
       u.orgLeftAt = null;

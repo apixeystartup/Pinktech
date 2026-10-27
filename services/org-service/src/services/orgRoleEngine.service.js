@@ -38,7 +38,7 @@ const SCOPE_ORDER = {
 };
 
 function emptySpan() {
-  return { zones: new Set(), regions: new Set(), states: new Set(), hqs: new Set() };
+  return { zones: new Set(), regions: new Set(), areas: new Set(), states: new Set(), hqs: new Set() };
 }
 
 function collectSubtreeSpan(seedId, childrenByParent, userById) {
@@ -53,6 +53,7 @@ function collectSubtreeSpan(seedId, childrenByParent, userById) {
     if (!u) continue;
     if (u.zone) span.zones.add(norm(u.zone));
     if (u.region) span.regions.add(norm(u.region));
+    if (u.area) span.areas.add(norm(u.area));
     if (u.state) span.states.add(norm(u.state));
     if (u.hq) span.hqs.add(norm(u.hq));
     for (const c of childrenByParent.get(id) || []) stack.push(c);
@@ -63,13 +64,13 @@ function collectSubtreeSpan(seedId, childrenByParent, userById) {
 function classifySpan(span, totalZones) {
   const nz = span.zones.size;
   const nr = span.regions.size;
-  const ns = span.states.size;
+  const na = span.areas.size || span.states.size;
   const nh = span.hqs.size;
   if (totalZones > 0 && nz / totalZones >= SCOPE_THRESHOLDS.allIndiaZoneRatio) return "ALL_INDIA";
   if (nz > 1) return "ALL_INDIA";
   if (nz === 1 && nr > 1) return "ZONE";
-  if (nr === 1 && ns > 1) return "REGION";
-  if (ns === 1 && nh > 1) return "AREA";
+  if (nr === 1 && na > 1) return "REGION";
+  if (na === 1 && nh > 1) return "AREA";
   return "HQ";
 }
 

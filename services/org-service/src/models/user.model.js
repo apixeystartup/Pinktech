@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
     reportingToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     zone: { type: String, default: null, trim: true },
     region: { type: String, default: null, trim: true },
+    area: { type: String, default: null, trim: true },
     state: { type: String, default: null, trim: true },
     hq: { type: String, default: null, trim: true },
     designationOverride: { type: String, default: null, trim: true },

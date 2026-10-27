@@ -13,7 +13,7 @@ async function saveRollback(tenantId) {
   fs.mkdirSync(ROLLBACK_DIR, { recursive: true });
 
   const users = await User.find({ tenantId, orgFromWorkbook: true, orgLeftAt: null })
-    .select("empCode name designationOverride phone hq zone region state orgRowNumber orgSno doj dob gender reportingManagerRaw orgContactEmail")
+    .select("empCode name designationOverride hq area region zone reportingManagerRaw orgContactEmail")
     .sort({ orgRowNumber: 1 })
     .lean();
 
@@ -22,21 +22,19 @@ async function saveRollback(tenantId) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Org");
 
-  ws.addRow(["S NO", "EMP CODE", "NAME OF THE EMPLOYEES", "DESIGNATION", "REPORTING MANAGER", "EMAIL ID", "PHONE NUMBER", "ZONE", "REGION", "STATE", "HQ"]);
+  ws.addRow(["Employee", "Employee Designation", "Email ID", "HQ", "Area", "Region", "Zone", "Reporting Manager", "Employee Code"]);
 
   for (const u of users) {
     ws.addRow([
-      u.orgSno || "",
-      u.empCode || "",
       u.name || "",
       u.designationOverride || "",
-      u.reportingManagerRaw || "",
       u.orgContactEmail || "",
-      u.phone || "",
-      u.zone || "",
-      u.region || "",
-      u.state || "",
       u.hq || "",
+      u.area || "",
+      u.region || "",
+      u.zone || "",
+      u.reportingManagerRaw || "",
+      u.empCode || "",
     ]);
   }
 

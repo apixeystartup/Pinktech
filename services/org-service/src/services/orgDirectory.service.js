@@ -7,7 +7,7 @@ const { isPlatformTenant } = require("@pink/shared");
 
 const PLACEHOLDER_RE = /^\s*VACANT\s+([A-Z]+)\s+REPORT\s+TO\s+([A-Z]+)\s*$/i;
 const VACANT_EMPID_RE = /^\s*VACANT\s*[-–]\s*(.+)\s*$/i;
-const GEO_FIELDS = ["zone", "region", "state", "hq"];
+const GEO_FIELDS = ["zone", "region", "area", "state", "hq"];
 const VIRTUAL_SUPER_ADMIN_ID = "virtual-super-admin";
 // Labels for the injected platform root: Pinktech is the super admin for all
 // tenants, so the node carries the platform brand, not a tenant's name/code.
@@ -28,6 +28,7 @@ function userToPosition(u, roleById) {
     designation: u.designationOverride || primaryRole?.name || null,
     roleId,
     hq: u.hq || null,
+    area: u.area || null,
     zone: u.zone || null,
     region: u.region || null,
     state: u.state || null,
@@ -39,10 +40,19 @@ function userToPosition(u, roleById) {
     parentPositionId: mgrId ? String(mgrId) : null,
     managerResolution: u.managerResolution || (mgrId ? "linked" : "root"),
     reportingManagerRaw: u.reportingManagerRaw || null,
-    sno: u.orgSno ?? null,
     email: u.email || null,
     orgContactEmail: u.orgContactEmail || null,
   };
+}
+
+function comparePositions(a, b) {
+  const vacantOrder = Number(!!a?.isVacant) - Number(!!b?.isVacant);
+  if (vacantOrder) return vacantOrder;
+  for (const field of ["zone", "region", "area", "hq"]) {
+    const difference = (a?.[field] || "").localeCompare(b?.[field] || "", undefined, { sensitivity: "base" });
+    if (difference) return difference;
+  }
+  return (a?.name || "").localeCompare(b?.name || "", undefined, { sensitivity: "base" });
 }
 
 async function loadSnapshot(tenantId) {
@@ -114,14 +124,7 @@ async function loadSnapshot(tenantId) {
   }
 
   for (const [k, ids] of childrenByParent.entries()) {
-    ids.sort((a, b) => {
-      const A = byId.get(a);
-      const B = byId.get(b);
-      const av = A?.isVacant ? 1 : 0;
-      const bv = B?.isVacant ? 1 : 0;
-      if (av !== bv) return av - bv;
-      return (A?.name || "").localeCompare(B?.name || "");
-    });
+    ids.sort((a, b) => comparePositions(byId.get(a), byId.get(b)));
     childrenByParent.set(k, ids);
   }
 
@@ -152,14 +155,7 @@ function rebuildIndexes(snap, positions) {
   }
 
   for (const [k, ids] of childrenByParent.entries()) {
-    ids.sort((a, b) => {
-      const A = byId.get(a);
-      const B = byId.get(b);
-      const av = A?.isVacant ? 1 : 0;
-      const bv = B?.isVacant ? 1 : 0;
-      if (av !== bv) return av - bv;
-      return (A?.name || "").localeCompare(B?.name || "");
-    });
+    ids.sort((a, b) => comparePositions(byId.get(a), byId.get(b)));
     childrenByParent.set(k, ids);
   }
 
@@ -186,6 +182,7 @@ function virtualRootPosition() {
     designation: PLATFORM_ROOT_ROLE,
     roleId: null,
     hq: null,
+    area: null,
     zone: null,
     region: null,
     state: null,
@@ -197,7 +194,6 @@ function virtualRootPosition() {
     parentPositionId: null,
     managerResolution: "root",
     reportingManagerRaw: null,
-    sno: -1,
     email: null,
     orgContactEmail: null,
     pinktechCode: PLATFORM_ROOT_CODE,
@@ -223,7 +219,7 @@ function orderPlatformRootChildren(snap) {
     const av = A.isVacant ? 1 : 0;
     const bv = B.isVacant ? 1 : 0;
     if (av !== bv) return av - bv;
-    return (A.name || "").localeCompare(B.name || "");
+    return comparePositions(A, B);
   });
   return snap;
 }
@@ -320,14 +316,7 @@ async function loadPlatformSnapshot() {
   }
 
   for (const [k, ids] of merged.childrenByParent.entries()) {
-    ids.sort((a, b) => {
-      const A = merged.byId.get(a);
-      const B = merged.byId.get(b);
-      const av = A?.isVacant ? 1 : 0;
-      const bv = B?.isVacant ? 1 : 0;
-      if (av !== bv) return av - bv;
-      return (A?.name || "").localeCompare(B?.name || "");
-    });
+    ids.sort((a, b) => comparePositions(merged.byId.get(a), merged.byId.get(b)));
     merged.childrenByParent.set(k, ids);
   }
 
@@ -412,17 +401,13 @@ function enrich(snap, p) {
     level: p.isVirtualRoot ? snap.maxLevel + 1 : role ? Role.effectiveLevel(role) : 1,
     scope: p.isVirtualRoot ? "ALL_INDIA" : role ? Role.effectiveScope(role) : "HQ",
     hq: p.hq,
+    area: p.area,
     zone: p.zone,
     region: p.region,
-    state: p.state,
-    doj: p.doj,
-    dob: p.dob,
-    gender: p.gender,
     is_vacant: p.isVacant,
     added_manually: p.addedManually,
     manager_id: p.parentPositionId ? String(p.parentPositionId) : null,
     manager_resolution: p.managerResolution,
-    reporting_manager_raw: p.reportingManagerRaw,
     external_manager: externalManager,
     manager_display_name: managerDisplayName,
     direct_reports: childrenIds.length,
@@ -495,6 +480,7 @@ function listEmployees(snap, params) {
     {
       zone: params.zone,
       region: params.region,
+      area: params.area,
       state: params.state,
       hq: params.hq,
       designation: params.designation,
@@ -535,6 +521,7 @@ function listEmployees(snap, params) {
         p.designation,
         roleName(p),
         p.hq,
+        p.area,
         p.region,
         p.state,
         p.zone,
@@ -542,12 +529,7 @@ function listEmployees(snap, params) {
     );
   }
 
-  items = [...items].sort((a, b) => {
-    const av = a.sno ?? 999999;
-    const bv = b.sno ?? 999999;
-    if (av !== bv) return av - bv;
-    return (a.name || "").localeCompare(b.name || "");
-  });
+  items = [...items].sort(comparePositions);
 
   const limit = params.limit ?? 200;
   if (limit) items = items.slice(0, limit);
@@ -682,6 +664,7 @@ function cascadingFilters(snap, params) {
   const criteria = {
     zone: params.zone,
     region: params.region,
+    area: params.area,
     state: params.state,
     hq: params.hq,
     designation: params.designation,
@@ -750,6 +733,7 @@ function cascadingFilters(snap, params) {
   return {
     zones: options("zone"),
     regions: options("region"),
+    areas: options("area"),
     states: options("state"),
     hqs: options("hq"),
     designations: options("designation"),
@@ -800,14 +784,7 @@ function filterSnapshotToDescendants(snap, actorUserId) {
   }
 
   for (const [k, ids] of childrenByParent.entries()) {
-    ids.sort((a, b) => {
-      const A = byId.get(a);
-      const B = byId.get(b);
-      const av = A?.isVacant ? 1 : 0;
-      const bv = B?.isVacant ? 1 : 0;
-      if (av !== bv) return av - bv;
-      return (A?.name || "").localeCompare(B?.name || "");
-    });
+    ids.sort((a, b) => comparePositions(byId.get(a), byId.get(b)));
     childrenByParent.set(k, ids);
   }
 
