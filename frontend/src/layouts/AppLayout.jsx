@@ -5,6 +5,8 @@ import { getNavSections, isAdminRole } from "../lib/access-control";
 import api from "../lib/api";
 import { displayAccountEmail } from "../lib/userDisplay";
 import WorkflowHint from "../components/common/WorkflowHint";
+import { useToast } from "../components/common/ToastProvider";
+import { getErrorMessage } from "../lib/error";
 
 function initialsOf(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
@@ -53,6 +55,7 @@ function isActivePath(pathname, to) {
 
 function AppLayout() {
   const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole } = useAuth();
+  const { showToast } = useToast();
   const { pathname, search } = useLocation();
   const [tenants, setTenants] = useState([]);
   // A regular employee only ever sees themselves + their own reports in Org
@@ -66,27 +69,37 @@ function AppLayout() {
   const accountRef = useRef(null);
   const orgAdmin = isAdminRole(accountRole, isSuperAdmin);
 
-  // Keep the Activity Log badge honest without making the nav depend on
-  // the audit page being open. Polls gently and refreshes with tenant context.
+  // The badge counts errors since the current user's last visit to Activity.
   useEffect(() => {
     let active = true;
-    const loadErrorCount = () => {
-      api
-        .get("/audit/logs", { params: { limit: 1, status: "ERROR" } })
-        .then((res) => {
-          if (active) setAuditErrorCount(Number(res.data?.errorCount || 0));
-        })
-        .catch(() => {
-          if (active) setAuditErrorCount(0);
-        });
+    const loadErrorCount = async () => {
+      try {
+        const res = await api.get("/audit/logs", { params: { limit: 1, status: "ERROR" } });
+        if (active) setAuditErrorCount(Number(res.data?.unreadErrorCount || 0));
+      } catch {
+        // Preserve the last known count when the badge refresh is temporarily unavailable.
+      }
     };
-    loadErrorCount();
+    if (pathname.startsWith("/app/audit")) {
+      api
+        .post("/audit/logs/read")
+        .then(() => {
+          if (!active) return;
+          setAuditErrorCount(0);
+          loadErrorCount();
+        })
+        .catch((error) => {
+          if (active) showToast(getErrorMessage(error), "error");
+        });
+    } else {
+      loadErrorCount();
+    }
     const timer = setInterval(loadErrorCount, 30000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [tenantContextId]);
+  }, [tenantContextId, pathname, showToast]);
 
 
   useEffect(() => {
@@ -225,7 +238,7 @@ function AppLayout() {
             >
               <span className="pillnav-label">{item.label}</span>
               {item.to === "/app/audit" && auditErrorCount > 0 ? (
-                <span className="pillnav-badge" title={`${auditErrorCount} error${auditErrorCount === 1 ? "" : "s"} recorded`}>
+                <span className="pillnav-badge" title={`${auditErrorCount} new error${auditErrorCount === 1 ? "" : "s"}`}>
                   {auditErrorCount > 99 ? "99+" : auditErrorCount}
                 </span>
               ) : null}

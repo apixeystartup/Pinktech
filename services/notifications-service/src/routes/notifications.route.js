@@ -5,7 +5,11 @@ const Notification = require("../models/notification.model");
 const { notificationAdapter } = require("@pink/shared");
 const serviceAuth = require("../middlewares/serviceAuth");
 const ApiError = require("@pink/shared").ApiError;
-const { getUserIdsWithTenantManage } = require("../services/notifications.service");
+const {
+  getAccountRole,
+  listNotificationRecipients,
+  assertRecipientsInScope,
+} = require("../services/notifications.service");
 
 
 const router = express.Router();
@@ -14,10 +18,9 @@ const router = express.Router();
 const NOTIFICATION_ACCESS = ["notification.compose", "report.view"];
 
 function isTenantAdminUser(req) {
-  const codes = req.auth?.permissionCodes || [];
-  const role = req.auth?.accountRole;
-  const isSuper = req.auth?.isSuperAdmin;
-  return codes.includes("*") || codes.includes("tenant.manage") || role === "tenant_admin" || role === "super_admin" || isSuper;
+  return Boolean(req.auth?.isAdmin || req.auth?.isSuperAdmin) ||
+    req.auth?.accountRole === "tenant_admin" ||
+    req.auth?.accountRole === "super_admin";
 }
 
 
@@ -35,12 +38,10 @@ router.get(
       if (!hasAnyPermission(req, NOTIFICATION_ACCESS)) {
         throw new ApiError(403, "Insufficient permissions");
       }
-      // Allow admins and employees to see both leadership and admins so they can
-      // reach super admins/tenant admins as requested.
-      const users = await listAllActiveUsers(req.tenantId);
+      const users = await listNotificationRecipients(req);
       res.status(200).json({
         scope: "elevated",
-        description: "All active employees available for messaging.",
+        description: "Employees, tenant administrators, and platform super admins available for messaging.",
         users,
       });
     } catch (error) {
@@ -58,10 +59,10 @@ router.get(
       if (!hasAnyPermission(req, NOTIFICATION_ACCESS)) {
         throw new ApiError(403, "Insufficient permissions");
       }
-      if (!isTenantAdminUser(req)) {
+      if (!isTenantAdminUser(req) && (await getAccountRole(req)) !== "super_admin") {
         throw new ApiError(403, "Only tenant administrators can list all employees for messaging.");
       }
-      const users = await listAllActiveUsers(req.tenantId);
+      const users = await listNotificationRecipients(req);
       res.status(200).json({ scope: "all", users });
     } catch (error) {
       next(error);
@@ -94,30 +95,10 @@ router.post("/", serviceAuth, async (req, res, next) => {
 
     const uniqueIds = [...new Set(value.recipientUserIds)];
     const recipientObjectIds = uniqueIds.map((id) => new mongoose.Types.ObjectId(id));
-    const ok = await assertRecipientsInTenant(req.tenantId, recipientObjectIds);
+    const ok = await assertRecipientsInScope(req, recipientObjectIds);
     if (!ok) {
-      throw new ApiError(422, "One or more recipients are invalid or inactive in this tenant.");
+      throw new ApiError(422, "One or more recipients are invalid, inactive, or outside your organization.");
     }
-
-    const admin = isTenantAdminUser(req);
-    if (!admin) {
-      const allowed = await getElevatedRecipientIdSet(req.tenantId);
-      // Employees can message admins (including super-admin scoped admins). Keep
-      // existing elevated checks but do not block messaging someone who is an
-      // admin of the tenant; admins must be able to talk to super admins too.
-      const User = require("../models/user.model");
-      const Role = require("../models/role.model");
-      const Permission = require("../models/permission.model");
-      const tenantAdmins = await getUserIdsWithTenantManage(req.tenantId);
-      for (const id of uniqueIds) {
-        if (allowed.has(String(id)) || tenantAdmins.has(String(id))) continue;
-        throw new ApiError(
-          403,
-          "You can only send notifications to leadership, tenant administrators, or super admins."
-        );
-      }
-    }
-
 
     const fromUserId = req.auth.userId ? new mongoose.Types.ObjectId(req.auth.userId) : null;
     const created = [];
@@ -157,14 +138,44 @@ router.post("/", serviceAuth, async (req, res, next) => {
   }
 });
 
+router.post("/read", serviceAuth, async (req, res, next) => {
+  try {
+    const readAt = new Date();
+    const result = await Notification.updateMany(
+      {
+        channel: "IN_APP",
+        readAt: null,
+        $or: [
+          { recipientUserId: req.auth.userId },
+          { recipientUserId: null, userId: req.auth.userId },
+        ],
+      },
+      { $set: { readAt } },
+    );
+    res.status(200).json({ readAt, modifiedCount: result.modifiedCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/", serviceAuth, async (req, res, next) => {
   try {
     const isAdmin = isTenantAdminUser(req);
     const filter = isAdmin
-      ? { tenantId: req.tenantId }
+      ? {
+          $or: [
+            { tenantId: req.tenantId },
+            { recipientUserId: req.auth.userId },
+            { userId: req.auth.userId },
+            { fromUserId: req.auth.userId },
+          ],
+        }
       : {
-          tenantId: req.tenantId,
-          $or: [{ recipientUserId: req.auth.userId }, { fromUserId: req.auth.userId }],
+          $or: [
+            { recipientUserId: req.auth.userId },
+            { userId: req.auth.userId },
+            { fromUserId: req.auth.userId },
+          ],
         };
 
     const notifications = await Notification.find(filter)

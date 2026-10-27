@@ -59,7 +59,6 @@ function NotificationsPage() {
   const { showToast } = useToast();
   const { user, tenantContextId, permissionCodes = [], accountRole, isSuperAdmin } = useAuth();
   const isTenantAdmin =
-    permissionCodes.includes("*") ||
     permissionCodes.includes("tenant.manage") ||
     accountRole === "tenant_admin" ||
     accountRole === "super_admin" ||
@@ -72,6 +71,8 @@ function NotificationsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [composeUsers, setComposeUsers] = useState([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(true);
+  const [recipientsError, setRecipientsError] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [form, setForm] = useState({ message: "", subject: "" });
   const [recipientQuery, setRecipientQuery] = useState("");
@@ -94,24 +95,26 @@ function NotificationsPage() {
 
   useEffect(() => {
     let active = true;
-    api
-      .get("/notifications")
-      .then((notifRes) => {
+    const load = async (markRead = false) => {
+      if (markRead) {
+        try {
+          await api.post("/notifications/read");
+        } catch (error) {
+          if (active) showToast(getErrorMessage(error), "error");
+        }
+      }
+      try {
+        const notifRes = await api.get("/notifications");
         if (active) setItems(notifRes.data || []);
-      })
-      .catch((error) => {
+      } catch (error) {
         if (active) showToast(getErrorMessage(error), "error");
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+    load(true);
     const timer = setInterval(() => {
-      api
-        .get("/notifications")
-        .then((notifRes) => {
-          if (active) setItems(notifRes.data || []);
-        })
-        .catch(() => {});
+      load(true);
     }, 15000);
     return () => {
       active = false;
@@ -120,29 +123,32 @@ function NotificationsPage() {
   }, [showToast, tenantContextId]);
 
   useEffect(() => {
-    if (!canCompose) {
-      setComposeUsers([]);
-      setSelectedIds([]);
-      return undefined;
-    }
+    if (!canCompose) return undefined;
     let active = true;
-    const load = () => {
+    const load = async (initial = false) => {
+      if (initial) {
+        setRecipientsLoading(true);
+        setRecipientsError(false);
+      }
       const path = isTenantAdmin ? "/notifications/recipients/all" : "/notifications/recipients/elevated";
-      api
-        .get(path)
-        .then((recipRes) => {
-          if (!active) return;
+      try {
+        const recipRes = await api.get(path);
+        if (active) {
           setComposeUsers(recipRes.data?.users || []);
-        })
-        .catch((error) => {
-          if (active) {
-            showToast(getErrorMessage(error), "error");
-            setComposeUsers([]);
-          }
-        });
+          setRecipientsError(false);
+        }
+      } catch (error) {
+        if (active) {
+          showToast(getErrorMessage(error), "error");
+          setComposeUsers([]);
+          setRecipientsError(true);
+        }
+      } finally {
+        if (active && initial) setRecipientsLoading(false);
+      }
     };
-    load();
-    const timer = setInterval(load, 20000);
+    load(true);
+    const timer = setInterval(() => load(), 20000);
     return () => {
       active = false;
       clearInterval(timer);
@@ -204,6 +210,8 @@ function NotificationsPage() {
   };
 
   const refreshRecipients = () => {
+    setRecipientsLoading(true);
+    setRecipientsError(false);
     setRecipientNonce((nonce) => nonce + 1);
     showToast("Recipient list refreshed", "success");
   };
@@ -289,7 +297,7 @@ function NotificationsPage() {
   return (
     <ModulePage
       title="Notifications"
-      description="Message active employees and review delivery history."
+      description="Message employees, tenant administrators, and platform admins."
     >
       <div className="notifw-page">
         {canCompose ? (
@@ -356,8 +364,12 @@ function NotificationsPage() {
                         />
                       ) : null}
                       <div className="notifw-recipients__list">
-                        {filteredRecipients.length === 0 ? (
-                          <p className="notifw-recipients__empty">No active employees found.</p>
+                        {recipientsLoading ? (
+                          <p className="notifw-recipients__empty">Loading recipients…</p>
+                        ) : recipientsError ? (
+                          <p className="notifw-recipients__empty">Couldn’t load recipients. Refresh the list to try again.</p>
+                        ) : filteredRecipients.length === 0 ? (
+                          <p className="notifw-recipients__empty">No recipients available in this organization.</p>
                         ) : (
                           filteredRecipients.map((person) => (
                             <label key={person._id} className="notifw-recipient" title={person.email}>
@@ -366,7 +378,15 @@ function NotificationsPage() {
                                 checked={selectedIds.includes(String(person._id))}
                                 onChange={() => toggleRecipient(person._id)}
                               />
-                              <span className="notifw-recipient__name">{person.name}</span>
+                              <span className="notifw-recipient__details">
+                                <span className="notifw-recipient__name">{person.name || person.email}</span>
+                                {person.email ? (
+                                  <span className="notifw-recipient__email">
+                                    {person.tenantName ? `${person.email} · ${person.tenantName}` : person.email}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="notifw-recipient__role">{person.accountRole || "Employee"}</span>
                             </label>
                           ))
                         )}

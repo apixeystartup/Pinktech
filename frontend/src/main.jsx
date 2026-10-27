@@ -11,14 +11,7 @@ import App from './App.jsx'
 // Wireframe alignment layer: must come after App so its shell rules win.
 import './wireframe.css'
 
-const storedTheme = localStorage.getItem('theme')
-const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-document.documentElement.dataset.theme =
-  storedTheme === 'dark' || storedTheme === 'light'
-    ? storedTheme
-    : systemDark
-      ? 'dark'
-      : 'light'
+document.documentElement.dataset.theme = 'light'
 
 const queryClient = new QueryClient({
   defaultOptions: {

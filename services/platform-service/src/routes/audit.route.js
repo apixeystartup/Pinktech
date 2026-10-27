@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const AuditLog = require("../models/auditLog.model");
+const AuditReadState = require("../models/auditReadState.model");
 const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
 const Role = require("../models/role.model");
@@ -52,6 +53,10 @@ function roleLabel(accountRole, isSuperAdmin) {
   if (isSuperAdmin || accountRole === "super_admin") return "super_admin";
   if (accountRole === "tenant_admin") return "tenant_admin";
   return "employee";
+}
+
+function auditReadScope(role, tenantId) {
+  return role === "super_admin" ? "all" : String(tenantId);
 }
 
 async function buildFilter(req, role, tenantId) {
@@ -127,6 +132,27 @@ async function buildFilter(req, role, tenantId) {
   return filter;
 }
 
+router.post("/logs/read", async (req, res, next) => {
+  try {
+    const userId = toObjectId(req.auth?.userId);
+    const tenantId = toObjectId(req.tenantId);
+    if (!userId || !tenantId) {
+      return res.status(401).json({ message: "Missing audit read context." });
+    }
+
+    const role = roleLabel(req.auth?.accountRole, req.auth?.isSuperAdmin);
+    const lastReadAt = new Date();
+    await AuditReadState.updateOne(
+      { userId, scope: auditReadScope(role, tenantId) },
+      { $max: { lastReadAt } },
+      { upsert: true },
+    );
+    res.status(200).json({ lastReadAt });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/logs", async (req, res, next) => {
   try {
     const page = Math.max(Number(req.query.page || 1), 1);
@@ -140,11 +166,26 @@ router.get("/logs", async (req, res, next) => {
     const errorFilter = { ...filter, status: "ERROR" };
     delete errorFilter.$and;
 
-    const [items, total, errorCount] = await Promise.all([
+    const readStatePromise = AuditReadState.findOne({
+      userId: req.auth.userId,
+      scope: auditReadScope(role, tenantId),
+    })
+      .select("lastReadAt")
+      .lean();
+    const [items, total, errorCount, readState] = await Promise.all([
       AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       AuditLog.countDocuments(filter),
       AuditLog.countDocuments(errorFilter),
+      readStatePromise,
     ]);
+    const unreadErrorFilter = { ...errorFilter };
+    if (readState?.lastReadAt) {
+      unreadErrorFilter.createdAt = {
+        ...(unreadErrorFilter.createdAt || {}),
+        $gt: readState.lastReadAt,
+      };
+    }
+    const unreadErrorCount = await AuditLog.countDocuments(unreadErrorFilter);
 
     const userIds = [
       ...new Set(
@@ -246,6 +287,7 @@ router.get("/logs", async (req, res, next) => {
       total,
       pages: Math.ceil(total / limit) || 1,
       errorCount,
+      unreadErrorCount,
       role,
       scope:
         role === "super_admin"

@@ -88,8 +88,9 @@ html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .n
 html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient {
   display: flex;
   align-items: center;
-  gap: 11px;
-  height: 34px;
+  gap: 10px;
+  min-height: 46px;
+  padding: 5px 2px;
   color: #202018;
   font-size: 15px;
   line-height: 1.2;
@@ -109,6 +110,29 @@ html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .n
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient__details {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient__email {
+  overflow: hidden;
+  color: #6d6a5e;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient__role {
+  flex: 0 0 auto;
+  color: #515045;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* --------------------------- subject / message -------------------- */
@@ -474,8 +498,12 @@ html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-empty p {
   }
 
   html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient {
-    height: 32px;
+    min-height: 48px;
     font-size: 15.5px;
+  }
+
+  html[data-theme="light"] .app-shell .module-page .notifw-page .notifw-compose .notifw-recipient__role {
+    font-size: 11.5px;
   }
 
   html[data-theme="light"]

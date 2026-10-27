@@ -11,6 +11,7 @@ const notificationSchema = new mongoose.Schema(
     channel: { type: String, enum: ["EMAIL", "SMS", "WHATSAPP", "IN_APP"], required: true },
     message: { type: String, required: true },
     status: { type: String, enum: ["PENDING", "SENT", "FAILED"], default: "PENDING", index: true },
+    readAt: { type: Date, default: null, index: true },
     eventType: { type: String, required: true },
     /** Optional payload (e.g. pdfUrl, dispatchId) for richer inbox / actions */
     metadata: { type: mongoose.Schema.Types.Mixed, default: undefined },

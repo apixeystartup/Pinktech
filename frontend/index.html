@@ -12,10 +12,7 @@
     />
     <script>
       (function () {
-        var s = localStorage.getItem("theme");
-        var d = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.dataset.theme =
-          s === "dark" || s === "light" ? s : d ? "dark" : "light";
+        document.documentElement.dataset.theme = "light";
       })();
     </script>
     <title>Pinktech</title>

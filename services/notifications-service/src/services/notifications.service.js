@@ -1,111 +1,95 @@
-const mongoose = require("mongoose");
-const Position = require("../models/position.model");
-const Assignment = require("../models/assignment.model");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
-const Permission = require("../models/permission.model");
-
-/** Positions at depth 0..N (from org roots) count as "high level" for employee messaging. */
-const HIGH_LEVEL_MAX_DEPTH = Number(process.env.NOTIFICATION_HIGH_LEVEL_MAX_DEPTH || 1);
+const Tenant = require("../models/tenant.model");
+const { isPlatformTenant, PLATFORM_TENANT_CODES } = require("@pink/shared");
 
 /** Same idea as People list: include invited/onboarding users, exclude only disabled/locked. */
 const NOTIFIABLE_USER_FILTER = { status: { $nin: ["DISABLED", "LOCKED"] } };
 
-function positionDepthMap(positions) {
-  const idSet = new Set(positions.map((p) => String(p._id)));
-  const childrenByParent = new Map();
-  for (const p of positions) {
-    const parentOk = p.parentPositionId && idSet.has(String(p.parentPositionId));
-    const parentKey = parentOk ? String(p.parentPositionId) : "ROOT";
-    if (!childrenByParent.has(parentKey)) childrenByParent.set(parentKey, []);
-    childrenByParent.get(parentKey).push(String(p._id));
+async function getAccountRole(req) {
+  if (req.auth?.isSuperAdmin || req.auth?.accountRole === "super_admin") return "super_admin";
+  if (req.auth?.accountRole === "tenant_admin") return "tenant_admin";
+
+  const user = await User.findById(req.auth.userId).select("tenantId email roleIds").lean();
+  if (!user) return "employee";
+  const baseTenant = await Tenant.findById(user.tenantId).select("code adminUserId email").lean();
+  const roles = user.roleIds?.length
+    ? await Role.find({ _id: { $in: user.roleIds }, tenantId: user.tenantId }).select("name type").lean()
+    : [];
+  if (isPlatformTenant(baseTenant) && roles.some((role) => role.type === "SYSTEM")) return "super_admin";
+
+  const isTenantAdmin =
+    (baseTenant?.adminUserId && String(baseTenant.adminUserId) === String(user._id)) ||
+    (baseTenant?.email &&
+      String(baseTenant.email).toLowerCase() === String(user.email || "").toLowerCase()) ||
+    roles.some((role) => /admin/i.test(role.name || ""));
+  return isTenantAdmin ? "tenant_admin" : "employee";
+}
+
+async function listNotificationRecipients(req) {
+  const accountRole = await getAccountRole(req);
+  const contextTenant = await Tenant.findById(req.tenantId).select("name code status").lean();
+  if (!contextTenant) return [];
+
+  let scopedTenants;
+  if (accountRole === "super_admin" && !req.auth.actingAsTenantId && isPlatformTenant(contextTenant)) {
+    scopedTenants = await Tenant.find({ status: "ACTIVE" }).select("name code status adminUserId email").lean();
+  } else {
+    scopedTenants = await Tenant.find({ _id: req.tenantId, status: "ACTIVE" })
+      .select("name code status adminUserId email")
+      .lean();
   }
-  const depth = new Map();
-  const queue = (childrenByParent.get("ROOT") || []).map((id) => ({ id, d: 0 }));
-  while (queue.length) {
-    const { id, d } = queue.shift();
-    if (depth.has(id)) continue;
-    depth.set(id, d);
-    for (const child of childrenByParent.get(id) || []) {
-      queue.push({ id: child, d: d + 1 });
-    }
-  }
-  return depth;
-}
 
-async function getUserIdsWithTenantManage(tenantId) {
-  const perm = await Permission.findOne({ code: "tenant.manage" }).lean();
-  if (!perm) return new Set();
-  const roles = await Role.find({ tenantId, permissionIds: { $in: [perm._id] } })
-    .select("_id")
+  const platformTenants = await Tenant.find({ code: { $in: PLATFORM_TENANT_CODES }, status: "ACTIVE" })
+    .select("name code status adminUserId email")
     .lean();
-  const roleIds = roles.map((r) => r._id);
-  if (!roleIds.length) return new Set();
-  const users = await User.find({ tenantId, roleIds: { $in: roleIds }, ...NOTIFIABLE_USER_FILTER })
-    .select("_id")
-    .lean();
-  return new Set(users.map((u) => String(u._id)));
-}
+  const tenantsById = new Map(
+    [...scopedTenants, ...platformTenants].map((tenant) => [String(tenant._id), tenant]),
+  );
+  const tenantIds = [...tenantsById.keys()];
+  if (!tenantIds.length) return [];
 
-async function getUserIdsAtHighLevels(tenantId, depthMap) {
-  const highPositionIds = [];
-  for (const [pid, d] of depthMap) {
-    if (d <= HIGH_LEVEL_MAX_DEPTH) highPositionIds.push(new mongoose.Types.ObjectId(pid));
-  }
-  if (!highPositionIds.length) return new Set();
-  const assignments = await Assignment.find({
-    tenantId,
-    isCurrent: true,
-    positionId: { $in: highPositionIds },
-  })
-    .select("userId")
-    .lean();
-  return new Set(assignments.map((a) => String(a.userId)));
-}
-
-async function getElevatedRecipientIdSet(tenantId) {
-  const positions = await Position.find({ tenantId, status: "ACTIVE" }).lean();
-  const depthMap = positionDepthMap(positions);
-  const admins = await getUserIdsWithTenantManage(tenantId);
-  const highLevel = await getUserIdsAtHighLevels(tenantId, depthMap);
-  return new Set([...admins, ...highLevel]);
-}
-
-async function listEligibleRecipients(tenantId) {
-  const ids = await getElevatedRecipientIdSet(tenantId);
-  const oid = [...ids].filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id));
-  if (!oid.length) return [];
-  const users = await User.find({ _id: { $in: oid }, tenantId, ...NOTIFIABLE_USER_FILTER })
-    .select("name email status")
+  const users = await User.find({ tenantId: { $in: tenantIds }, ...NOTIFIABLE_USER_FILTER })
+    .select("name email status tenantId roleIds")
     .sort({ name: 1 })
     .lean();
-  return users.map((u) => ({ _id: u._id, name: u.name, email: u.email, status: u.status }));
-}
+  const roleIds = [...new Set(users.flatMap((user) => (user.roleIds || []).map(String)))];
+  const roles = roleIds.length
+    ? await Role.find({ _id: { $in: roleIds } }).select("name type").lean()
+    : [];
+  const roleMap = new Map(roles.map((role) => [String(role._id), role]));
 
-async function listAllActiveUsers(tenantId) {
-  return User.find({ tenantId, ...NOTIFIABLE_USER_FILTER })
-    .select("name email status")
-    .sort({ name: 1 })
-    .lean();
-}
+  return users.flatMap((user) => {
+    const tenant = tenantsById.get(String(user.tenantId));
+    const userRoles = (user.roleIds || []).map((id) => roleMap.get(String(id))).filter(Boolean);
+    const isSuperAdmin = isPlatformTenant(tenant) && userRoles.some((role) => role.type === "SYSTEM");
+    if (isPlatformTenant(tenant) && !isSuperAdmin) return [];
 
-async function assertRecipientsInTenant(tenantId, recipientIds) {
-  const count = await User.countDocuments({
-    tenantId,
-    ...NOTIFIABLE_USER_FILTER,
-    _id: { $in: recipientIds },
+    const isTenantAdmin =
+      !isPlatformTenant(tenant) &&
+      ((tenant?.adminUserId && String(tenant.adminUserId) === String(user._id)) ||
+      (tenant?.email && String(tenant.email).toLowerCase() === String(user.email || "").toLowerCase()) ||
+        userRoles.some((role) => /admin/i.test(role.name || "")));
+    const recipientRole = isSuperAdmin ? "Super admin" : isTenantAdmin ? "Tenant admin" : "Employee";
+    return [{
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      status: user.status,
+      accountRole: recipientRole,
+      tenantName: tenant?.name || "",
+    }];
   });
-  if (count !== recipientIds.length) {
-    return false;
-  }
-  return true;
+}
+
+async function assertRecipientsInScope(req, recipientIds) {
+  const allowedRecipients = await listNotificationRecipients(req);
+  const allowedIds = new Set(allowedRecipients.map((user) => String(user._id)));
+  return recipientIds.every((id) => allowedIds.has(String(id)));
 }
 
 module.exports = {
-  getUserIdsWithTenantManage,
-  getElevatedRecipientIdSet,
-  listEligibleRecipients,
-  listAllActiveUsers,
-  assertRecipientsInTenant,
-  HIGH_LEVEL_MAX_DEPTH,
+  getAccountRole,
+  listNotificationRecipients,
+  assertRecipientsInScope,
 };
