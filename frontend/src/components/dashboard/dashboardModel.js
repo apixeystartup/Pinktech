@@ -537,8 +537,8 @@ export function buildStatCards(data, feed) {
         badge: total ? { text: `${pct}% active`, tone: "green" } : null,
         glyph: "ring",
         ringPct: pct,
-        to: "/app/employee-management",
-        linkLabel: "See people",
+        to: "/app/org-employees?view=organization",
+        linkLabel: "Open directory",
       },
       {
         key: "doctors",
@@ -625,7 +625,7 @@ export function buildStatCards(data, feed) {
       badge: { text: `${pct0(reports)}% active`, tone: "green" },
       glyph: "ring",
       ringPct: 100,
-      to: "/app/org-employees",
+      to: "/app/org-employees?view=organization",
       linkLabel: "See team",
     });
   }
@@ -659,25 +659,16 @@ export function buildAttentionItems(data) {
   if (data.role === "super_admin") {
     const tenants = data.tenants || [];
     const total = asCount(summary.totalTenants);
-    items.push(
-      total
-        ? {
-            tone: "amber",
-            icon: "alert",
-            title: `Review ${total} tenant profile${total === 1 ? "" : "s"}`,
-            body: "Make sure details are complete",
-            cta: "Review",
-            to: "/app/tenants",
-          }
-        : {
-            tone: "amber",
-            icon: "alert",
-            title: "Create your first tenant",
-            body: "Keep every organization in one place",
-            cta: "Create",
-            to: "/app/tenants",
-          },
-    );
+    if (total) {
+      items.push({
+        tone: "amber",
+        icon: "alert",
+        title: `Review ${total} tenant profile${total === 1 ? "" : "s"}`,
+        body: "Make sure details are complete",
+        cta: "Review",
+        to: "/app/tenants",
+      });
+    }
     const needsFirst = total === 0 || tenants.some((tenant) => asCount(tenant.doctorCount) === 0);
     items.push({
       tone: "person",
@@ -706,7 +697,7 @@ export function buildAttentionItems(data) {
       title: total ? `Review ${total} employee profile${total === 1 ? "" : "s"}` : "Add your first employee",
       body: "Make sure details are complete",
       cta: "Review",
-      to: "/app/employee-management",
+      to: "/app/org-employees?view=employees",
     });
     items.push({
       tone: "person",
@@ -752,7 +743,7 @@ export function buildAttentionItems(data) {
       title: `Review ${reports} direct report${reports === 1 ? "" : "s"}`,
       body: "Keep your team's details complete",
       cta: "Review",
-      to: "/app/org-employees",
+      to: "/app/org-employees?view=organization",
     });
   }
   return items;

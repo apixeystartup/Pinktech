@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { create } from "zustand";
 import toast from "react-hot-toast";
 import ModulePage from "../components/common/ModulePage";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
+import { getErrorMessage } from "../lib/error";
 import "../styles/wf-org.css";
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -30,27 +33,21 @@ function scopeClass(s) {
 const SCOPES = ["ALL_INDIA", "ZONE", "REGION", "AREA", "HQ"];
 
 const useOrgStore = create((set) => ({
-  tab: "org-tree",
-  setTab: (tab) => set({ tab }),
   selectedId: null,
   setSelectedId: (selectedId) => set({ selectedId }),
+  profileOpen: false,
+  setProfileOpen: (profileOpen) => set({ profileOpen }),
   filters: {},
   patchFilters: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   clearFilters: () => set({ filters: {} }),
   dialog: { kind: "none" },
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: { kind: "none" } }),
-  expandedRoles: new Set(),
-  toggleRoleExpansion: (id) => set((s) => {
-    const next = new Set(s.expandedRoles);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return { expandedRoles: next };
-  }),
 }));
 
 // ─── Query keys & refresh helper ───────────────────────────
 
-const QK = ["org-stats", "org-employees", "org-employee", "org-subtree",
+const QK = ["org-stats", "org-employees", "org-filtered-tree", "org-employee", "org-subtree",
   "org-ancestry", "org-roots", "org-filters", "org-roles", "org-removed"];
 
 function useRefreshAll() {
@@ -82,20 +79,9 @@ function useIsOrgAdmin() {
   return Boolean(isSuperAdmin) || accountRole === "tenant_admin";
 }
 
-// Management powers (upload, reload, add & edit people, leave, restore) follow
-// the same line as the read view: an org admin — Pinktech's super admin, or a
-// tenant's own admin, which the backend scopes to its own organization.
-// Platform-wide surfaces are narrower — see useIsPlatformSuperAdmin.
+// Management powers follow the same line as the read view.
 function useCanManageOrg() {
   return useIsOrgAdmin();
-}
-
-// The Roles tab, the all-tenants Home roll-up and the platform-wide sweeps
-// reshape every tenant's data, so they stay super-admin-only even for a
-// tenant admin.
-function useIsPlatformSuperAdmin() {
-  const { isSuperAdmin } = useAuth();
-  return Boolean(isSuperAdmin);
 }
 
 function useOrgStats() {
@@ -104,7 +90,14 @@ function useOrgStats() {
 }
 function useOrgFilters(criteria) {
   const { tenantContextId, allTenants } = useOrgScope();
-  return useQuery({ queryKey: ["org-filters", tenantContextId, allTenants, criteria], queryFn: async () => (await api.get("/org/filters", { params: allTenants ? { ...criteria, all_tenants: 1 } : criteria })).data, staleTime: 5000, refetchOnWindowFocus: true });
+  return useQuery({
+    queryKey: ["org-filters", tenantContextId, allTenants, criteria],
+    queryFn: async () => (await api.get("/org/filters", {
+      params: allTenants ? { ...criteria, all_tenants: 1 } : criteria,
+    })).data,
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+  });
 }
 function useOrgEmployees(criteria, tenantId) {
   const { tenantContextId, allTenants } = useOrgScope();
@@ -112,6 +105,18 @@ function useOrgEmployees(criteria, tenantId) {
   return useQuery({
     queryKey: ["org-employees", tenantContextId, aggregate, tenantId || null, criteria],
     queryFn: async () => (await api.get("/org/employees", { ...tenantHeader(tenantId), params: { ...criteria, limit: criteria.limit || 1000, ...(aggregate ? { all_tenants: 1 } : {}) } })).data,
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+  });
+}
+function useOrgFilteredTree(criteria, enabled) {
+  const { tenantContextId, allTenants } = useOrgScope();
+  return useQuery({
+    queryKey: ["org-filtered-tree", tenantContextId, allTenants, criteria],
+    queryFn: async () => (await api.get("/org/tree", {
+      params: { ...criteria, ...(allTenants ? { all_tenants: 1 } : {}) },
+    })).data,
+    enabled,
     staleTime: 5000,
     refetchOnWindowFocus: true,
   });
@@ -258,11 +263,15 @@ export default function OrgEmployeePage() {
   const tenantLabel = currentTenant ? `${currentTenant.name} (${currentTenant.code})` : null;
   const title = (
     <>
-      Org Explore
+      Organization
     {tenantLabel ? <span className="module-title-tenant"> {tenantLabel}</span> : null}
     </>
   );
-  const hasAccess = permissionCodes.includes("*") || permissionCodes.includes("employee.view");
+  const hasAccess = permissionCodes.includes("*")
+    || permissionCodes.includes("employee.view")
+    || permissionCodes.includes("user.view")
+    || permissionCodes.includes("employee.manage")
+    || permissionCodes.includes("tenant.manage");
   if (!hasAccess) {
     return (
       <ModulePage title={title} description="You don't have access to this section.">
@@ -273,9 +282,11 @@ export default function OrgEmployeePage() {
   return (
     <ModulePage
       title={title}
-      description="Org directory, assignments, and role management."
+      description="Organization structure and employee profiles."
     >
-      <div className="org-page"><OrgExplorerPage /></div>
+      <div className="org-page">
+        <OrgExplorerPage />
+      </div>
     </ModulePage>
   );
 }
@@ -283,14 +294,20 @@ export default function OrgEmployeePage() {
 // ─── Main page ─────────────────────────────────────────────
 
 function OrgExplorerPage() {
-  const tab = useOrgStore((s) => s.tab);
-  const setTab = useOrgStore((s) => s.setTab);
   const setSelectedId = useOrgStore((s) => s.setSelectedId);
+  const setProfileOpen = useOrgStore((s) => s.setProfileOpen);
+  const clearFilters = useOrgStore((s) => s.clearFilters);
+  const [searchParams] = useSearchParams();
   const { tenantContextId } = useAuth();
   const isAdmin = useIsOrgAdmin();
-  const canManage = useCanManageOrg();
-  const isSuperAdmin = useIsPlatformSuperAdmin();
+  const isOrgEntryView = ["organization", "employees"].includes(searchParams.get("view"));
   const { data: stats, isLoading: statsLoading } = useOrgStats();
+  useEffect(() => {
+    if (!isOrgEntryView) return;
+    setSelectedId(null);
+    setProfileOpen(false);
+    clearFilters();
+  }, [isOrgEntryView, setSelectedId, setProfileOpen, clearFilters]);
   // Reset the focused person when the super admin switches tenant context so the
   // tree never keeps a stale selection from another tenant.
   const prevTenantRef = useRef(tenantContextId);
@@ -298,13 +315,9 @@ function OrgExplorerPage() {
     if (prevTenantRef.current !== tenantContextId) {
       prevTenantRef.current = tenantContextId;
       setSelectedId(null);
+      setProfileOpen(false);
     }
-  }, [tenantContextId, setSelectedId]);
-  // The Roles sub-tab reshapes the role catalog, so it is a platform surface:
-  // never leave anyone but the super admin on it.
-  useEffect(() => {
-    if (!isSuperAdmin && tab === "roles") setTab("org-tree");
-  }, [isSuperAdmin, tab, setTab]);
+  }, [tenantContextId, setSelectedId, setProfileOpen]);
   // Everyone else only ever sees themselves + their reports, so an employee with
   // nobody reporting to them has nothing to explore.
   const noTeam = !isAdmin && !statsLoading && Number(stats?.total ?? 0) <= 1;
@@ -316,19 +329,13 @@ function OrgExplorerPage() {
             <section className="org-wf-empty bg-white rounded-xl border border-slate-200 shadow-sm p-8">
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Nothing to explore yet</h2>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">
-                Nobody reports to you right now, so there is no team to show here. Your own profile still lives on the
-                Employee Management page.
+                Nobody reports to you right now, so there is no team to show here. Your own profile remains available
+                from your account menu.
               </p>
             </section>
           </OrgFrame>
-        ) : tab === "org-tree" ? (
-          <ExplorerView variant="tree" />
-        ) : tab === "org-explorer" ? (
-          <ExplorerView variant="explorer" />
-        ) : isSuperAdmin ? (
-          <RolesView />
         ) : (
-          <ExplorerView variant="tree" />
+          <ExplorerView />
         )}
       </main>
       <ModalRoot />
@@ -336,8 +343,7 @@ function OrgExplorerPage() {
   );
 }
 
-// Shared frame: the stats/controls row sits above both panels on desktop and
-// drops between the Directory and the tree on mobile (Screens 7 & 8).
+// Shared frame for organization controls and the tree.
 function OrgFrame({ wide, children }) {
   return (
     <div className={`org-explorer-layout org-wf-grid${wide ? " org-wf-grid--wide" : ""}`}>
@@ -350,14 +356,10 @@ function OrgFrame({ wide, children }) {
 // ─── TopBar ────────────────────────────────────────────────
 
 function OrgTopBar() {
-  const { data: stats } = useOrgStats();
   const { data: removed } = useOrgRemoved();
-  const tab = useOrgStore((s) => s.tab);
-  const setTab = useOrgStore((s) => s.setTab);
   const openDialog = useOrgStore((s) => s.openDialog);
   const refresh = useRefreshAll();
   const canManage = useCanManageOrg();
-  const isSuperAdmin = useIsPlatformSuperAdmin();
   const fileInputRef = useRef(null);
 
   const uploadMut = useMutation({
@@ -379,35 +381,12 @@ function OrgTopBar() {
 
   return (
     <header className="org-explorer-header org-wf-topbar border-b border-pink-100 bg-white px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
-      <div className="org-explorer-header__identity org-wf-identity flex items-center gap-4 min-w-0">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-pink-700 grid place-items-center text-white font-bold text-lg shrink-0">P</div>
-        <div className="min-w-0">
-          <h1 className="text-base font-semibold text-slate-900 tracking-tight">Org Explorer</h1>
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-            {stats ? `${stats.total} people · ${stats.roles} roles · ${stats.max_level} levels` : "loading…"}
-          </p>
-        </div>
-      </div>
-      <div className="org-wf-chips flex items-center gap-2 flex-wrap">
-        <span className="stat-pill stat-filled">{stats?.filled ?? "—"} filled</span>
-        <span className="stat-pill stat-vacant">{stats?.vacant ?? "—"} vacant</span>
-        <span className="stat-pill stat-roles">{stats?.roles ?? "—"} roles</span>
-        <span className="stat-pill stat-levels">L{stats?.max_level ?? "—"}</span>
+      <div className="org-wf-controls flex items-center gap-3 flex-wrap">
         {canManage && removedCount > 0 && (
           <button type="button" className="stat-pill stat-removed" onClick={() => openDialog({ kind: "removed-list" })} title="People marked as left — click to restore">
             {removedCount} removed
           </button>
         )}
-      </div>
-      <div className="org-wf-controls flex items-center gap-3 flex-wrap">
-        <div className="org-wf-tabs flex items-center gap-1 p-1 rounded-lg bg-slate-100 flex-wrap">
-          {(isSuperAdmin
-            ? [["org-tree", "Org tree"], ["org-explorer", "Org explorer"], ["roles", "Roles"]]
-            : [["org-tree", "Org tree"], ["org-explorer", "Org explorer"]]
-          ).map(([k, label]) => (
-            <button key={k} type="button" className={`tab-btn${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{label}</button>
-          ))}
-        </div>
         {canManage && (
           <>
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden"
@@ -427,45 +406,63 @@ function OrgTopBar() {
 
 // ─── ExplorerView ──────────────────────────────────────────
 
-function ExplorerView({ variant }) {
-  const selectedId = useOrgStore((s) => s.selectedId);
+function ExplorerView() {
+  const filters = useOrgStore((s) => s.filters);
+  const profileOpen = useOrgStore((s) => s.profileOpen);
+  const setProfileOpen = useOrgStore((s) => s.setProfileOpen);
+  const filtersActive = Object.entries(filters).some(([key, value]) => (
+    key === "q" ? Boolean(value?.trim()) : Boolean(value)
+  ));
+  const filteredTreeQ = useOrgFilteredTree(filters, filtersActive);
 
   return (
     <OrgFrame>
       <DirectoryColumn />
-      {variant === "tree" ? (
-        <section className="org-canvas bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-900 tracking-tight">{selectedId ? "Org tree" : "Pick someone to see their team"}</h2>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">Click someone in the list or expand nodes in the tree to explore reporting lines. Use the Org explorer tab for profile and actions.</p>
+      <section className="org-canvas bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Org tree</h2>
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-prose">
+            {filtersActive
+              ? `${filteredTreeQ.data?.count ?? 0} matching position${filteredTreeQ.data?.count === 1 ? "" : "s"} shown with their reporting lines.`
+              : "Search or filter the Directory to find people and see their reporting lines here."}
+            {" "}Select a person in the tree to open their profile.
+          </p>
+        </div>
+        <div className="org-tree-view p-5 min-h-0 flex-1">
+          <div className="org-tree-content min-w-0">
+            <OrgTreePanel
+              filteredTree={filteredTreeQ.data}
+              filteredTreeLoading={filteredTreeQ.isLoading}
+              filteredTreeError={filteredTreeQ.error}
+              filtersActive={filtersActive}
+            />
           </div>
-          <div className="p-5 min-h-0 flex-1"><OrgTreePanel /></div>
-        </section>
-      ) : (
-        <section className="org-profile bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0 org-explorer-detail">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Profile</h2>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Select someone to view their record, role, and actions.</p>
-          </div>
-          <div className="min-h-0 flex-1 flex flex-col"><DetailPanel /></div>
-        </section>
-      )}
+        </div>
+      </section>
+      {profileOpen && <ProfileModal close={() => setProfileOpen(false)} />}
     </OrgFrame>
   );
 }
-
-// ─── DirectoryColumn ───────────────────────────────────────
 
 function DirectoryColumn() {
   const filters = useOrgStore((s) => s.filters);
   const patchFilters = useOrgStore((s) => s.patchFilters);
   const clearFilters = useOrgStore((s) => s.clearFilters);
-  const selectedId = useOrgStore((s) => s.selectedId);
   const setSelectedId = useOrgStore((s) => s.setSelectedId);
-  const { data, isLoading } = useOrgEmployees(filters);
+  const setProfileOpen = useOrgStore((s) => s.setProfileOpen);
   const filterData = useOrgFilters(filters);
+  const updateFilters = (patch) => {
+    patchFilters(patch);
+    setSelectedId(null);
+    setProfileOpen(false);
+  };
+  const clearDirectoryFilters = () => {
+    clearFilters();
+    setSelectedId(null);
+    setProfileOpen(false);
+  };
 
-  const FIELDS = [
+  const fields = [
     { key: "zone", label: "Zone", facet: "zones" },
     { key: "region", label: "Region", facet: "regions" },
     { key: "state", label: "State", facet: "states" },
@@ -476,65 +473,80 @@ function DirectoryColumn() {
     <section className="org-directory bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-0 min-h-0">
       <div className="px-5 py-4 border-b border-slate-100">
         <h2 className="text-sm font-semibold text-slate-900 tracking-tight">Directory</h2>
-        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Search, filters, and the employee list.</p>
+        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Search and filter people; matching reporting lines appear in the org tree.</p>
       </div>
       <div className="org-wf-filters px-5 py-4 border-b border-slate-100 space-y-3">
-        <input type="text" className="filter-select org-wf-search w-full" placeholder="Search by name, EMP ID, email, designation…"
-          value={filters.q || ""} onChange={(e) => patchFilters({ q: e.target.value })} />
+        <input
+          type="text"
+          className="filter-select org-wf-search w-full"
+          placeholder="Search by name, EMP ID, email, designation…"
+          value={filters.q || ""}
+          onChange={(event) => updateFilters({ q: event.target.value })}
+          aria-label="Search people"
+        />
         <div className="grid grid-cols-2 gap-3">
-          {FIELDS.map((f) => (
-            <select key={f.key} className="filter-select" value={filters[f.key] || ""} onChange={(e) => patchFilters({ [f.key]: e.target.value || undefined })}>
-              <option value="">All {f.label}s</option>
-              {filterData.data?.[f.facet]?.map((o) => <option key={o.value} value={o.value}>{o.value} ({o.count})</option>)}
+          {fields.map((field) => (
+            <select
+              key={field.key}
+              className="filter-select"
+              value={filters[field.key] || ""}
+              onChange={(event) => updateFilters({ [field.key]: event.target.value || undefined })}
+              aria-label={field.label}
+            >
+              <option value="">All {field.label}s</option>
+              {filterData.data?.[field.facet]?.map((option) => (
+                <option key={option.value} value={option.value}>{option.value} ({option.count})</option>
+              ))}
             </select>
           ))}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <select className="filter-select" value={filters.role_id || ""} onChange={(e) => patchFilters({ role_id: e.target.value || undefined })}>
+          <select
+            className="filter-select"
+            value={filters.role_id || ""}
+            onChange={(event) => updateFilters({ role_id: event.target.value || undefined })}
+            aria-label="Filter by role"
+          >
             <option value="">All Roles</option>
-            {filterData.data?.roles?.map((r) => <option key={r.value} value={r.value}>{r.label} · L{r.level} ({r.count})</option>)}
+            {filterData.data?.roles?.map((role) => (
+              <option key={role.value} value={role.value}>{role.label} · L{role.level} ({role.count})</option>
+            ))}
           </select>
-          <select className="filter-select" value={filters.level ?? ""} onChange={(e) => patchFilters({ level: e.target.value ? Number(e.target.value) : undefined })}>
+          <select
+            className="filter-select"
+            value={filters.level ?? ""}
+            onChange={(event) => updateFilters({ level: event.target.value ? Number(event.target.value) : undefined })}
+            aria-label="Filter by level"
+          >
             <option value="">All Levels</option>
-            {filterData.data?.levels?.map((l) => <option key={l.value} value={l.value}>Level {l.value} ({l.count})</option>)}
+            {filterData.data?.levels?.map((level) => (
+              <option key={level.value} value={level.value}>Level {level.value} ({level.count})</option>
+            ))}
           </select>
         </div>
+        {filterData.error && (
+          <p role="alert" className="text-sm text-red-700">
+            Could not load Directory filter options: {getErrorMessage(filterData.error)}
+          </p>
+        )}
         <div className="org-wf-checks flex items-center justify-between gap-3 pt-1 text-xs">
           <label className="flex items-center gap-2 text-slate-600">
-            <input type="checkbox" checked={!!filters.vacant_only} onChange={(e) => patchFilters({ vacant_only: e.target.checked, filled_only: false })} />
+            <input
+              type="checkbox"
+              checked={!!filters.vacant_only}
+              onChange={(event) => updateFilters({ vacant_only: event.target.checked, filled_only: false })}
+            />
             Vacant only
           </label>
           <label className="flex items-center gap-2 text-slate-600">
-            <input type="checkbox" checked={!!filters.filled_only} onChange={(e) => patchFilters({ filled_only: e.target.checked, vacant_only: false })} />
+            <input
+              type="checkbox"
+              checked={!!filters.filled_only}
+              onChange={(event) => updateFilters({ filled_only: event.target.checked, vacant_only: false })}
+            />
             Filled only
           </label>
-          <button type="button" className="org-wf-clear text-pink-700 font-medium" onClick={clearFilters}>Clear all</button>
-        </div>
-      </div>
-      <div>
-        <div className="org-wf-count px-5 py-3 text-xs font-medium text-slate-500 sticky top-0 bg-white border-b border-slate-100 z-[1]">
-          {isLoading ? "Loading…" : `${data?.count ?? 0} people`}
-        </div>
-        <div className="divide-y divide-slate-100">
-          {data?.items?.map((emp) => (
-            <div key={emp.id} className={`dir-card${emp.id === selectedId ? " selected" : ""}`} onClick={() => setSelectedId(emp.id)}>
-              <div className={`dir-avatar${emp.is_vacant ? " vacant" : ""}`}>{emp.is_vacant ? "V" : initials(emp.name)}</div>
-              <div className="flex-1 min-w-0">
-                <div className="dir-name truncate">{emp.name}</div>
-                <div className="dir-meta truncate">{emp.role_name || emp.designation || "Unspecified"}{emp.emp_id ? ` · ${emp.emp_id}` : ""}</div>
-                <div className="dir-tags">
-                  <span className="tag level">L{emp.level}</span>
-                  {emp.role_name && <span className={scopeClass(emp.scope)}>{scopeLabel(emp.scope)}</span>}
-                  {emp.pinktech_code && <span className="tag tenant">{emp.pinktech_code}</span>}
-                  {emp.zone && <span className="tag zone">{emp.zone}</span>}
-                  {emp.is_vacant && <span className="tag vacant">Vacant</span>}
-                  {emp.added_manually && <span className="tag reports">Added</span>}
-                  {emp.direct_reports > 0 && <span className="tag reports">{emp.direct_reports} reports</span>}
-                  {emp.external_manager && <span className="tag ext">External boss</span>}
-                </div>
-              </div>
-            </div>
-          ))}
+          <button type="button" className="org-wf-clear text-pink-700 font-medium" onClick={clearDirectoryFilters}>Clear all</button>
         </div>
       </div>
     </section>
@@ -543,9 +555,10 @@ function DirectoryColumn() {
 
 // ─── OrgTree ───────────────────────────────────────────────
 
-function OrgTreePanel() {
+function OrgTreePanel({ filteredTree, filteredTreeLoading, filteredTreeError, filtersActive }) {
   const selectedId = useOrgStore((s) => s.selectedId);
   const setSelectedId = useOrgStore((s) => s.setSelectedId);
+  const setProfileOpen = useOrgStore((s) => s.setProfileOpen);
   const rootsQ = useOrgRoots();
   const isAdmin = useIsOrgAdmin();
   const roots = rootsQ.data?.roots || [];
@@ -557,43 +570,55 @@ function OrgTreePanel() {
   // Focus it too, so the tree opens on their own team instead of staying empty.
   const selfRootId = !isAdmin && roots.length === 1 && !roots[0].is_virtual_root ? roots[0].id : null;
   const autoFocusId = virtualRootId || selfRootId;
+  const treeRootId = autoFocusId || roots[0]?.id || selectedId;
 
   useEffect(() => {
-    if (!selectedId && autoFocusId) setSelectedId(autoFocusId);
-  }, [selectedId, autoFocusId, setSelectedId]);
+    if (!selectedId && treeRootId) setSelectedId(treeRootId);
+  }, [selectedId, treeRootId, setSelectedId]);
 
-  const subQ = useOrgSubtree(selectedId);
+  const subQ = useOrgSubtree(filtersActive ? null : treeRootId);
 
-  if (!selectedId) {
+  if (filtersActive && filteredTreeLoading) {
+    return <div className="text-sm text-slate-500">Finding matching people and their reporting lines…</div>;
+  }
+  if (filtersActive && filteredTreeError) {
+    return <div role="alert" className="text-sm text-red-700">Could not load the filtered organization tree. Please try again.</div>;
+  }
+  if (filtersActive && !filteredTree?.count) {
+    return <div className="text-sm text-slate-500">No people match these Directory filters.</div>;
+  }
+  if (filtersActive) {
+    return (
+      <>
+        {filteredTree.roots.map((root) => (
+          <ul key={root.id} className="org-tree-list">
+            <TreeLi node={root} onSelect={(id) => { setSelectedId(id); setProfileOpen(true); }} />
+          </ul>
+        ))}
+      </>
+    );
+  }
+  if (!treeRootId) {
     return (
       <div className="text-sm text-slate-500">
-        <p className="mb-2">Tip: click anyone in the directory to focus their team.</p>
-        {roots.length > 0 && (
-          <>
-            <p className="mb-2">Top of org:</p>
-            <ul className="space-y-1">
-              {roots.map((r) => (
-                <li key={r.id}><button type="button" className="ancestry-link" onClick={() => setSelectedId(r.id)}>{r.name} — {r.role_name}</button></li>
-              ))}
-            </ul>
-          </>
-        )}
+        {roots.length > 0 && <p className="mb-2">Loading organization tree…</p>}
       </div>
     );
   }
   if (subQ.isLoading) return <div className="text-sm text-slate-500">Loading tree…</div>;
+  if (subQ.error) return <div role="alert" className="text-sm text-red-700">Could not load the organization tree. Please try again.</div>;
   if (!subQ.data) return null;
+
   return (
     <ul className="org-tree-list">
-      <TreeLi node={subQ.data.root} />
+      <TreeLi node={subQ.data.root} onSelect={(id) => { setSelectedId(id); setProfileOpen(true); }} />
     </ul>
   );
 }
 
-function TreeLi({ node }) {
+function TreeLi({ node, onSelect }) {
   const [collapsed, setCollapsed] = useState(false);
   const selectedId = useOrgStore((s) => s.selectedId);
-  const setSelectedId = useOrgStore((s) => s.setSelectedId);
   const hasChildren = node.children?.length > 0;
 
   return (
@@ -601,7 +626,20 @@ function TreeLi({ node }) {
       <div className={`tree-node${node.is_vacant ? " vacant" : ""}${node.id === selectedId ? " selected" : ""}`}>
         <div className={`tree-toggle${!hasChildren ? " empty" : ""}`} onClick={() => hasChildren && setCollapsed((c) => !c)}
           title={hasChildren ? (collapsed ? "Expand" : "Collapse") : ""} />
-        <div className="tree-body" onClick={() => setSelectedId(node.id)}>
+        <div
+          className="tree-body"
+          role="button"
+          tabIndex={0}
+          aria-label={`View profile for ${node.name}`}
+          aria-haspopup="dialog"
+          onClick={() => onSelect(node.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(node.id);
+            }
+          }}
+        >
           <div className="flex items-start gap-2">
             <div className={`dir-avatar${node.is_vacant ? " vacant" : ""}`} style={{ width: 32, height: 32, fontSize: 11 }}>
               {node.is_vacant ? "V" : initials(node.name)}
@@ -623,27 +661,119 @@ function TreeLi({ node }) {
           </div>
         </div>
       </div>
-      {hasChildren && <ul>{node.children.map((c) => <TreeLi key={c.id} node={c} />)}</ul>}
+      {hasChildren && <ul>{node.children.map((c) => <TreeLi key={c.id} node={c} onSelect={onSelect} />)}</ul>}
     </li>
   );
 }
 
 // ─── DetailPanel ───────────────────────────────────────────
 
+function ProfileModal({ close }) {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
+
+  return createPortal(
+    <div className="org-page org-profile-portal">
+      <div className="org-dialog-backdrop org-profile-backdrop" role="presentation" onClick={close}>
+        <div
+          className="org-dialog org-profile-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Employee profile"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <DetailPanel />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function DetailPanel() {
   const selectedId = useOrgStore((s) => s.selectedId);
   const setSelectedId = useOrgStore((s) => s.setSelectedId);
+  const setProfileOpen = useOrgStore((s) => s.setProfileOpen);
   const openDialog = useOrgStore((s) => s.openDialog);
   const empQ = useOrgEmployee(selectedId);
   const ancQ = useOrgAncestry(selectedId);
   const setManagerMut = useSetManager();
   const reassignMut = useReassignReports();
   const canManage = useCanManageOrg();
+  const { tenantContextId } = useAuth();
+  const queryClient = useQueryClient();
+  const userAccountsQ = useQuery({
+    queryKey: ["org-employee-user-accounts", tenantContextId || "all-tenants"],
+    queryFn: async () => {
+      const { data } = await api.get("/users?showAll=true");
+      if (!Array.isArray(data)) {
+        throw new Error("The employee account service returned an unexpected response.");
+      }
+      return data;
+    },
+    enabled: canManage,
+    staleTime: 30000,
+  });
+  const sendCredentials = useMutation({
+    mutationFn: (userId) => api.post(`/users/${userId}/send-creds`),
+    onSuccess: () => {
+      toast.success("Credentials sent.");
+      queryClient.invalidateQueries({ queryKey: ["org-employee-user-accounts"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+  const activateProfileAccount = useMutation({
+    mutationFn: (userId) => api.post(`/users/${userId}/unlock`),
+    onSuccess: () => {
+      toast.success("Account activated; failed-login attempts were reset.");
+      queryClient.invalidateQueries({ queryKey: ["org-employee-user-accounts"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
 
   if (!selectedId) return <div className="px-5 py-8 text-sm text-slate-500 leading-relaxed">Pick someone from the directory or the org tree to see their full record here.</div>;
-  if (empQ.isLoading || !empQ.data) return <div className="px-5 py-8 text-sm text-slate-500">Loading…</div>;
+  if (empQ.isLoading) return <div className="px-5 py-8 text-sm text-slate-500">Loading profile…</div>;
+  if (empQ.error) return <div role="alert" className="px-5 py-8 text-sm text-red-700">Could not load this profile. Please try again.</div>;
+  if (!empQ.data) return <div className="px-5 py-8 text-sm text-slate-500">Profile not found.</div>;
 
   const emp = empQ.data.employee;
+  const profileEmail = String(emp.official_email || emp.email || emp.contact_email || "").trim().toLowerCase();
+  const profileEmpId = String(emp.emp_id || "").trim().toLowerCase();
+  const linkedAccount = profileEmail || profileEmpId
+    ? userAccountsQ.data?.find((user) => (
+      String(user.tenantId || "") === String(emp.tenant_id || "")
+      && (
+        (profileEmail && String(user.email || "").trim().toLowerCase() === profileEmail)
+        || (profileEmpId && String(user.empCode || "").trim().toLowerCase() === profileEmpId)
+      )
+    ))
+    : null;
+  const credentialsSentCount = Number(linkedAccount?.credentialsSentCount) || 0;
+  const accountStatus = linkedAccount
+    ? linkedAccount.status === "LOCKED" || linkedAccount.status === "DISABLED"
+      ? "Deactivated"
+      : linkedAccount.status === "INVITED" || linkedAccount.status === "OTP_PENDING"
+        ? "Invited"
+        : linkedAccount.status === "ACTIVE" && credentialsSentCount >= 2
+          ? "Resent"
+          : linkedAccount.status === "ACTIVE"
+            ? "Active"
+            : "Unavailable"
+    : userAccountsQ.isLoading
+      ? "Checking"
+      : userAccountsQ.error
+        ? "Unavailable"
+        : "No account linked";
+  const credsActionLabel = linkedAccount?.status === "LOCKED"
+    ? "Activate"
+    : credentialsSentCount > 0
+    ? "Resend creds"
+      : "Send creds";
 
   return (
     <div className="min-w-0 flex flex-col flex-1">
@@ -662,9 +792,14 @@ function DetailPanel() {
               {emp.added_manually && <span className="tag reports">Added</span>}
               {emp.direct_reports > 0 && <span className="tag reports">{emp.direct_reports} reports</span>}
               {emp.external_manager && <span className="tag ext">External boss</span>}
+              {canManage && !emp.is_virtual_root && (
+                <span className={`tag account-status account-status-${accountStatus.toLowerCase().replace(/\s+/g, "-")}`}>
+                  {accountStatus}
+                </span>
+              )}
             </div>
           </div>
-          <button type="button" className="action-btn shrink-0 self-start" onClick={() => setSelectedId(null)} title="Clear selection">×</button>
+          <button type="button" autoFocus className="action-btn shrink-0 self-start" onClick={() => setProfileOpen(false)} title="Close profile" aria-label="Close profile">×</button>
         </div>
       </div>
       <div className="px-6 py-6 space-y-5">
@@ -715,6 +850,35 @@ function DetailPanel() {
           </p>
         ) : canManage ? (
           <>
+        <button
+          type="button"
+          className="action-btn org-profile-send-creds"
+          disabled={!linkedAccount || userAccountsQ.isLoading || userAccountsQ.isError || sendCredentials.isPending || activateProfileAccount.isPending}
+          onClick={() => {
+            if (linkedAccount?.status === "LOCKED") {
+              activateProfileAccount.mutate(linkedAccount._id);
+              return;
+            }
+            if (linkedAccount) sendCredentials.mutate(linkedAccount._id);
+          }}
+        >
+          {userAccountsQ.isLoading
+            ? "Checking account…"
+            : sendCredentials.isPending
+              ? "Sending…"
+              : activateProfileAccount.isPending
+                ? "Activating…"
+                : linkedAccount
+                  ? credsActionLabel
+                    : userAccountsQ.isError
+                      ? "Account unavailable"
+                      : "No account linked"}
+        </button>
+        {userAccountsQ.error && (
+          <p role="alert" className="w-full text-sm text-red-700">
+            Could not load the account to send credentials: {getErrorMessage(userAccountsQ.error)}
+          </p>
+        )}
         <button type="button" className="action-btn"
           onClick={() => openDialog({ kind: "picker", title: `Choose new manager for ${emp.name}`, subtitle: "The cycle detection will block self-loops automatically.", excludeIds: [emp.id], tenantId: emp.tenant_id,
             onPick: (id) => setManagerMut.mutate({ id: emp.id, manager_id: id, tenantId: emp.tenant_id }) })}>
@@ -890,7 +1054,7 @@ function RoleMembersPanel({ role }) {
   const setManagerMut = useSetManager();
   const { data, isLoading } = useOrgEmployees({ role_id: role.id, q: q || undefined });
 
-  const focus = (id) => { setSelectedId(id); setTab("org-explorer"); };
+  const focus = (id) => { setSelectedId(id); setTab("org-tree"); };
   const addPerson = () => openDialog({ kind: "add-employee", defaults: { name: "", role_id: role.id } });
 
   return (
@@ -920,7 +1084,7 @@ function RoleMembersPanel({ role }) {
                 <div className="member-meta">{m.designation || "—"}{m.emp_id && <> · <span className="member-empid">{m.emp_id}</span></>}</div>
                 <div className="member-mgr truncate">{m.manager?.name ? `Reports to ${m.manager.name}` : "No manager"}</div>
               </div>
-              <button type="button" className="member-focus-btn" title="Open Org explorer tab with this person selected" onClick={() => focus(m.id)}>↗</button>
+              <button type="button" className="member-focus-btn" title="Select this person in the org tree" onClick={() => focus(m.id)}>↗</button>
             </div>
             <div className="member-tags">
               {m.zone && <span className="tag zone">{m.zone}</span>}

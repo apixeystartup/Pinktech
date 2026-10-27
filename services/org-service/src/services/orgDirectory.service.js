@@ -572,6 +572,53 @@ function subtree(snap, rootKey) {
   return build(String(root._id), 0);
 }
 
+function filteredTree(snap, params) {
+  const matches = listEmployees(snap, { ...params, limit: 0 });
+  const includedIds = new Set();
+
+  for (const match of matches) {
+    let position = snap.byId.get(String(match.id));
+    const path = new Set();
+    while (position && !path.has(String(position._id))) {
+      const id = String(position._id);
+      path.add(id);
+      includedIds.add(id);
+      position = position.parentPositionId
+        ? snap.byId.get(String(position.parentPositionId))
+        : null;
+    }
+  }
+
+  function build(id, depth, ancestors = new Set()) {
+    if (ancestors.has(id)) return null;
+    const position = snap.byId.get(id);
+    if (!position || !includedIds.has(id)) return null;
+
+    const nextAncestors = new Set(ancestors);
+    nextAncestors.add(id);
+    const children = (snap.childrenByParent.get(id) || [])
+      .map((childId) => build(String(childId), depth + 1, nextAncestors))
+      .filter(Boolean);
+
+    return {
+      ...enrich(snap, position),
+      children,
+      depth,
+      direct_reports: children.length,
+      total_descendants: children.reduce(
+        (total, child) => total + 1 + child.total_descendants,
+        0,
+      ),
+    };
+  }
+
+  const roots = (snap.childrenByParent.get("__root__") || [])
+    .map((rootId) => build(String(rootId), 0))
+    .filter(Boolean);
+
+  return { count: matches.length, roots };
+}
+
 function ancestry(snap, key) {
   const start = findInSnapshot(snap, key);
   if (!start) return [];
@@ -807,6 +854,7 @@ module.exports = {
   enrich,
   listEmployees,
   subtree,
+  filteredTree,
   ancestry,
   roots,
   stats,

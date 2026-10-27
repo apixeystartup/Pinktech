@@ -19,12 +19,6 @@ const PAGE_HINTS = {
     to: "/app/doctors",
     action: "Go to doctors",
   },
-  "/app/org-employees": {
-    title: "Next: manage your employees.",
-    detail: "Review the organization structure and update employee details.",
-    to: "/app/employee-management",
-    action: "Go to employees",
-  },
 };
 
 function WorkflowHint({ pathname, search }) {

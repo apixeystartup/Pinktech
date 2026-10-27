@@ -17,7 +17,6 @@ import OrgEmployeePage from "./pages/OrgEmployeePage";
 import FormsPage from "./modules/forms/pages/FormsPage";
 import KycPage from "./modules/kyc/pages/KycPage";
 import InboxActivityPage from "./modules/notifications/pages/InboxActivityPage";
-import EmployeeManagementPage from "./modules/users/pages/EmployeeManagementPage";
 import DoctorManagementPage from "./modules/doctors/pages/DoctorManagementPage";
 import DoctorDetailsPage from "./modules/doctors/pages/DoctorDetailsPage";
 import AccessDeniedPage from "./pages/AccessDeniedPage";
@@ -81,7 +80,7 @@ function App() {
                 path="employee-management"
                 element={
                   <ProtectedRoute requiredPermissions={ROUTE_PERMISSIONS["/employee-management"]} requireAdmin>
-                    <EmployeeManagementPage />
+                    <Navigate to="/app/org-employees" replace />
                   </ProtectedRoute>
                 }
               />

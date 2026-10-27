@@ -52,7 +52,7 @@ function SearchIcon() {
   );
 }
 
-function EmployeeManagementPage() {
+function EmployeeManagementPage({ embedded = false }) {
   const { showToast } = useToast();
   const { permissionCodes = [] } = useAuth();
   const [employees, setEmployees] = useState([]);
@@ -68,8 +68,11 @@ function EmployeeManagementPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/users?showAll=true");
-      const users = (res.data || []).filter((e) => e.email !== "superadmin@example.com");
+      const { data } = await api.get("/users?showAll=true");
+      if (!Array.isArray(data)) {
+        throw new Error("The employee account service returned an unexpected response.");
+      }
+      const users = data.filter((e) => e.email !== "superadmin@example.com");
       setEmployees(users);
       setResetRequestIds(
         new Set(users.filter((user) => user.passwordResetRequestedAt).map((user) => String(user._id))),
@@ -84,8 +87,11 @@ function EmployeeManagementPage() {
   const loadTenants = async () => {
     if (!canAssign) return;
     try {
-      const res = await api.get("/tenants");
-      setTenants(res.data || []);
+      const { data } = await api.get("/tenants");
+      if (!Array.isArray(data)) {
+        throw new Error("The tenant service returned an unexpected response.");
+      }
+      setTenants(data);
     } catch (error) {
       showToast(getErrorMessage(error), "error");
     }
@@ -295,12 +301,8 @@ function EmployeeManagementPage() {
     },
   ];
 
-  return (
-    <ModulePage
-      title="Employee Management"
-      description="Manage employees, assign tenant admin accounts, send credentials, and reset passwords."
-    >
-      <div className="emp-page">
+  const content = (
+    <div className="emp-page">
         <div className="emp-toolbar">
           <div className="emp-tabs" role="tablist" aria-label="Filter by status">
             {STATUS_TABS.map((s) => (
@@ -412,7 +414,17 @@ function EmployeeManagementPage() {
             })
           )}
         </div>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <ModulePage
+      title="Employee Management"
+      description="Manage employees, assign tenant admin accounts, send credentials, and reset passwords."
+    >
+      {content}
     </ModulePage>
   );
 }

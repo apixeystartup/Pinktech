@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema(
       default: "INVITED",
       index: true,
     },
+    credentialsSentCount: { type: Number, default: 0, min: 0 },
     roleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Role" }],
     currentPositionId: { type: mongoose.Schema.Types.ObjectId, ref: "Position", default: null },
     reportingToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },

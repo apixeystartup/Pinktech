@@ -207,10 +207,6 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
           <h2 className="wf-card-title">All tenants</h2>
           <p className="wf-card-sub">Select a tenant to see its people, doctors, and forms</p>
         </div>
-        <Link className="wf-btn wf-btn--light wf-tenants-all" to="/app/tenants">
-          View all tenants
-          <IconArrow />
-        </Link>
       </header>
 
       <div className="wf-table-wrap">
@@ -453,6 +449,12 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
             })}
           </tbody>
         </table>
+      </div>
+      <div className="wf-tenants-footer">
+        <Link className="wf-btn wf-btn--light wf-tenants-all" to="/app/tenants">
+          View all tenants
+          <IconArrow />
+        </Link>
       </div>
     </section>
   );
@@ -888,9 +890,9 @@ function DashboardPage() {
   const greeting = `${now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening"}, ${audience}`;
 
   const primary = isSuperAdmin
-    ? { label: "Create a tenant", to: "/app/tenants" }
+    ? null
     : data?.role === "tenant_admin" || accountRole === "tenant_admin"
-      ? { label: "Add employee", to: "/app/employee-management" }
+      ? { label: "Add employee", to: "/app/org-employees?view=employees" }
       : null;
 
   return (

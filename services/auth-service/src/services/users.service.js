@@ -167,6 +167,7 @@ async function sendCredentials(tenantId, userId, actor) {
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   user.passwordHash = passwordHash;
   user.status = "ACTIVE";
+  user.credentialsSentCount = (Number(user.credentialsSentCount) || 0) + 1;
   user.loginAttempts = 0;
   user.lockUntil = null;
   user.passwordResetRequestedAt = null;

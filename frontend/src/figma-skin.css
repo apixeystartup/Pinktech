@@ -1,5 +1,5 @@
 /* ================================================================== *
- * Figma skin: pill top navigation, account menu and the dashboard    *
+ * Figma skin: workspace navigation, account menu and the dashboard  *
  * blocks (dash2). Warm sand ground, ink panels, one yellow accent.   *
  * Loaded last so it wins the cascade over the older themes.          *
  * ================================================================== */
@@ -126,6 +126,73 @@
   gap: 8px;
   margin-left: 0;
   align-items: center;
+}
+
+.workspace-nav {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.workspace-nav-trigger {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #57554d;
+  cursor: pointer;
+}
+
+.workspace-nav-trigger:hover,
+.workspace-nav-trigger[aria-expanded="true"] {
+  background: #f1f0e9;
+  color: #202018;
+}
+
+.workspace-nav-trigger svg {
+  width: 21px;
+  height: 21px;
+}
+
+.workspace-nav-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 45;
+  display: grid;
+  width: 220px;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 22px 48px rgb(35 32 20 / 16%); /* taste-skill-ignore */
+}
+
+.workspace-nav-link,
+.account-menu-nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #57544c;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.workspace-nav-link:hover,
+.account-menu-nav-link:hover {
+  background: #f4f1e6;
+  color: #26251f;
+}
+
+.workspace-nav-link.is-active,
+.account-menu-nav-link.is-active {
+  background: #f1f0e9;
+  color: #202018;
+  font-weight: 650;
 }
 
 .inbox-bell {
@@ -290,7 +357,9 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 40;
-  width: 262px;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 76px);
+  overflow-y: auto;
   padding: 16px;
   border-radius: 20px;
   background: #ffffff;
@@ -325,6 +394,15 @@
   margin-top: 9px;
   padding-top: 10px;
   border-top: 1px solid #eeece4;
+}
+
+.account-menu-nav {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 14px;
+  padding: 8px 0;
+  border-top: 1px solid #eeece4;
+  border-bottom: 1px solid #eeece4;
 }
 
 .account-menu-brand-logo {
@@ -456,10 +534,50 @@
   background: #efe9d8;
 }
 
-/* The sidebar is gone: the shell is one column and the pill nav is the
-   only navigation, so it stays visible (and scrolls) at every width. */
+/* The app uses compact role-specific navigation popovers instead of a sidebar. */
 .shell-body {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.wf-tenants-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.org-page-section-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 4px;
+  border-radius: 11px;
+  background: #eeefe4;
+}
+
+.org-page-section-tabs button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5e5d53;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.org-page-section-tabs button:hover {
+  color: #202018;
+}
+
+.org-page-section-tabs button.is-active {
+  background: #ffffff;
+  color: #202018;
+  font-weight: 650;
 }
 
 /* ------------------------------ dashboard --------------------------- */

@@ -1,7 +1,7 @@
 export const ROUTE_PERMISSIONS = {
   "/tenants": ["tenant.manage"],
   "/roles": ["role.view"],
-  "/org-employees": ["user.view"],
+  "/org-employees": ["user.view", "employee.view", "employee.manage", "tenant.manage"],
   "/employee-management": ["employee.manage"],
   "/doctors": ["doctor.view"],
   "/forms": ["form.view"],
@@ -14,13 +14,9 @@ const NAV_SECTIONS = [
   {
     items: [
       { to: "/app", label: "Dashboard", permissions: [] },
-      { to: "/app/tenants", label: "Tenants", permissions: ROUTE_PERMISSIONS["/tenants"], superAdminOnly: true },
-      { to: "/app/roles", label: "Roles", permissions: ROUTE_PERMISSIONS["/roles"], adminOnly: true },
       { to: "/app/org-employees", label: "Organization", permissions: ROUTE_PERMISSIONS["/org-employees"] },
-      { to: "/app/employee-management", label: "Employees", permissions: ROUTE_PERMISSIONS["/employee-management"], adminOnly: true },
       { to: "/app/doctors", label: "Doctors", permissions: ROUTE_PERMISSIONS["/doctors"] },
       { to: "/app/forms", label: "Forms", permissions: ROUTE_PERMISSIONS["/forms"], adminOnly: true },
-      { to: "/app/notifications", label: "Inbox & activity", permissions: ROUTE_PERMISSIONS["/notifications"] },
     ],
   },
 ];

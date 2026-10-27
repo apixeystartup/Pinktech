@@ -22,6 +22,7 @@ router.get("/roots", orgExplorerReadMiddleware, controller.getRoots);
 router.get("/hierarchy/removed", orgExplorerReadMiddleware, controller.getRemoved);
 router.post("/hierarchy/reset", platformOnly, controller.postHierarchyReset);
 
+router.get("/tree", orgExplorerReadMiddleware, controller.getFilteredTree);
 router.get("/employees", orgExplorerReadMiddleware, controller.listEmployees);
 router.post("/employees", canWriteOrg, controller.postEmployee);
 router.get("/employees/:key", orgExplorerReadMiddleware, controller.getEmployee);

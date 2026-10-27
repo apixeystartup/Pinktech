@@ -34,6 +34,28 @@ describe("auth.service", () => {
     });
   });
 
+  describe("sendCredentials", () => {
+    it("persists the credential send count so a resend is distinguishable", async () => {
+      const user = {
+        _id: "employee-1",
+        email: "employee@test.com",
+        name: "Employee",
+        status: "INVITED",
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      User.findOne.mockResolvedValue(user);
+      bcrypt.hash.mockResolvedValue("hashed-password");
+
+      await usersService.sendCredentials("tenant-1", "employee-1", { userId: "admin-1" });
+      expect(user.credentialsSentCount).toBe(1);
+
+      await usersService.sendCredentials("tenant-1", "employee-1", { userId: "admin-1" });
+      expect(user.credentialsSentCount).toBe(2);
+      expect(user.status).toBe("ACTIVE");
+      expect(user.save).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("login", () => {
     it("returns tokens and user on valid credentials", async () => {
       const save = jest.fn().mockResolvedValue(undefined);

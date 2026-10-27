@@ -14,41 +14,6 @@ function initialsOf(name) {
   return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
 }
 
-/* Mobile bottom tab bar — the wireframe keeps the five destinations people
-   actually reach for on a phone, and hides the rest behind "More". */
-const PRIMARY_TABS = [
-  { to: "/app", label: "Dashboard", icon: "dashboard" },
-  { to: "/app/tenants", label: "Tenants", icon: "tenants" },
-  { to: "/app/forms", label: "Forms", icon: "forms" },
-  { to: "/app/notifications", label: "Inbox", icon: "activity" },
-];
-
-const TAB_ICONS = {
-  dashboard: (
-    <>
-      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
-    </>
-  ),
-  tenants: (
-    <>
-      <path d="M3 21h18M5 21V5l7-2 7 2v16M9.5 8h.01M14.5 8h.01M9.5 12h.01M14.5 12h.01M10 21v-4h4v4" />
-    </>
-  ),
-  forms: (
-    <>
-      <path d="M8 4H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2M9 3h6v3H9zM8 11h8M8 15h5" />
-    </>
-  ),
-  activity: <path d="M3 12h4l3-7 4 14 3-7h4" />,
-  more: (
-    <>
-      <circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none" />
-    </>
-  ),
-};
-
 function isActivePath(pathname, to) {
   if (to === "/app") return pathname === "/app";
   if (to === "/app/notifications" && pathname.startsWith("/app/audit")) return true;
@@ -60,19 +25,14 @@ function AppLayout() {
   const { showToast } = useToast();
   const { pathname, search } = useLocation();
   const [tenants, setTenants] = useState([]);
-  // A regular employee only ever sees themselves + their own reports in Org
-  // Explore, so an employee with no reports gets no Org Explore entry at all.
-  // Admins always keep it. `null` means "not known yet" — keep the entry until
-  // we can tell, rather than hiding a page they may need.
-  const [employeeHasTeam, setEmployeeHasTeam] = useState(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [auditErrorCount, setAuditErrorCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [savingLogo, setSavingLogo] = useState(false);
   const accountRef = useRef(null);
+  const workspaceMenuRef = useRef(null);
   const logoInputRef = useRef(null);
-  const orgAdmin = isAdminRole(accountRole, isSuperAdmin);
 
   // Counts stay unread until the user opens the shared inbox/activity page.
   useEffect(() => {
@@ -115,29 +75,10 @@ function AppLayout() {
   }, [tenantContextId, pathname, showToast]);
 
 
-  useEffect(() => {
-    if (orgAdmin) return undefined;
-    let active = true;
-    api
-      .get("/org/stats")
-      .then((res) => {
-        if (active) setEmployeeHasTeam(Number(res.data?.total ?? 0) > 1);
-      })
-      .catch(() => {
-        if (active) setEmployeeHasTeam(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [orgAdmin]);
-
-  const hasTeam = orgAdmin || employeeHasTeam !== false;
-
-  const navSections = getNavSections(permissionCodes, isSuperAdmin, accountRole, {
-    hideRoutes: hasTeam ? [] : ["/app/org-employees"],
-  });
+  const platformAdmin = Boolean(isSuperAdmin || accountRole === "super_admin");
+  const navSections = getNavSections(permissionCodes, platformAdmin, accountRole);
   const navItems = navSections.flatMap((section) => section.items);
-  const canManageTenants = accountRole ? accountRole === "super_admin" : isSuperAdmin;
+  const canManageTenants = platformAdmin;
 
   useEffect(() => {
     let active = true;
@@ -195,16 +136,34 @@ function AppLayout() {
   }, [accountOpen]);
 
   useEffect(() => {
+    if (!workspaceMenuOpen) return undefined;
+    const onKey = (event) => {
+      if (event.key === "Escape") setWorkspaceMenuOpen(false);
+    };
+    const onDown = (event) => {
+      if (workspaceMenuRef.current && !workspaceMenuRef.current.contains(event.target)) {
+        setWorkspaceMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [workspaceMenuOpen]);
+
+  useEffect(() => {
     setAccountOpen(false);
-    setMoreOpen(false);
-  }, [pathname]);
+    setWorkspaceMenuOpen(false);
+  }, [pathname, search]);
 
   const displayName = (user?.name || "").trim();
   const empCode = (user?.empCode || "").trim();
   const accountEmail = displayAccountEmail(user);
-  const roleLabel = isSuperAdmin ? "Super Admin" : accountRole === "tenant_admin" ? "Admin" : "Employee";
+  const roleLabel = platformAdmin ? "Super Admin" : accountRole === "tenant_admin" ? "Admin" : "Employee";
   // Wireframe topbar: tenant identity plus the signed-in account role.
-  const brandRole = isSuperAdmin
+  const brandRole = platformAdmin
     ? "Platform admin"
     : accountRole === "tenant_admin"
       ? "Tenant admin"
@@ -244,21 +203,16 @@ function AppLayout() {
     reader.readAsDataURL(file);
   };
 
-  // Mobile: the header shows the current screen's name, and the bottom bar
-  // offers the four primary destinations plus a "More" sheet for the rest.
+  // On narrow screens the header title identifies the current page; all roles
+  // use the same role-specific navigation entry point as on desktop.
   const mobileTitle =
     pathname.startsWith("/app/forms")
       ? "Forms templates"
       : pathname.startsWith("/app/notifications") || pathname.startsWith("/app/audit")
         ? "Inbox & activity"
+      : pathname.startsWith("/app/tenants")
+        ? "Tenants"
       : navItems.find((item) => isActivePath(pathname, item.to))?.label || "Dashboard";
-  const primaryTabs = PRIMARY_TABS.map((tab) => ({
-    ...tab,
-    item: navItems.find((item) => item.to === tab.to),
-  })).filter((tab) => tab.item);
-  const moreItems = navItems.filter(
-    (item) => !PRIMARY_TABS.some((tab) => tab.to === item.to),
-  );
 
   return (
     <div className="app-shell">
@@ -278,24 +232,6 @@ function AppLayout() {
           </Link>
           <span className="wf-mobile-title" aria-hidden="true">{mobileTitle}</span>
         </div>
-
-        <nav className="pillnav" aria-label="Main navigation">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end
-              className={({ isActive }) => `pillnav-item${isActive ? " is-active" : ""}`}
-            >
-              <span className="pillnav-label">{item.label}</span>
-              {item.to === "/app/audit" && auditErrorCount > 0 ? (
-                <span className="pillnav-badge" title={`${auditErrorCount} new error${auditErrorCount === 1 ? "" : "s"}`}>
-                  {auditErrorCount > 99 ? "99+" : auditErrorCount}
-                </span>
-              ) : null}
-            </NavLink>
-          ))}
-        </nav>
 
         <div className="topbar-actions">
           <Link
@@ -326,6 +262,37 @@ function AppLayout() {
               </>
             ) : null}
           </Link>
+          {platformAdmin ? (
+            <div className="workspace-nav" ref={workspaceMenuRef}>
+              <button
+                type="button"
+                className="workspace-nav-trigger"
+                aria-label={workspaceMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-expanded={workspaceMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setWorkspaceMenuOpen((prev) => !prev)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              {workspaceMenuOpen ? (
+                <nav className="workspace-nav-menu" aria-label="Main navigation" role="menu">
+                  {navItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end
+                      role="menuitem"
+                      className={({ isActive }) => `workspace-nav-link${isActivePath(pathname, item.to) || isActive ? " is-active" : ""}`}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </nav>
+              ) : null}
+            </div>
+          ) : null}
           <div className="account" ref={accountRef}>
             <button
               type="button"
@@ -382,6 +349,22 @@ function AppLayout() {
                   </div>
                 </div>
 
+                {!platformAdmin ? (
+                  <nav className="account-menu-nav" aria-label="Main navigation">
+                    {navItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end
+                        role="menuitem"
+                        className={({ isActive }) => `account-menu-nav-link${isActivePath(pathname, item.to) || isActive ? " is-active" : ""}`}
+                      >
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </nav>
+                ) : null}
+
                 {canManageTenants ? (
                   <label className="account-menu-field">
                     <span>Tenant context</span>
@@ -413,40 +396,6 @@ function AppLayout() {
           </div>
         </div>
       </header>
-      <nav className={`wf-tabbar${moreOpen ? " is-open" : ""}`} aria-label="Primary">
-        {moreOpen ? (
-          <div className="wf-sheet">
-            {moreItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={isActivePath(pathname, item.to) ? "is-active" : ""}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-        {primaryTabs.map((tab) => (
-          <Link
-            key={tab.to}
-            to={tab.item.to}
-            className={`wf-tab${isActivePath(pathname, tab.item.to) ? " is-active" : ""}`}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">{TAB_ICONS[tab.icon]}</svg>
-            <span>{tab.label}</span>
-          </Link>
-        ))}
-        <button
-          type="button"
-          className={`wf-tab wf-tab-more${moreOpen ? " is-active" : ""}`}
-          aria-expanded={moreOpen}
-          onClick={() => setMoreOpen((prev) => !prev)}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">{TAB_ICONS.more}</svg>
-          <span>More</span>
-        </button>
-      </nav>
       <div className="shell-body">
         <main className="content">
           <div className="content-inner">

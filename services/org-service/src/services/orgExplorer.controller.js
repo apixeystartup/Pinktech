@@ -78,23 +78,37 @@ async function resolveSubject(tenantId, key, req) {
 async function listEmployees(req, res, next) {
   try {
     const snap = await resolveOrgSnapshot(req);
-    const params = {
-      q: asStr(req.query.q),
-      zone: asStr(req.query.zone),
-      region: asStr(req.query.region),
-      state: asStr(req.query.state),
-      hq: asStr(req.query.hq),
-      designation: asStr(req.query.designation),
-      roleId: asStr(req.query.role_id),
-      level: asStr(req.query.level),
-      manager: asStr(req.query.manager),
-      vacantOnly: asBool(req.query.vacant_only),
-      filledOnly: asBool(req.query.filled_only),
-      strictGeography: asBool(req.query.strict_geography),
-      limit: req.query.limit ? Number(req.query.limit) : 1000,
-    };
+    const params = employeeCriteria(req.query);
     const items = orgDirectory.listEmployees(snap, params);
     res.json({ count: items.length, items });
+  } catch (e) {
+    next(e);
+  }
+}
+
+function employeeCriteria(query) {
+  return {
+    q: asStr(query.q),
+    zone: asStr(query.zone),
+    region: asStr(query.region),
+    state: asStr(query.state),
+    hq: asStr(query.hq),
+    designation: asStr(query.designation),
+    roleId: asStr(query.role_id),
+    level: asStr(query.level),
+    manager: asStr(query.manager),
+    vacantOnly: asBool(query.vacant_only),
+    filledOnly: asBool(query.filled_only),
+    strictGeography: asBool(query.strict_geography),
+    limit: query.limit ? Number(query.limit) : 1000,
+  };
+}
+
+async function getFilteredTree(req, res, next) {
+  try {
+    const snap = await resolveOrgSnapshot(req);
+    const tree = orgDirectory.filteredTree(snap, employeeCriteria(req.query));
+    res.json(tree);
   } catch (e) {
     next(e);
   }
@@ -461,6 +475,7 @@ async function getRollbackStatus(req, res, next) {
 
 module.exports = {
   listEmployees,
+  getFilteredTree,
   getEmployee,
   getSubtree,
   getAncestry,

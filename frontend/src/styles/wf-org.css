@@ -23,10 +23,10 @@ html[data-theme="light"] .module-page:has(.org-page) .module-title-tenant {
 
 html[data-theme="light"] .org-page .org-wf-grid {
   display: grid;
-  grid-template-columns: minmax(310px, 177fr) minmax(0, 1000fr);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   grid-template-areas:
     "top top"
-    "dir body";
+    "directory body";
   gap: 26px 46px;
   align-items: stretch;
   width: 100%;
@@ -41,7 +41,8 @@ html[data-theme="light"] .org-page .org-wf-grid--wide {
 }
 
 html[data-theme="light"] .org-page .org-wf-topbar { grid-area: top; }
-html[data-theme="light"] .org-page .org-directory { grid-area: dir; }
+html[data-theme="light"] .org-page .org-wf-controls { grid-area: top; }
+html[data-theme="light"] .org-page .org-directory { grid-area: directory; }
 html[data-theme="light"] .org-page .org-canvas,
 html[data-theme="light"] .org-page .org-profile,
 html[data-theme="light"] .org-page .org-role-panel,
@@ -51,10 +52,8 @@ html[data-theme="light"] .org-page .org-wf-empty { grid-area: body; }
 
 html[data-theme="light"] .org-page .org-wf-topbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 37px;
+  justify-content: flex-end;
+  min-height: 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -103,6 +102,98 @@ html[data-theme="light"] .org-page .org-wf-controls {
   flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
+}
+
+html[data-theme="light"] .org-page .org-directory {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d4d5c8;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .org-page .org-directory > div:first-child {
+  padding: 22px 20px 20px;
+  border-bottom: 1px solid #d4d5c8;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .org-page .org-directory h2 {
+  color: #202018;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+html[data-theme="light"] .org-page .org-directory > div:first-child p {
+  margin-top: 6px;
+  color: #515045;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .org-page .org-directory input.org-wf-search,
+html[data-theme="light"] .org-page .org-directory select.filter-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d4d5c8;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #202018;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .org-page .org-directory input.org-wf-search::placeholder {
+  color: #76766b;
+}
+
+html[data-theme="light"] .org-page .org-directory input.org-wf-search:focus,
+html[data-theme="light"] .org-page .org-directory select.filter-select:focus {
+  border-color: #77776b;
+  outline: 2px solid rgb(32 32 24 / 12%);
+  outline-offset: 1px;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-filters .grid {
+  gap: 10px;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-checks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #202018;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-checks input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #202018;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-clear {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #a5342a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .org-page .org-directory .org-wf-clear:hover {
+  text-decoration: underline;
 }
 
 html[data-theme="light"] .org-page .org-wf-tabs {
@@ -183,7 +274,6 @@ html[data-theme="light"] .org-page .org-btn-primary.danger {
 
 /* ─── Panels ──────────────────────────────────────────────── */
 
-html[data-theme="light"] .org-page .org-directory,
 html[data-theme="light"] .org-page .org-canvas,
 html[data-theme="light"] .org-page .org-profile,
 html[data-theme="light"] .org-page .org-role-panel,
@@ -196,7 +286,6 @@ html[data-theme="light"] .org-page .org-wf-empty {
   box-shadow: none;
 }
 
-html[data-theme="light"] .org-page .org-directory > div:first-child,
 html[data-theme="light"] .org-page .org-canvas > div:first-child,
 html[data-theme="light"] .org-page .org-profile > div:first-child,
 html[data-theme="light"] .org-page .org-role-panel > div:first-child {
@@ -205,7 +294,6 @@ html[data-theme="light"] .org-page .org-role-panel > div:first-child {
   background: #ffffff;
 }
 
-html[data-theme="light"] .org-page .org-directory h2,
 html[data-theme="light"] .org-page .org-canvas h2,
 html[data-theme="light"] .org-page .org-profile h2,
 html[data-theme="light"] .org-page .org-role-panel h2 {
@@ -215,127 +303,12 @@ html[data-theme="light"] .org-page .org-role-panel h2 {
   letter-spacing: -0.01em;
 }
 
-html[data-theme="light"] .org-page .org-directory > div:first-child p,
 html[data-theme="light"] .org-page .org-canvas > div:first-child p,
 html[data-theme="light"] .org-page .org-profile > div:first-child p,
 html[data-theme="light"] .org-page .org-role-panel > div:first-child p {
   margin-top: 6px;
   color: #515045;
   font-size: 14.5px;
-}
-
-/* ─── Directory: search · filters · list ──────────────────── */
-
-html[data-theme="light"] .org-page .org-directory .org-wf-filters {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 24px 20px;
-  background: #ffffff;
-}
-
-html[data-theme="light"] .org-page .org-directory input.org-wf-search {
-  width: 100%;
-  min-height: 45px;
-  padding: 0 16px;
-  border: 1px solid #d4d5c8;
-  border-radius: 12px;
-  background: #f4f5e9;
-  color: #202018;
-  font-size: 15px;
-}
-
-html[data-theme="light"] .org-page .org-directory input.org-wf-search::placeholder {
-  color: #8b8d7f;
-}
-
-html[data-theme="light"] .org-page .org-directory input.org-wf-search:focus {
-  border-color: #b9baa9;
-  outline: none;
-  box-shadow: 0 0 0 3px rgb(32 32 24 / 8%);
-}
-
-html[data-theme="light"] .org-page .org-directory select.filter-select {
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid #d4d5c8;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #202018;
-  font-size: 14.5px;
-  box-shadow: none;
-}
-
-html[data-theme="light"] .org-page .org-directory select.filter-select:focus {
-  border-color: #b9baa9;
-  outline: none;
-  box-shadow: 0 0 0 3px rgb(32 32 24 / 8%);
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-filters .grid {
-  gap: 14px;
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-checks {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: nowrap;
-  gap: 6px;
-  padding-top: 4px;
-  font-size: 13.5px;
-  color: #202018;
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-checks label {
-  gap: 6px;
-  color: #202018;
-  font-size: 13.5px;
-  white-space: nowrap;
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-checks input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #202018;
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-clear {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  color: #e5342a;
-  font-size: 13.5px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-clear:hover {
-  text-decoration: underline;
-}
-
-html[data-theme="light"] .org-page .org-directory .org-wf-count {
-  padding: 12px 24px;
-  border-bottom: 1px solid #d4d5c8;
-  background: #ffffff;
-  color: #515045;
-  font-size: 13px;
-}
-
-html[data-theme="light"] .org-page .org-directory .dir-card {
-  gap: 14px;
-  padding: 14px 24px;
-  border-bottom: 1px solid #eceee0;
-  background: #ffffff;
-}
-
-html[data-theme="light"] .org-page .org-directory .dir-card:hover {
-  background: #f6f7ee;
-}
-
-html[data-theme="light"] .org-page .org-directory .dir-card.selected {
-  background: #eff0dd;
 }
 
 html[data-theme="light"] .org-page .dir-avatar,
@@ -406,6 +379,29 @@ html[data-theme="light"] .org-page .tag.ext {
   color: #7a4a2c;
 }
 
+html[data-theme="light"] .org-page .tag.account-status-active {
+  background: #e4f2e8;
+  color: #245c35;
+}
+
+html[data-theme="light"] .org-page .tag.account-status-resent {
+  background: #e8e9dc;
+  color: #202018;
+}
+
+html[data-theme="light"] .org-page .tag.account-status-deactivated {
+  background: #f4e7dd;
+  color: #7a302c;
+}
+
+html[data-theme="light"] .org-page .tag.account-status-invited,
+html[data-theme="light"] .org-page .tag.account-status-checking,
+html[data-theme="light"] .org-page .tag.account-status-unavailable,
+html[data-theme="light"] .org-page .tag.account-status-no-account-linked {
+  background: #f0f0eb;
+  color: #515045;
+}
+
 /* "N reports · M total" is plain copy, not a chip. */
 
 html[data-theme="light"] .org-page .tag.reports-count {
@@ -423,6 +419,33 @@ html[data-theme="light"] .org-page .tag.reports-count {
 
 html[data-theme="light"] .org-page .org-canvas > div:last-child {
   padding: 40px 24px 24px;
+}
+
+html[data-theme="light"] .org-page .org-tree-view {
+  min-height: 0;
+  overflow: auto;
+}
+
+html[data-theme="light"] .org-page .org-tree-content {
+  min-width: 0;
+}
+
+html[data-theme="light"] .org-profile-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+
+html[data-theme="light"] .org-page .org-profile-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+html[data-theme="light"] .org-page .org-profile-dialog .px-6 {
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 html[data-theme="light"] .org-page .org-tree-list ul {
@@ -620,6 +643,10 @@ html[data-theme="light"] .org-page .roles-table tbody tr:hover {
 /* ─── Mobile (Screen 8) ───────────────────────────────────── */
 
 @media (max-width: 900px) {
+  html[data-theme="light"] .content:has(.org-page) .workflow-hint {
+    display: none;
+  }
+
   html[data-theme="light"] .org-page .org-wf-topbar {
     display: contents;
   }
@@ -628,42 +655,23 @@ html[data-theme="light"] .org-page .roles-table tbody tr:hover {
   html[data-theme="light"] .org-page .org-wf-grid--wide {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "chips"
-      "dir"
-      "controls"
+      "top"
+      "directory"
       "body";
     gap: 18px;
   }
 
-  html[data-theme="light"] .org-page .org-wf-chips {
-    grid-area: chips;
-    gap: 8px;
+  html[data-theme="light"] .org-page .org-wf-grid--wide {
+    grid-template-areas:
+      "top"
+      "body";
   }
 
   html[data-theme="light"] .org-page .org-wf-controls {
-    grid-area: controls;
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     width: 100%;
-  }
-
-  html[data-theme="light"] .org-page .org-wf-identity {
-    display: none;
-  }
-
-  html[data-theme="light"] .org-page .org-wf-tabs {
-    flex: 1 0 100%;
-    gap: 8px;
-    padding: 5px;
-  }
-
-  html[data-theme="light"] .org-page .org-wf-tabs .tab-btn,
-  html[data-theme="light"] .org-page .org-wf-tabs .tab-btn.active {
-    flex: 1 1 auto;
-    justify-content: center;
-    min-height: 36px;
-    font-size: 14px;
   }
 
   html[data-theme="light"] .org-page .org-wf-controls .org-btn-secondary,
@@ -680,45 +688,57 @@ html[data-theme="light"] .org-page .roles-table tbody tr:hover {
     color: #202018;
   }
 
-  html[data-theme="light"] .org-page .org-directory > div:first-child,
   html[data-theme="light"] .org-page .org-canvas > div:first-child,
   html[data-theme="light"] .org-page .org-profile > div:first-child,
   html[data-theme="light"] .org-page .org-role-panel > div:first-child {
     padding: 20px;
   }
 
-  html[data-theme="light"] .org-page .org-directory h2,
   html[data-theme="light"] .org-page .org-canvas h2,
   html[data-theme="light"] .org-page .org-profile h2,
   html[data-theme="light"] .org-page .org-role-panel h2 {
     font-size: 21px;
   }
 
-  html[data-theme="light"] .org-page .org-directory .org-wf-filters {
+  html[data-theme="light"] .org-page .org-canvas > div:last-child {
+    padding: 24px 16px 20px;
+  }
+
+  html[data-theme="light"] .org-page .org-directory > div:first-child {
     padding: 20px;
+  }
+
+  html[data-theme="light"] .org-page .org-directory .org-wf-filters {
     gap: 12px;
+    padding: 16px;
   }
 
   html[data-theme="light"] .org-page .org-directory .org-wf-filters .grid {
-    gap: 12px;
+    gap: 10px;
   }
 
   html[data-theme="light"] .org-page .org-directory select.filter-select {
-    width: 100%;
     min-height: 44px;
-    font-size: 15px;
+    font-size: 14px;
   }
 
-  html[data-theme="light"] .org-page .org-directory .org-wf-count {
-    padding: 12px 20px;
+  html[data-theme="light"] .org-page .org-profile-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
   }
 
-  html[data-theme="light"] .org-page .org-directory .dir-card {
-    padding: 14px 20px;
+  html[data-theme="light"] .org-page .org-profile-dialog .px-6 {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
-  html[data-theme="light"] .org-page .org-canvas > div:last-child {
-    padding: 24px 16px 20px;
+  html[data-theme="light"] .org-page .org-profile-dialog .py-6 {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  html[data-theme="light"] .org-page .org-profile-dialog .gap-x-3 {
+    column-gap: 8px;
   }
 
   html[data-theme="light"] .org-page .org-tree-list ul {
