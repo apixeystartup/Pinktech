@@ -1,9 +1,11 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const authService = require("../../services/auth-service/src/services/auth.service");
+const usersService = require("../../services/auth-service/src/services/users.service");
 const ApiError = require("@pink/shared").ApiError;
 const User = require("../../services/auth-service/src/models/user.model");
 const Tenant = require("../../services/auth-service/src/models/tenant.model");
+const Notification = require("../../services/auth-service/src/models/notification.model");
 const Role = require("../../services/auth-service/src/models/role.model");
 const RefreshToken = require("../../services/auth-service/src/models/refreshToken.model");
 const tokenService = require("../../services/auth-service/src/services/token.service");
@@ -14,6 +16,7 @@ jest.mock("bcrypt");
 jest.mock("jsonwebtoken");
 jest.mock("../../services/auth-service/src/models/user.model");
 jest.mock("../../services/auth-service/src/models/tenant.model");
+jest.mock("../../services/auth-service/src/models/notification.model");
 jest.mock("../../services/auth-service/src/models/role.model");
 jest.mock("../../services/auth-service/src/models/refreshToken.model");
 jest.mock("../../services/auth-service/src/services/token.service");
@@ -98,6 +101,7 @@ describe("auth.service", () => {
     });
 
     it("throws 401 on invalid password", async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
       User.find.mockReturnValue({
         select: jest.fn().mockResolvedValue([
           {
@@ -105,16 +109,76 @@ describe("auth.service", () => {
             tenantId: "tenant-1",
             status: "ACTIVE",
             passwordHash: "hash",
-            save: jest.fn().mockResolvedValue(undefined),
+            loginAttempts: 2,
+            save,
           },
         ]),
       });
       bcrypt.compare.mockResolvedValue(false);
       Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE" });
 
-      await expect(
-        authService.login({ email: "x@test.com", password: "bad-pass" })
-      ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+      await expect(authService.login({ email: "x@test.com", password: "bad-pass" })).rejects.toEqual(
+        expect.objectContaining({ statusCode: 401, details: { remainingAttempts: 2 } }),
+      );
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+
+    it("locks the account after the fifth failed attempt and returns its expiry", async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      const user = {
+        _id: "u-1",
+        tenantId: "tenant-1",
+        status: "ACTIVE",
+        passwordHash: "hash",
+        loginAttempts: 4,
+        save,
+      };
+      User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([user]) });
+      bcrypt.compare.mockResolvedValue(false);
+      Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE" });
+
+      const beforeAttempt = Date.now();
+      await expect(authService.login({ email: "x@test.com", password: "bad-pass" })).rejects.toEqual(
+        expect.objectContaining({
+          statusCode: 423,
+          details: expect.objectContaining({
+            unlockAt: expect.any(Date),
+            remainingSeconds: 15 * 60,
+          }),
+        }),
+      );
+
+      expect(user.status).toBe("LOCKED");
+      expect(user.lockUntil.getTime()).toBeGreaterThanOrEqual(beforeAttempt + 15 * 60 * 1000);
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears an expired lock before accepting valid credentials", async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      const user = {
+        _id: "u-1",
+        tenantId: "tenant-1",
+        roleIds: [],
+        status: "LOCKED",
+        passwordHash: "hash",
+        loginAttempts: 5,
+        lockUntil: new Date(Date.now() - 1000),
+        save,
+      };
+      User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([user]) });
+      bcrypt.compare.mockResolvedValue(true);
+      Tenant.findById.mockResolvedValue({ _id: "tenant-1", status: "ACTIVE", name: "Acme", code: "ACME" });
+      tokenService.signAccessToken.mockReturnValue("access-token");
+      tokenService.signRefreshToken.mockReturnValue("refresh-token");
+      RefreshToken.create.mockResolvedValue({ _id: "rt-1" });
+
+      const result = await authService.login({ email: "x@test.com", password: "valid-pass" });
+
+      expect(result.accessToken).toBe("access-token");
+      expect(user.status).toBe("ACTIVE");
+      expect(user.loginAttempts).toBe(0);
+      expect(user.lockUntil).toBeNull();
+      expect(save).toHaveBeenCalledTimes(2);
     });
 
     it("logs into the tenant whose password matches when the email exists in several tenants", async () => {
@@ -469,16 +533,106 @@ describe("auth.service", () => {
       expect(result.message).toBe("Invite resent");
     });
 
-    it("handles forgot password existing user", async () => {
+    it("notifies the matching tenant admin for a password reset request", async () => {
       const save = jest.fn().mockResolvedValue(undefined);
-      User.findOne.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ email: "a@b.com", save }),
+      const employee = {
+        _id: "employee-1",
+        tenantId: "tenant-1",
+        name: "Alice",
+        email: "alice@org-sheet.pink",
+        orgContactEmail: "a@b.com",
+        empCode: "E-14",
+        save,
+      };
+      const admin = { _id: "admin-1", name: "Tenant admin", email: "admin@b.com" };
+      User.find.mockReturnValue({
+        select: jest.fn().mockResolvedValue([employee]),
       });
-      notificationAdapter.sendEmail.mockResolvedValue(undefined);
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: "tenant-1", adminUserId: "admin-1" }),
+      });
+      User.findById.mockReturnValue({
+        select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(admin) }),
+      });
 
       const result = await authService.forgotPassword({ email: "a@b.com" });
-      expect(result.message).toContain("reset email");
+      expect(result.message).toContain("organization administrator");
       expect(save).toHaveBeenCalled();
+      expect(Notification.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: "tenant-1",
+          recipientUserId: "admin-1",
+          eventType: "PASSWORD_RESET_REQUEST",
+          message: expect.stringContaining("email: a@b.com"),
+          metadata: expect.objectContaining({ employeeId: "E-14", employeeEmail: "a@b.com" }),
+        }),
+      );
+      expect(notificationAdapter.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it("returns not found when a password reset email has no account", async () => {
+      User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([]) });
+
+      await expect(authService.forgotPassword({ email: "missing@b.com" })).rejects.toEqual(
+        expect.objectContaining({ statusCode: 404 }),
+      );
+      expect(Notification.create).not.toHaveBeenCalled();
+    });
+
+    it("notifies each tenant when the same email is registered more than once", async () => {
+      const users = [
+        { _id: "employee-1", tenantId: "tenant-1", email: "shared@b.com", save: jest.fn() },
+        { _id: "employee-2", tenantId: "tenant-2", email: "shared@b.com", save: jest.fn() },
+      ];
+      User.find.mockReturnValue({ select: jest.fn().mockResolvedValue(users) });
+      Tenant.findById
+        .mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ _id: "tenant-1", adminUserId: "admin-1" }) })
+        .mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ _id: "tenant-2", adminUserId: "admin-2" }) });
+      User.findById
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: "admin-1" }) }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: "admin-2" }) }),
+        });
+
+      await authService.forgotPassword({ email: "shared@b.com" });
+
+      expect(Notification.create).toHaveBeenCalledTimes(2);
+      expect(Notification.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ tenantId: "tenant-1", recipientUserId: "admin-1" }),
+      );
+      expect(Notification.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ tenantId: "tenant-2", recipientUserId: "admin-2" }),
+      );
+    });
+
+    it("allows an administrator to unlock an employee and reset failed attempts", async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      const user = {
+        _id: "employee-1",
+        email: "employee@b.com",
+        status: "LOCKED",
+        loginAttempts: 5,
+        lockUntil: new Date(),
+        save,
+      };
+      User.findOne.mockResolvedValue(user);
+
+      const result = await usersService.unlockAccount("tenant-1", "employee-1", {
+        userId: "admin-1",
+        isAdmin: true,
+      });
+
+      expect(result).toEqual({ _id: "employee-1", status: "ACTIVE", lockUntil: null });
+      expect(user.loginAttempts).toBe(0);
+      expect(user.lockUntil).toBeNull();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(auditService.writeAudit).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "USER_ACCOUNT_UNLOCKED" }),
+      );
     });
 
     it("resets password and revokes old refresh tokens", async () => {

@@ -45,24 +45,28 @@ export function AuthProvider({ children }) {
     }
   }, [applySessionPayload]);
 
+  const refreshCurrentTenant = useCallback(async () => {
+    if (!accessToken) return null;
+    const res = await api.get("/tenants/current");
+    const tenant = res.data || null;
+    setCurrentTenant(tenant);
+    return tenant;
+  }, [accessToken]);
+
   useEffect(() => {
     if (!accessToken) {
       setCurrentTenant(null);
       return undefined;
     }
     let active = true;
-    api
-      .get("/tenants/current")
-      .then((res) => {
-        if (active) setCurrentTenant(res.data || null);
-      })
+    refreshCurrentTenant()
       .catch(() => {
         if (active) setCurrentTenant(null);
       });
     return () => {
       active = false;
     };
-  }, [accessToken, tenantContextId]);
+  }, [accessToken, tenantContextId, refreshCurrentTenant]);
 
   useEffect(() => {
     if (!accessToken) return undefined;
@@ -182,8 +186,9 @@ export function AuthProvider({ children }) {
       setTokens,
       logout,
       refreshSession,
+      refreshCurrentTenant,
     }),
-    [accessToken, refreshToken, user, tenantContextId, currentTenant, permissionCodes, isLoading, refreshSession],
+    [accessToken, refreshToken, user, tenantContextId, currentTenant, permissionCodes, isLoading, refreshSession, refreshCurrentTenant],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

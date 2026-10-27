@@ -28,9 +28,8 @@ function ForgotPasswordPage() {
         <h2>Forgot Password</h2>
         <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? "Sending..." : "Send Reset Token"}
+          {loading ? "Sending..." : "Request password reset"}
         </button>
-        <Link to="/reset-password">Go to reset page</Link>
         <Link to="/login">Back to login</Link>
       </form>
     </div>

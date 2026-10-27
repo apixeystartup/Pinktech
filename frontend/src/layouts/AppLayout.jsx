@@ -54,7 +54,7 @@ function isActivePath(pathname, to) {
 }
 
 function AppLayout() {
-  const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole } = useAuth();
+  const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole, refreshCurrentTenant } = useAuth();
   const { showToast } = useToast();
   const { pathname, search } = useLocation();
   const [tenants, setTenants] = useState([]);
@@ -66,7 +66,9 @@ function AppLayout() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [auditErrorCount, setAuditErrorCount] = useState(0);
+  const [savingLogo, setSavingLogo] = useState(false);
   const accountRef = useRef(null);
+  const logoInputRef = useRef(null);
   const orgAdmin = isAdminRole(accountRole, isSuperAdmin);
 
   // The badge counts errors since the current user's last visit to Activity.
@@ -190,14 +192,46 @@ function AppLayout() {
   const empCode = (user?.empCode || "").trim();
   const accountEmail = displayAccountEmail(user);
   const roleLabel = isSuperAdmin ? "Super Admin" : accountRole === "tenant_admin" ? "Admin" : "Employee";
-  // Wireframe topbar: "Pinktech  Platform admin" — brand wordmark plus the
-  // signed-in role, on one line.
+  // Wireframe topbar: tenant identity plus the signed-in account role.
   const brandRole = isSuperAdmin
     ? "Platform admin"
     : accountRole === "tenant_admin"
       ? "Tenant admin"
       : roleLabel;
+  const tenantName = currentTenant?.name || "Pinktech";
+  const tenantLogo = currentTenant?.logo || "";
+  const designation = user?.designationOverride || user?.designation || brandRole;
+  const canEditBrand = isAdminRole(accountRole, isSuperAdmin);
   const topbarSummaryTitle = [displayName || null, empCode ? `Employee ID: ${empCode}` : null, accountEmail || null].filter(Boolean).join(" — ");
+
+  const updateTenantLogo = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      showToast("Choose a PNG, JPEG, or WebP logo.", "error");
+      return;
+    }
+    if (file.size > 850 * 1024) {
+      showToast("Logo must be 850 KB or smaller.", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => showToast("Could not read the selected logo.", "error");
+    reader.onload = async () => {
+      setSavingLogo(true);
+      try {
+        await api.patch("/tenants/current", { logo: reader.result });
+        await refreshCurrentTenant();
+        showToast("Workspace logo updated.", "success");
+      } catch (error) {
+        showToast(getErrorMessage(error), "error");
+      } finally {
+        setSavingLogo(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Mobile: the header shows the current screen's name, and the bottom bar
   // offers the four primary destinations plus a "More" sheet for the rest.
@@ -219,9 +253,13 @@ function AppLayout() {
       <header className="topbar">
         <div className="topbar-leading">
           <Link className="topbar-brand" to="/app" aria-label="Pinktech dashboard">
-            <span className="topbar-brand-mark" aria-hidden="true">P</span>
+            {tenantLogo ? (
+              <img className="topbar-brand-mark tenant-brand-image" src={tenantLogo} alt="" />
+            ) : (
+              <span className="topbar-brand-mark" aria-hidden="true">{initialsOf(tenantName)}</span>
+            )}
             <span className="topbar-brand-word">
-              <strong>Pinktech</strong>
+              <strong>{tenantName}</strong>
               <small>{brandRole}</small>
             </span>
           </Link>
@@ -264,10 +302,43 @@ function AppLayout() {
             {accountOpen ? (
               <div className="account-menu" role="menu">
                 <div className="account-menu-head">
-                  <span className="account-menu-name">{displayName || "Signed in"}</span>
-                  <span className="account-menu-mail">{accountEmail}</span>
-                  {empCode ? <span className="account-menu-meta">Employee ID {empCode}</span> : null}
-                  <span className="account-menu-meta">{roleLabel}</span>
+                  <div className="account-menu-profile">
+                    <span className="account-menu-name">{displayName || "Signed in"}</span>
+                    <span className="account-menu-mail">{accountEmail}</span>
+                    {empCode ? <span className="account-menu-meta">Employee ID {empCode}</span> : null}
+                    <span className="account-menu-meta">{designation}</span>
+                  </div>
+                  <div className="account-menu-brand">
+                    {tenantLogo ? (
+                      <img src={tenantLogo} className="account-menu-brand-logo" alt="" />
+                    ) : (
+                      <span className="account-menu-brand-logo account-menu-brand-fallback">{initialsOf(tenantName)}</span>
+                    )}
+                    <span className="account-menu-brand-name">{tenantName}</span>
+                    {canEditBrand ? (
+                      <>
+                        <input
+                          ref={logoInputRef}
+                          className="account-menu-logo-input"
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={updateTenantLogo}
+                        />
+                        <button
+                          type="button"
+                          className="account-menu-brand-edit"
+                          aria-label="Edit workspace logo"
+                          title={savingLogo ? "Saving logo…" : "Edit workspace logo"}
+                          disabled={savingLogo}
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                            <path d="m14 5 5 5M4 20l4.4-.9L19.2 8.3a2.1 2.1 0 0 0-3-3L5.4 16.1 4 20Z" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
 
                 {canManageTenants ? (

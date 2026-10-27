@@ -258,13 +258,23 @@ function NotificationsPage() {
         const toId = row.recipientUserId?._id || row.recipientUserId;
         if (String(fromId) === String(currentUserId) || String(toId) === String(currentUserId)) return true;
         const action = String(row.eventType || "").toUpperCase();
-        return action.includes("FORM") || action.includes("WORKFLOW") || action.includes("DISPATCH");
+        return (
+          action === "PASSWORD_RESET_REQUEST" ||
+          action.includes("FORM") ||
+          action.includes("WORKFLOW") ||
+          action.includes("DISPATCH")
+        );
       }
       const fromId = row.fromUserId?._id || row.fromUserId;
       const toId = row.recipientUserId?._id || row.recipientUserId;
       if (String(fromId) === String(currentUserId) || String(toId) === String(currentUserId)) return true;
       const action = String(row.eventType || "").toUpperCase();
-      return action.includes("FORM") || action.includes("WORKFLOW") || action.includes("DISPATCH");
+      return (
+        action === "PASSWORD_RESET_REQUEST" ||
+        action.includes("FORM") ||
+        action.includes("WORKFLOW") ||
+        action.includes("DISPATCH")
+      );
     });
   }, [items, isTenantAdmin, isSuperAdmin, accountRole, currentUserId]);
 

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const tenantSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    logo: { type: String, default: "" },
     code: { type: String, required: true, unique: true, uppercase: true },
     email: { type: String, trim: true, lowercase: true, default: "" },
     // Agreement header fields — fill the {{tenant.*}} side of uploaded

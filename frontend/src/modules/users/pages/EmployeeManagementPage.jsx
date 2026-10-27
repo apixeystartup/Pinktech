@@ -27,10 +27,11 @@ const vacantBadgeStyle = {
   border: "1px solid #f3d5b3",
 };
 
-const STATUS_TABS = ["ALL", "ACTIVE", "INVITED", "DISABLED"];
+const STATUS_TABS = ["ALL", "ACTIVE", "INVITED", "LOCKED", "DISABLED"];
 
 function statusLabel(status) {
   if (!status) return "—";
+  if (status === "LOCKED") return "Temporarily deactivated";
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
@@ -38,6 +39,7 @@ function statusTone(status) {
   if (status === "ACTIVE") return "active";
   if (status === "INVITED") return "invited";
   if (status === "DISABLED") return "disabled";
+  if (status === "LOCKED") return "disabled";
   return "neutral";
 }
 
@@ -59,6 +61,7 @@ function EmployeeManagementPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [resetRequestIds, setResetRequestIds] = useState(new Set());
 
   const canAssign = permissionCodes.includes("*") || permissionCodes.includes("tenant.manage");
 
@@ -66,7 +69,11 @@ function EmployeeManagementPage() {
     setLoading(true);
     try {
       const res = await api.get("/users?showAll=true");
-      setEmployees((res.data || []).filter((e) => e.email !== "superadmin@example.com"));
+      const users = (res.data || []).filter((e) => e.email !== "superadmin@example.com");
+      setEmployees(users);
+      setResetRequestIds(
+        new Set(users.filter((user) => user.passwordResetRequestedAt).map((user) => String(user._id))),
+      );
     } catch (error) {
       showToast(getErrorMessage(error), "error");
     } finally {
@@ -166,6 +173,7 @@ function EmployeeManagementPage() {
         sent++;
       }
       showToast(`Credentials sent to ${sent} employee(s)`, "success");
+      await load();
     } catch (error) {
       showToast(getErrorMessage(error), "error");
     }
@@ -183,6 +191,17 @@ function EmployeeManagementPage() {
         reset++;
       }
       showToast(`Credentials reset for ${reset} employee(s)`, "success");
+      await load();
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    }
+  };
+
+  const activateAccount = async (userId) => {
+    try {
+      await api.post(`/users/${userId}/unlock`);
+      showToast("Account activated; failed-login attempts were reset.", "success");
+      await load();
     } catch (error) {
       showToast(getErrorMessage(error), "error");
     }
@@ -194,9 +213,18 @@ function EmployeeManagementPage() {
   };
 
   const actionFor = (row) => ({
-    label: row.status === "INVITED" ? "Resend creds" : "Send creds",
+    label: resetRequestIds.has(String(row._id))
+      ? "Resend creds"
+      : row.status === "LOCKED"
+        ? "Activate"
+        : row.status === "INVITED"
+          ? "Resend creds"
+          : "Send creds",
     tone: statusTone(row.status),
-    onClick: () => sendCreds([row._id]),
+    onClick: () =>
+      row.status === "LOCKED" && !resetRequestIds.has(String(row._id))
+        ? activateAccount(row._id)
+        : sendCreds([row._id]),
   });
 
   const columns = [
@@ -236,8 +264,16 @@ function EmployeeManagementPage() {
       key: "status",
       label: "Status",
       render: (row) => (
-        <span className={`emp-status emp-status--${statusTone(row.status)}`}>
-          {statusLabel(row.status)}
+        <span>
+          <span className={`emp-status emp-status--${statusTone(row.status)}`}>
+            {statusLabel(row.status)}
+          </span>
+          {row.status === "LOCKED" && row.lockUntil ? (
+            <span className="emp-card-label">Until {new Date(row.lockUntil).toLocaleString()}</span>
+          ) : null}
+          {resetRequestIds.has(String(row._id)) ? (
+            <span className="emp-status emp-status--invited">Reset requested</span>
+          ) : null}
         </span>
       ),
     },
@@ -346,6 +382,12 @@ function EmployeeManagementPage() {
                     <span className={`emp-status emp-status--${statusTone(row.status)}`}>
                       {statusLabel(row.status)}
                     </span>
+                    {row.status === "LOCKED" && row.lockUntil ? (
+                      <span className="emp-card-label">Until {new Date(row.lockUntil).toLocaleString()}</span>
+                    ) : null}
+                    {resetRequestIds.has(String(row._id)) ? (
+                      <span className="emp-status emp-status--invited">Reset requested</span>
+                    ) : null}
                   </div>
                   <div className="emp-card-email">{row.email}</div>
                   <div className="emp-card-meta">

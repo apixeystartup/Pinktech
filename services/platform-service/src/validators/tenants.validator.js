@@ -44,6 +44,11 @@ const updateOwnTenantSchema = Joi.object({
   address: Joi.string().max(500).allow("", null).optional(),
   phone: Joi.string().max(30).allow("", null).optional(),
   registrationNumber: Joi.string().max(100).allow("", null).optional(),
+  logo: Joi.string()
+    .max(1200000)
+    .pattern(/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/)
+    .allow("", null)
+    .optional(),
   // Base64 data URL of the drawn/uploaded Party 1 signature. Capped at
   // ~1.2M chars so the request stays under the gateway's 2mb JSON limit.
   signature: Joi.string()

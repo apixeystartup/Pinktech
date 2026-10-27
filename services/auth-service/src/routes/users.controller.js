@@ -65,6 +65,15 @@ async function resetCredentials(req, res, next) {
   }
 }
 
+async function unlockAccount(req, res, next) {
+  try {
+    const user = await usersService.unlockAccount(req.tenantId, req.params.userId, req.auth);
+    res.status(200).json({ message: "Account activated", user });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listUsers,
   updateUser,
@@ -73,4 +82,5 @@ module.exports = {
   getUserSubtree,
   sendCredentials,
   resetCredentials,
+  unlockAccount,
 };

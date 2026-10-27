@@ -49,7 +49,9 @@ describe("core services", () => {
     PlatformUser.findOne.mockResolvedValue(null);
     PlatformUser.create.mockResolvedValue({ _id: "admin9" });
     Tenant.findByIdAndUpdate.mockResolvedValue({ _id: "t1", name: "Acme" });
-    Tenant.find.mockReturnValue({ sort: jest.fn().mockResolvedValue([{ _id: "t1" }]) });
+    Tenant.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({ sort: jest.fn().mockResolvedValue([{ _id: "t1" }]) }),
+    });
     const tenantOid = "507f1f77bcf86cd799439011";
     Tenant.findById.mockReturnValue({
       lean: jest.fn().mockResolvedValue({ _id: tenantOid, name: "Acme", code: "ACME" }),
@@ -102,6 +104,54 @@ describe("core services", () => {
     expect(created.code).toBe("BETA");
     expect(PlatformUser.create).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "t2", status: "INVITED" }),
+    );
+  });
+
+  it("updates a tenant logo without allowing tenant name changes", async () => {
+    const logo = "data:image/png;base64,abc";
+    const tenant = { _id: "t1", name: "Acme", logo };
+    Tenant.findByIdAndUpdate.mockResolvedValue(tenant);
+
+    const updated = await tenantsService.updateOwnTenantProfile(
+      "t1",
+      { logo, name: "Changed name" },
+      { userId: "admin1", isAdmin: true },
+    );
+
+    expect(updated).toBe(tenant);
+    expect(Tenant.findByIdAndUpdate).toHaveBeenCalledWith("t1", { logo }, { returnDocument: "after" });
+    expect(platformAuditService.writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "TENANT_PROFILE_UPDATED",
+        metadata: { logo: `[saved ${logo.length} chars]` },
+      }),
+    );
+  });
+
+  it("allows a platform super admin to unlock a locked tenant administrator", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const tenantAdmin = {
+      _id: "admin1",
+      tenantId: "t1",
+      status: "LOCKED",
+      loginAttempts: 5,
+      lockUntil: new Date(),
+      save,
+    };
+    Tenant.findById.mockResolvedValue({ _id: "t1", adminUserId: "admin1" });
+    PlatformUser.findOne.mockResolvedValue(tenantAdmin);
+
+    const result = await tenantsService.unlockTenantAdmin("t1", {
+      userId: "superadmin1",
+      isSuperAdmin: true,
+    });
+
+    expect(result).toEqual({ userId: "admin1", status: "ACTIVE" });
+    expect(tenantAdmin.loginAttempts).toBe(0);
+    expect(tenantAdmin.lockUntil).toBeNull();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(platformAuditService.writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "TENANT_ADMIN_ACCOUNT_UNLOCKED" }),
     );
   });
 

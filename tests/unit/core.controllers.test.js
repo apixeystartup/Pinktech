@@ -6,11 +6,13 @@ const tenantsService = require("../../services/platform-service/src/services/ten
 const rolesService = require("../../services/platform-service/src/services/roles.service");
 const positionsService = require("../../services/org-service/src/services/positions.service");
 const assignmentsService = require("../../services/org-service/src/services/assignments.service");
+const User = require("../../services/platform-service/src/models/user.model");
 
 jest.mock("../../services/platform-service/src/services/tenants.service");
 jest.mock("../../services/platform-service/src/services/roles.service");
 jest.mock("../../services/org-service/src/services/positions.service");
 jest.mock("../../services/org-service/src/services/assignments.service");
+jest.mock("../../services/platform-service/src/models/user.model");
 
 function resMock() {
   return { status: jest.fn().mockReturnThis(), json: jest.fn(), sendStatus: jest.fn() };
@@ -23,7 +25,7 @@ describe("core controllers", () => {
     const next = jest.fn();
 
     tenantsService.createTenant.mockResolvedValue({ _id: "t1" });
-    tenantsService.listTenants.mockResolvedValue([{ _id: "t1" }]);
+    tenantsService.listTenants.mockResolvedValue([{ _id: "507f1f77bcf86cd799439011", toObject: () => ({}) }]);
     tenantsService.updateTenant.mockResolvedValue({ _id: "t1" });
     rolesService.createRole.mockResolvedValue({ _id: "r1" });
     rolesService.listRoles.mockResolvedValue([{ _id: "r1" }]);
@@ -35,6 +37,9 @@ describe("core controllers", () => {
     positionsService.getSubtree.mockResolvedValue([{ _id: "p1" }]);
     assignmentsService.assignSeat.mockResolvedValue({ _id: "a1" });
     assignmentsService.listAssignments.mockResolvedValue([{ _id: "a1" }]);
+    User.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
+    });
 
     await tenantsController.createTenant(req, res, next);
     await tenantsController.listTenants(req, res, next);

@@ -190,6 +190,89 @@
   margin-bottom: 14px;
 }
 
+.tenant-brand-image {
+  object-fit: contain;
+  padding: 2px;
+  background: #ffffff;
+}
+
+.account-menu-profile {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.account-menu-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+  padding-top: 10px;
+  border-top: 1px solid #eeece4;
+}
+
+.account-menu-brand-logo {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f4f3ed;
+}
+
+.account-menu-brand-fallback {
+  color: #24231f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-menu-brand-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: #26251f;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-logo-input {
+  display: none;
+}
+
+.account-menu-brand-edit {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #57554d;
+  cursor: pointer;
+}
+
+.account-menu-brand-edit:hover:not(:disabled) {
+  background: #f1f0e9;
+  color: #202018;
+}
+
+.account-menu-brand-edit:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.account-menu-brand-edit svg {
+  width: 17px;
+  height: 17px;
+}
+
 .account-menu-name {
   color: #26251f;
   font-size: 14.5px;

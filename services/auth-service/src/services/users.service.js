@@ -167,6 +167,9 @@ async function sendCredentials(tenantId, userId, actor) {
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   user.passwordHash = passwordHash;
   user.status = "ACTIVE";
+  user.loginAttempts = 0;
+  user.lockUntil = null;
+  user.passwordResetRequestedAt = null;
   await user.save();
 
   if (user.email) {
@@ -198,6 +201,30 @@ async function sendCredentials(tenantId, userId, actor) {
   return { email: user.email, tempPassword };
 }
 
+async function unlockAccount(tenantId, userId, actor) {
+  if (!actor?.isAdmin) {
+    throw new ApiError(403, "Only administrators can activate a temporarily locked account");
+  }
+  const user = await User.findOne({ _id: userId, tenantId });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  if (user.status !== "LOCKED") {
+    throw new ApiError(409, "This account is not temporarily locked");
+  }
+  user.status = "ACTIVE";
+  user.loginAttempts = 0;
+  user.lockUntil = null;
+  await user.save();
+  await writeAudit({
+    tenantId,
+    userId: actor.userId || null,
+    action: "USER_ACCOUNT_UNLOCKED",
+    metadata: { targetUserId: userId, email: user.email },
+  });
+  return { _id: user._id, status: user.status, lockUntil: user.lockUntil };
+}
+
 async function resetCredentials(tenantId, userId, actor) {
   return sendCredentials(tenantId, userId, actor);
 }
@@ -210,4 +237,5 @@ module.exports = {
   getUserSubtree,
   sendCredentials,
   resetCredentials,
+  unlockAccount,
 };

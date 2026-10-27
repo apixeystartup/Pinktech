@@ -15,7 +15,37 @@ async function createTenant(req, res, next) {
 async function listTenants(req, res, next) {
   try {
     const tenants = await tenantsService.listTenants();
-    res.status(200).json(tenants);
+    const tenantIds = tenants.map((tenant) => tenant._id);
+    const adminIds = tenants.map((tenant) => tenant.adminUserId).filter(Boolean);
+    const adminEmails = tenants.map((tenant) => tenant.email).filter(Boolean);
+    const adminUsers = await User.find({
+      tenantId: { $in: tenantIds },
+      $or: [{ _id: { $in: adminIds } }, { email: { $in: adminEmails } }],
+    })
+      .select("tenantId email status lockUntil loginAttempts")
+      .lean();
+    const adminByTenant = new Map();
+    for (const tenant of tenants) {
+      const admin = adminUsers.find((candidate) =>
+        tenant.adminUserId
+          ? String(candidate._id) === String(tenant.adminUserId)
+          : String(candidate.tenantId) === String(tenant._id) &&
+            String(candidate.email).toLowerCase() === String(tenant.email || "").toLowerCase(),
+      );
+      if (admin) adminByTenant.set(String(tenant._id), admin);
+    }
+    res.status(200).json(
+      tenants.map((tenant) => {
+        const admin = adminByTenant.get(String(tenant._id));
+        return {
+          ...tenant.toObject(),
+          adminAccountStatus: admin?.status || null,
+          adminLockUntil: admin?.lockUntil || null,
+          adminLoginAttempts: admin?.loginAttempts || 0,
+          adminUserId: admin?._id || tenant.adminUserId || null,
+        };
+      }),
+    );
   } catch (error) {
     next(error);
   }
@@ -43,6 +73,15 @@ async function updateCurrentTenant(req, res, next) {
   try {
     const tenant = await tenantsService.updateOwnTenantProfile(req.auth.tenantId, req.body, req.auth);
     res.status(200).json(tenant);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function unlockTenantAdmin(req, res, next) {
+  try {
+    const result = await tenantsService.unlockTenantAdmin(req.params.tenantId, req.auth);
+    res.status(200).json({ message: "Tenant administrator account activated", ...result });
   } catch (error) {
     next(error);
   }
@@ -138,6 +177,7 @@ module.exports = {
   getCurrentTenant,
   updateTenant,
   updateCurrentTenant,
+  unlockTenantAdmin,
   assignAccount,
   unassignAccount,
   deleteTenant,

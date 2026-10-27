@@ -78,4 +78,16 @@ describe("module validators", () => {
     expect(badNext.mock.calls[0][0].statusCode).toBe(422);
   });
 
+  it("accepts supported tenant logos and rejects other image formats", () => {
+    const validLogo = tenantValidator.updateOwnTenantSchema.validate({
+      logo: "data:image/webp;base64,abc",
+    });
+    expect(validLogo.error).toBeUndefined();
+
+    const invalidLogo = tenantValidator.updateOwnTenantSchema.validate({
+      logo: "data:image/svg+xml;base64,abc",
+    });
+    expect(invalidLogo.error).toBeDefined();
+  });
+
 });

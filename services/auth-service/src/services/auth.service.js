@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const Tenant = require("../models/tenant.model");
 const Role = require("../models/role.model");
 const RefreshToken = require("../models/refreshToken.model");
+const Notification = require("../models/notification.model");
 require("../models/permission.model");
 const ApiError = require("@pink/shared").ApiError;
 const { isPlatformTenant } = require("@pink/shared");
@@ -137,6 +138,12 @@ async function login({ email, password }) {
 
   for (const candidate of candidates) {
     if (candidate.lockUntil && candidate.lockUntil > now) continue;
+    if (candidate.status === "LOCKED" && (!candidate.lockUntil || candidate.lockUntil <= now)) {
+      candidate.status = "ACTIVE";
+      candidate.loginAttempts = 0;
+      candidate.lockUntil = null;
+      await candidate.save();
+    }
     if (candidate.status !== "ACTIVE") continue;
     const candidateTenant = await Tenant.findById(candidate.tenantId);
     if (!candidateTenant || candidateTenant.status !== "ACTIVE") continue;
@@ -169,7 +176,10 @@ async function login({ email, password }) {
     }
     if (target.lockUntil && target.lockUntil > now) {
       await failAudit("Account temporarily locked due to failed login attempts");
-      throw new ApiError(423, "Account temporarily locked due to failed login attempts");
+      throw new ApiError(423, "Account temporarily locked after repeated failed login attempts.", {
+        unlockAt: target.lockUntil,
+        remainingSeconds: Math.max(0, Math.ceil((target.lockUntil.getTime() - now.getTime()) / 1000)),
+      });
     }
     if (target.status !== "ACTIVE" || target.status === "DISABLED") {
       await failAudit("Account is not active");
@@ -178,11 +188,18 @@ async function login({ email, password }) {
     target.loginAttempts = (target.loginAttempts || 0) + 1;
     if (target.loginAttempts >= 5) {
       target.status = "LOCKED";
-      target.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+      target.lockUntil = new Date(now.getTime() + 15 * 60 * 1000);
+      await target.save();
+      await failAudit("Account temporarily locked due to failed login attempts");
+      throw new ApiError(423, "Account temporarily locked after 5 failed attempts.", {
+        unlockAt: target.lockUntil,
+        remainingSeconds: 15 * 60,
+      });
     }
     await target.save();
     await failAudit("Invalid credentials");
-    throw new ApiError(401, "Invalid credentials");
+    const remainingAttempts = Math.max(0, 5 - target.loginAttempts);
+    throw new ApiError(401, "Invalid credentials.", { remainingAttempts });
   }
 
   const payload = {
@@ -227,12 +244,14 @@ async function login({ email, password }) {
       email: user.email,
       orgContactEmail: user.orgContactEmail || null,
       empCode: user.empCode || null,
+      designationOverride: user.designationOverride || null,
       roleIds: user.roleIds,
       currentPositionId: user.currentPositionId,
     },
     tenant: {
       _id: tenant._id,
       name: tenant.name,
+      logo: tenant.logo || "",
       code: tenant.code,
       status: tenant.status,
     },
@@ -548,31 +567,65 @@ async function resendInvite({ tenantId, email, actor = null }) {
 
 async function forgotPassword({ email }) {
   const normalized = String(email).toLowerCase().trim();
-  const user = await User.findOne({
+  const users = await User.find({
     $or: [{ email: normalized }, { orgContactEmail: normalized }],
-  }).select("+resetToken +resetExpiry");
-  if (!user) {
-    return { message: "If user exists, reset email has been sent" };
+  }).select("tenantId name email orgContactEmail empCode passwordResetRequestedAt");
+  if (!users.length) {
+    throw new ApiError(404, "No account exists for this email address.");
   }
 
-  const resetToken = crypto.randomBytes(24).toString("hex");
-  user.resetToken = resetToken;
-  user.resetExpiry = new Date(Date.now() + 30 * 60 * 1000);
-  await user.save();
+  const requests = [];
+  for (const user of users) {
+    const tenant = await Tenant.findById(user.tenantId).lean();
+    if (!tenant) {
+      throw new ApiError(404, "The organization for this account could not be found.");
+    }
+    let admin = tenant.adminUserId
+      ? await User.findById(tenant.adminUserId).select("_id name email").lean()
+      : null;
+    if (!admin && tenant.email) {
+      admin = await User.findOne({ tenantId: user.tenantId, email: tenant.email })
+        .select("_id name email")
+        .lean();
+    }
+    if (!admin) {
+      throw new ApiError(409, "Your organization does not have an administrator configured. Contact support.");
+    }
+    requests.push({ user, admin });
+  }
 
-  await notificationAdapter.sendEmail({
-    to: inviteDeliveryEmail(user),
-    subject: "Reset your password",
-    html: `Reset token: ${resetToken}`,
-    templateParams: {
-      to_email: inviteDeliveryEmail(user),
-      subject: "Reset your password",
-      resetToken,
-      email: inviteDeliveryEmail(user),
-    },
-  });
+  const requestedAt = new Date();
+  for (const { user, admin } of requests) {
+    const employeeEmail = inviteDeliveryEmail(user);
+    user.passwordResetRequestedAt = requestedAt;
+    await user.save();
 
-  return { message: "If user exists, reset email has been sent" };
+    await Notification.create({
+      tenantId: user.tenantId,
+      userId: admin._id,
+      fromUserId: user._id,
+      recipientUserId: admin._id,
+      channel: "IN_APP",
+      message: `${user.name || "An employee"} (ID: ${user.empCode || "not provided"}, email: ${employeeEmail}) requested password reset credentials.`,
+      subject: "Password reset request",
+      eventType: "PASSWORD_RESET_REQUEST",
+      status: "SENT",
+      metadata: {
+        employeeUserId: String(user._id),
+        employeeId: user.empCode || "",
+        employeeEmail,
+        requestedAt,
+      },
+    });
+
+    await writeAudit({
+      tenantId: user.tenantId,
+      userId: user._id,
+      action: "AUTH_PASSWORD_RESET_REQUESTED",
+      metadata: { email: employeeEmail, adminUserId: admin._id },
+    });
+  }
+  return { message: "Your password reset request was sent to your organization administrator." };
 }
 
 async function getSessionProfile(userId) {
@@ -598,12 +651,14 @@ async function getSessionProfile(userId) {
       email: user.email,
       orgContactEmail: user.orgContactEmail || null,
       empCode: user.empCode || null,
+      designationOverride: user.designationOverride || null,
       roleIds: user.roleIds,
       currentPositionId: user.currentPositionId,
     },
     tenant: {
       _id: tenant._id,
       name: tenant.name,
+      logo: tenant.logo || "",
       code: tenant.code,
       status: tenant.status,
     },

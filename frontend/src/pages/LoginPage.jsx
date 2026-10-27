@@ -11,6 +11,18 @@ function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
+  const [unlockAt, setUnlockAt] = useState(null);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
+
+  useEffect(() => {
+    if (!unlockAt) return undefined;
+    const unlockTime = new Date(unlockAt).getTime();
+    const timer = window.setInterval(() => {
+      setSecondsRemaining(Math.max(0, Math.ceil((unlockTime - Date.now()) / 1000)));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [unlockAt]);
 
   useEffect(() => {
     document.title = "Sign in | Pinktech";
@@ -24,6 +36,9 @@ function LoginPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    setAttemptsRemaining(null);
+    setUnlockAt(null);
+    setSecondsRemaining(0);
 
     try {
       await login(form.email, form.password);
@@ -32,8 +47,21 @@ function LoginPage() {
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
+      const details = err?.response?.data?.details;
+      if (Number.isInteger(details?.remainingAttempts)) {
+        setAttemptsRemaining(details.remainingAttempts);
+      }
+      if (details?.unlockAt) {
+        const unlockTime = new Date(details.unlockAt);
+        if (!Number.isNaN(unlockTime.getTime())) {
+          setUnlockAt(unlockTime.toISOString());
+          setSecondsRemaining(Math.max(0, Math.ceil((unlockTime.getTime() - Date.now()) / 1000)));
+        }
+      }
     }
   };
+
+  const lockCountdown = `${Math.floor(secondsRemaining / 60)}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
   return (
     <div className="taste-login">
@@ -106,14 +134,26 @@ function LoginPage() {
             </button>
           </div>
 
-          {error ? <p className="error-text" role="alert">{error}</p> : null}
+          {error ? (
+            <div className="error-text" role="alert">
+              <p>{error}</p>
+              {attemptsRemaining !== null ? (
+                <p>{attemptsRemaining} failed attempt{attemptsRemaining === 1 ? "" : "s"} remaining before a temporary lock.</p>
+              ) : null}
+              {unlockAt ? (
+                <p>
+                  Try again at {new Date(unlockAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.
+                  {secondsRemaining > 0 ? ` Time remaining: ${lockCountdown}.` : " You can try again now."}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <button type="submit" className="btn-primary" disabled={isLoading}>
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
           <div className="auth-links">
             <Link to="/forgot-password">Forgot password?</Link>
-            <Link to="/verify-otp">Verify invite OTP</Link>
           </div>
         </form>
         <div className="taste-login-foot">© {new Date().getFullYear()} Pinktech</div>

@@ -38,5 +38,6 @@ router.post(
   "/:userId/reset-creds",
   usersController.resetCredentials
 );
+router.post("/:userId/unlock", usersController.unlockAccount);
 
 module.exports = router;

@@ -78,7 +78,9 @@ async function createTenant(payload, actor) {
 // older ones) is the platform itself, not one of the customer tenants the
 // workspace manages, so it is never listed as a tenant.
 async function listTenants() {
-  return Tenant.find({ code: { $nin: PLATFORM_TENANT_CODES } }).sort({ createdAt: -1 });
+  return Tenant.find({ code: { $nin: PLATFORM_TENANT_CODES } })
+    .select("-logo")
+    .sort({ createdAt: -1 });
 }
 
 async function getCurrentTenant(tenantId) {
@@ -104,7 +106,7 @@ async function updateOwnTenantProfile(tenantId, payload, actor) {
     throw new ApiError(403, "Only administrators can update the organization profile");
   }
   const allowed = {};
-  for (const key of ["email", "address", "phone", "registrationNumber", "signature", "stamp"]) {
+  for (const key of ["email", "address", "phone", "registrationNumber", "signature", "stamp", "logo"]) {
     if (payload[key] !== undefined) allowed[key] = payload[key];
   }
   if (!Object.keys(allowed).length) {
@@ -119,7 +121,7 @@ async function updateOwnTenantProfile(tenantId, payload, actor) {
   // Signature and stamp are base64 images — log only that they changed,
   // never the blobs.
   const auditMetadata = { ...allowed };
-  for (const imageKey of ["signature", "stamp"]) {
+  for (const imageKey of ["signature", "stamp", "logo"]) {
     if (auditMetadata[imageKey] !== undefined) {
       auditMetadata[imageKey] = auditMetadata[imageKey]
         ? `[saved ${String(auditMetadata[imageKey]).length} chars]`
@@ -134,6 +136,37 @@ async function updateOwnTenantProfile(tenantId, payload, actor) {
   });
 
   return tenant;
+}
+
+async function unlockTenantAdmin(tenantId, actor) {
+  if (!actor?.isSuperAdmin) {
+    throw new ApiError(403, "Only a platform super admin can activate tenant administrator accounts");
+  }
+  const tenant = await Tenant.findById(tenantId);
+  if (!tenant) {
+    throw new ApiError(404, "Tenant not found");
+  }
+  const query = tenant.adminUserId
+    ? { _id: tenant.adminUserId, tenantId }
+    : { tenantId, email: tenant.email };
+  const adminUser = await User.findOne(query);
+  if (!adminUser) {
+    throw new ApiError(404, "Tenant administrator account not found");
+  }
+  if (adminUser.status !== "LOCKED") {
+    throw new ApiError(409, "The tenant administrator account is not temporarily locked");
+  }
+  adminUser.status = "ACTIVE";
+  adminUser.loginAttempts = 0;
+  adminUser.lockUntil = null;
+  await adminUser.save();
+  await writeAudit({
+    tenantId,
+    userId: actor.userId || null,
+    action: "TENANT_ADMIN_ACCOUNT_UNLOCKED",
+    metadata: { targetUserId: adminUser._id, email: adminUser.email },
+  });
+  return { userId: adminUser._id, status: adminUser.status };
 }
 
 async function updateTenant(tenantId, payload, actor) {
@@ -482,6 +515,7 @@ module.exports = {
   getCurrentTenant,
   updateTenant,
   updateOwnTenantProfile,
+  unlockTenantAdmin,
   assignTenantAccount,
   unassignTenantAccount,
   deleteTenant,

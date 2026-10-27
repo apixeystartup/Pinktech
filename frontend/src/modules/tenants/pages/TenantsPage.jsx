@@ -114,6 +114,7 @@ function TenantsPage() {
   };
 
   const [sendingCredsId, setSendingCredsId] = useState(null);
+  const [activatingAdminId, setActivatingAdminId] = useState(null);
 
   const sendCreds = async (tenant) => {
     // One click = one password. Without the guard, double clicks issued two
@@ -128,6 +129,20 @@ function TenantsPage() {
       showToast(getErrorMessage(error), "error");
     } finally {
       setSendingCredsId(null);
+    }
+  };
+
+  const activateAdmin = async (tenant) => {
+    if (activatingAdminId) return;
+    setActivatingAdminId(String(tenant._id));
+    try {
+      await api.post(`/tenants/${tenant._id}/admin/unlock`);
+      showToast("Tenant administrator account activated.", "success");
+      await load();
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setActivatingAdminId(null);
     }
   };
 
@@ -189,6 +204,30 @@ function TenantsPage() {
       {sendingCredsId === tenant._id ? "Sending…" : "Send creds"}
     </button>
   );
+
+  const adminAccess = (tenant) =>
+    tenant.adminAccountStatus === "LOCKED" ? (
+      <span className="tenant-admin-access">
+      <span className="tenant-pill tenant-pill--status">
+        Temporarily deactivated
+        {tenant.adminLockUntil ? ` · until ${new Date(tenant.adminLockUntil).toLocaleString()}` : ""}
+      </span>
+        <button
+          className="btn-secondary"
+          type="button"
+          disabled={activatingAdminId === String(tenant._id)}
+          onClick={() => activateAdmin(tenant)}
+        >
+          {activatingAdminId === String(tenant._id) ? "Activating…" : "Activate admin"}
+        </button>
+      </span>
+    ) : (
+      <span className="tenant-admin-access">
+        <span className="tenant-pill tenant-pill--status">
+          {tenant.adminAccountStatus ? statusLabel(tenant.adminAccountStatus) : "No admin account"}
+        </span>
+      </span>
+    );
 
   return (
     <ModulePage title="Tenants" description="Create and manage tenant lifecycle.">
@@ -271,6 +310,11 @@ function TenantsPage() {
               render: (row) => statusLabel(row.status),
             },
             {
+              key: "adminAccountStatus",
+              label: "Admin access",
+              render: adminAccess,
+            },
+            {
               key: "actions",
               label: "Actions",
               render: (row) => (
@@ -307,6 +351,10 @@ function TenantsPage() {
                     <span className="tenant-pill tenant-pill--plan">{planLabel(row.plan)}</span>
                     <span className="tenant-pill tenant-pill--status">{statusLabel(row.status)}</span>
                   </div>
+                </div>
+                <div className="tenant-card-admin-access">
+                  <span className="tenants-search-label">Admin access</span>
+                  {adminAccess(row)}
                 </div>
                 <div className="tenant-card-actions">
                   <button className="btn-secondary" type="button" onClick={() => openEdit(row)}>

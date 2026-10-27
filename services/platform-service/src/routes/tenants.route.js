@@ -17,6 +17,7 @@ router.patch(
   validate(updateTenantSchema),
   controller.updateTenant
 );
+router.post("/:tenantId/admin/unlock", controller.unlockTenantAdmin);
 router.delete("/:tenantId", controller.deleteTenant);
 router.post(
   "/:tenantId/assign-account",
