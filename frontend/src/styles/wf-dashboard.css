@@ -726,8 +726,6 @@ html[data-theme='light'] .wf-tenants-head {
   gap: 16px;
 }
 
-html[data-theme='light'] .wf-tenants-all { margin-top: 2px; }
-
 /* Neutralise the shared table-wrap chrome: the card is already the frame. */
 html[data-theme='light'] .wf-tenants-card .wf-table-wrap,
 html[data-theme='light'] .wf-sec-card .dash-table-wrap {
@@ -1276,8 +1274,6 @@ html[data-theme='light'] .wf-foot {
   html[data-theme='light'] .wf-tenants-card { padding: 16px; }
 
   html[data-theme='light'] .wf-tenants-head { flex-direction: column; gap: 12px; }
-
-  html[data-theme='light'] .wf-tenants-all { align-self: flex-start; }
 
   html[data-theme='light'] .wf-tenants-card .wf-table-wrap {
     margin-top: 14px;

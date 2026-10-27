@@ -1,7 +1,6 @@
 import "../styles/wf-dashboard.css";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
 import { getErrorMessage } from "../lib/error";
@@ -18,7 +17,6 @@ import {
   AttentionCard,
   HappeningCard,
   HeaderButtons,
-  IconArrow,
   StatCards,
 } from "../components/dashboard/DashboardBlocks";
 import { downloadReport } from "../components/dashboard/reportDownload";
@@ -717,12 +715,6 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
             })}
           </tbody>
         </table>
-      </div>
-      <div className="wf-tenants-footer">
-        <Link className="wf-btn wf-btn--light wf-tenants-all" to="/app/tenants">
-          View all tenants
-          <IconArrow />
-        </Link>
       </div>
       {editTenant ? (
         <div className="wf-tenant-edit-backdrop" onClick={() => setEditTenant(null)}>
