@@ -52,12 +52,51 @@
 }
 
 .topbar-brand-word {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 20px;
+}
+
+.topbar-brand-word strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.03em;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.topbar-brand-word small {
+  max-width: 100%;
+  overflow: hidden;
+  color: #57554d;
+  font-family: "Figtree", var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .app-shell .topbar .topbar-brand-word {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+html[data-theme="light"] .app-shell .topbar .topbar-brand-word strong {
+  font-size: 19px;
+}
+
+html[data-theme="light"] .app-shell .topbar .topbar-brand-word small {
+  font-size: 12.5px;
 }
 
 /* ------------------------------ pill nav ---------------------------- */
@@ -357,7 +396,7 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 40;
-  width: min(320px, calc(100vw - 24px));
+  width: min(360px, calc(100vw - 24px));
   max-height: calc(100dvh - 76px);
   overflow-y: auto;
   padding: 16px;
@@ -382,8 +421,12 @@
 .account-menu-profile-row {
   display: flex;
   min-width: 0;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
+}
+
+.account-menu-employee-row {
+  align-items: flex-start;
 }
 
 .account-menu-profile {
@@ -393,6 +436,10 @@
   flex-direction: column;
   gap: 3px;
   padding-top: 1px;
+}
+
+.account-menu-org-profile {
+  gap: 3px;
 }
 
 .account-menu-nav {
@@ -1268,8 +1315,12 @@
     padding-inline: 10px;
   }
 
-  .topbar-brand-word {
-    font-size: 18px;
+  .topbar-leading {
+    flex: 1 1 auto;
+  }
+
+  .topbar-brand-word strong {
+    font-size: 17px;
   }
 
   .pillnav {
@@ -1321,8 +1372,46 @@
 }
 
 @media (max-width: 440px) {
-  /* the wordmark gives its space to the nav; the mark keeps the link */
+  .topbar-brand {
+    gap: 7px;
+  }
+
+  .topbar-brand-mark {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+  }
+
   .topbar-brand-word {
+    max-width: min(45vw, 175px);
+  }
+
+  .topbar-brand-word strong {
+    font-size: 15px;
+  }
+
+  .topbar-brand-word small {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 860px) {
+  html[data-theme="light"] .app-shell .topbar .topbar-brand-word {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  html[data-theme="light"] .app-shell .topbar .topbar-brand-word strong {
+    font-size: 15px;
+  }
+
+  html[data-theme="light"] .app-shell .topbar .topbar-brand-word small {
+    font-size: 11px;
+  }
+
+  html[data-theme="light"] .app-shell .topbar .wf-mobile-title {
     display: none;
   }
 }

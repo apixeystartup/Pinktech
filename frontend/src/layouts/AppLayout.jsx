@@ -7,6 +7,7 @@ import { displayAccountEmail } from "../lib/userDisplay";
 import WorkflowHint from "../components/common/WorkflowHint";
 import { useToast } from "../components/common/ToastProvider";
 import { getErrorMessage } from "../lib/error";
+import OrganizationDataEditor from "../components/tenant/OrganizationDataEditor";
 
 function initialsOf(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
@@ -21,7 +22,7 @@ function isActivePath(pathname, to) {
 }
 
 function AppLayout() {
-  const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole, refreshCurrentTenant } = useAuth();
+  const { logout, user, permissionCodes = [], tenantContextId, setTenantContext, currentTenant, isSuperAdmin, accountRole } = useAuth();
   const { showToast } = useToast();
   const { pathname, search } = useLocation();
   const [tenants, setTenants] = useState([]);
@@ -29,10 +30,9 @@ function AppLayout() {
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [auditErrorCount, setAuditErrorCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
-  const [savingLogo, setSavingLogo] = useState(false);
+  const [organizationEditorOpen, setOrganizationEditorOpen] = useState(false);
   const accountRef = useRef(null);
   const workspaceMenuRef = useRef(null);
-  const logoInputRef = useRef(null);
 
   // Counts stay unread until the user opens the shared inbox/activity page.
   useEffect(() => {
@@ -162,46 +162,16 @@ function AppLayout() {
   const empCode = (user?.empCode || "").trim();
   const accountEmail = displayAccountEmail(user);
   const roleLabel = platformAdmin ? "Super Admin" : accountRole === "tenant_admin" ? "Admin" : "Employee";
-  // Wireframe topbar: tenant identity plus the signed-in account role.
-  const brandRole = platformAdmin
-    ? "Platform admin"
-    : accountRole === "tenant_admin"
-      ? "Tenant admin"
-      : roleLabel;
   const tenantName = currentTenant?.name || "Pinktech";
   const tenantLogo = currentTenant?.logo || "";
-  const designation = user?.designationOverride || user?.designation || brandRole;
   const canEditBrand = isAdminRole(accountRole, isSuperAdmin);
+  const designation = user?.designationOverride || user?.designation || (
+    platformAdmin ? "Platform admin" : accountRole === "tenant_admin" ? "Tenant admin" : "Employee"
+  );
+  const brandSubtitle = platformAdmin || accountRole === "tenant_admin"
+    ? designation
+    : [displayName, designation].filter(Boolean).join(" · ");
   const topbarSummaryTitle = [displayName || null, empCode ? `Employee ID: ${empCode}` : null, accountEmail || null].filter(Boolean).join(" — ");
-
-  const updateTenantLogo = (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      showToast("Choose a PNG, JPEG, or WebP logo.", "error");
-      return;
-    }
-    if (file.size > 850 * 1024) {
-      showToast("Logo must be 850 KB or smaller.", "error");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onerror = () => showToast("Could not read the selected logo.", "error");
-    reader.onload = async () => {
-      setSavingLogo(true);
-      try {
-        await api.patch("/tenants/current", { logo: reader.result });
-        await refreshCurrentTenant();
-        showToast("Workspace logo updated.", "success");
-      } catch (error) {
-        showToast(getErrorMessage(error), "error");
-      } finally {
-        setSavingLogo(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
   // On narrow screens the header title identifies the current page; all roles
   // use the same role-specific navigation entry point as on desktop.
@@ -227,7 +197,7 @@ function AppLayout() {
             )}
             <span className="topbar-brand-word">
               <strong>{tenantName}</strong>
-              <small>{brandRole}</small>
+              <small>{brandSubtitle}</small>
             </span>
           </Link>
           <span className="wf-mobile-title" aria-hidden="true">{mobileTitle}</span>
@@ -310,43 +280,45 @@ function AppLayout() {
             {accountOpen ? (
               <div className="account-menu" role="menu">
                 <div className="account-menu-head">
-                  <div className="account-menu-profile-row">
-                    {tenantLogo ? (
-                      <img src={tenantLogo} className="account-menu-brand-logo" alt="" />
-                    ) : (
-                      <span className="account-menu-brand-logo account-menu-brand-fallback">{initialsOf(tenantName)}</span>
-                    )}
-                    <div className="account-menu-profile">
-                      <span className="account-menu-name">{displayName || "Signed in"}</span>
-                      <span className="account-menu-designation">{designation}</span>
-                      <span className="account-menu-mail">{accountEmail}</span>
-                      {empCode ? <span className="account-menu-meta">Employee ID {empCode}</span> : null}
-                      <span className="account-menu-brand-name">{tenantName}</span>
+                  {canEditBrand ? (
+                    <div className="account-menu-profile-row">
+                      {tenantLogo ? (
+                        <img src={tenantLogo} className="account-menu-brand-logo" alt="" />
+                      ) : (
+                        <span className="account-menu-brand-logo account-menu-brand-fallback">{initialsOf(tenantName)}</span>
+                      )}
+                      <div className="account-menu-profile account-menu-org-profile">
+                        <span className="account-menu-name">{tenantName}</span>
+                        {currentTenant?.code ? <span className="account-menu-designation">{currentTenant.code}</span> : null}
+                        {currentTenant?.email ? <span className="account-menu-mail">{currentTenant.email}</span> : null}
+                        {currentTenant?.phone ? <span className="account-menu-mail">{currentTenant.phone}</span> : null}
+                      </div>
+                      <button
+                        type="button"
+                        className="account-menu-brand-edit"
+                        aria-label="Edit organization data"
+                        title="Edit organization data"
+                        disabled={!currentTenant}
+                        onClick={() => {
+                          setAccountOpen(false);
+                          setOrganizationEditorOpen(true);
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                          <path d="m14 5 5 5M4 20l4.4-.9L19.2 8.3a2.1 2.1 0 0 0-3-3L5.4 16.1 4 20Z" />
+                        </svg>
+                      </button>
                     </div>
-                    {canEditBrand ? (
-                      <>
-                        <input
-                          ref={logoInputRef}
-                          className="account-menu-logo-input"
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={updateTenantLogo}
-                        />
-                        <button
-                          type="button"
-                          className="account-menu-brand-edit"
-                          aria-label="Edit workspace logo"
-                          title={savingLogo ? "Saving logo…" : "Edit workspace logo"}
-                          disabled={savingLogo}
-                          onClick={() => logoInputRef.current?.click()}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                            <path d="m14 5 5 5M4 20l4.4-.9L19.2 8.3a2.1 2.1 0 0 0-3-3L5.4 16.1 4 20Z" />
-                          </svg>
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
+                  ) : (
+                    <div className="account-menu-profile-row account-menu-employee-row">
+                      <div className="account-menu-profile">
+                        <span className="account-menu-name">{displayName || "Employee"}</span>
+                        {empCode ? <span className="account-menu-meta">Employee ID {empCode}</span> : null}
+                        {accountEmail ? <span className="account-menu-mail">{accountEmail}</span> : null}
+                        <span className="account-menu-brand-name">{tenantName}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {!platformAdmin ? (
@@ -366,12 +338,11 @@ function AppLayout() {
                 ) : null}
 
                 {canManageTenants ? (
-                  <label className="account-menu-field">
-                    <span>Tenant context</span>
+                  <div className="account-menu-field">
                     <select
                       value={tenantContextId}
                       onChange={(e) => setTenantContext(e.target.value)}
-                      title="Sets X-Tenant-Id on requests so roles, positions, assignments, and invites apply to the chosen tenant"
+                      aria-label="Tenant context"
                     >
                       <option value="">Home · all tenants</option>
                       {tenants.map((tenant) => (
@@ -380,11 +351,6 @@ function AppLayout() {
                         </option>
                       ))}
                     </select>
-                  </label>
-                ) : currentTenant ? (
-                  <div className="account-menu-field">
-                    <span>Tenant</span>
-                    <strong>{currentTenant.name} · {currentTenant.code}</strong>
                   </div>
                 ) : null}
 
@@ -396,6 +362,12 @@ function AppLayout() {
           </div>
         </div>
       </header>
+      <OrganizationDataEditor
+        key={organizationEditorOpen ? `${tenantContextId || "current"}-open` : "closed"}
+        open={organizationEditorOpen}
+        tenant={currentTenant}
+        onClose={() => setOrganizationEditorOpen(false)}
+      />
       <div className="shell-body">
         <main className="content">
           <div className="content-inner">

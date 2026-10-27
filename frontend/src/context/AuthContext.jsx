@@ -53,6 +53,14 @@ export function AuthProvider({ children }) {
     return tenant;
   }, [accessToken]);
 
+  const updateCurrentTenant = useCallback((tenant) => {
+    const updatedTenant = tenant || null;
+    setCurrentTenant(updatedTenant);
+    if (updatedTenant) {
+      queryClient.setQueryData(["tenant-current", String(tenantContextId || "")], updatedTenant);
+    }
+  }, [queryClient, tenantContextId]);
+
   useEffect(() => {
     if (!accessToken) {
       setCurrentTenant(null);
@@ -187,8 +195,9 @@ export function AuthProvider({ children }) {
       logout,
       refreshSession,
       refreshCurrentTenant,
+      updateCurrentTenant,
     }),
-    [accessToken, refreshToken, user, tenantContextId, currentTenant, permissionCodes, isLoading, refreshSession, refreshCurrentTenant],
+    [accessToken, refreshToken, user, tenantContextId, currentTenant, permissionCodes, isLoading, refreshSession, refreshCurrentTenant, updateCurrentTenant],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
