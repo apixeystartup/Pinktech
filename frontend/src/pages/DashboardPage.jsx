@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import api from "../lib/api";
+import { getErrorMessage } from "../lib/error";
 import { useToast } from "../components/common/ToastProvider";
 import buildDashboardModel, {
   buildAttentionItems,
@@ -67,6 +68,7 @@ function statusMeta(status) {
 function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
   const { tenants } = data;
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [expandedTenant, setExpandedTenant] = useState(null);
   const [tenantEmployees, setTenantEmployees] = useState({});
   const [tenantDoctors, setTenantDoctors] = useState({});
@@ -75,6 +77,139 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
   const [editingKey, setEditingKey] = useState(null);
   const [editForm, setEditForm] = useState({ empCode: "", roleIds: [] });
   const [savingEmp, setSavingEmp] = useState(false);
+  const [tenantRecords, setTenantRecords] = useState([]);
+  const [tenantRecordsLoaded, setTenantRecordsLoaded] = useState(false);
+  const [tenantForm, setTenantForm] = useState({ name: "", code: "", email: "", plan: "starter" });
+  const [tenantSearchInput, setTenantSearchInput] = useState("");
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [editTenant, setEditTenant] = useState(null);
+  const [tenantEditForm, setTenantEditForm] = useState({
+    name: "",
+    email: "",
+    plan: "starter",
+    address: "",
+    phone: "",
+    registrationNumber: "",
+  });
+  const [tenantActionBusy, setTenantActionBusy] = useState(null);
+
+  const loadTenantRecords = useCallback(async () => {
+    try {
+      const res = await api.get("/tenants");
+      setTenantRecords(Array.isArray(res.data) ? res.data : []);
+      setTenantRecordsLoaded(true);
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get("/tenants")
+      .then((res) => {
+        if (active) {
+          setTenantRecords(Array.isArray(res.data) ? res.data : []);
+          setTenantRecordsLoaded(true);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          showToast(getErrorMessage(error), "error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshTick, showToast]);
+
+  const filteredTenants = useMemo(() => {
+    const query = tenantSearch.trim().toLowerCase();
+    if (!query) return tenants;
+    return tenants.filter((tenant) =>
+      [
+        tenant.name,
+        tenant.code,
+        tenant.plan,
+        tenant.status,
+        tenantRecords.find((row) => String(row._id) === String(tenant.tenantId))?.email,
+      ].some((value) => String(value || "").toLowerCase().includes(query)),
+    );
+  }, [tenants, tenantRecords, tenantSearch]);
+
+  const createTenant = async (event) => {
+    event.preventDefault();
+    setTenantActionBusy("create");
+    try {
+      await api.post("/tenants", tenantForm);
+      showToast("Tenant created", "success");
+      setTenantForm({ name: "", code: "", email: "", plan: "starter" });
+      await Promise.all([onReload?.(), loadTenantRecords()]);
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setTenantActionBusy(null);
+    }
+  };
+
+  const openTenantEdit = (tenant) => {
+    const record = tenantRecords.find((row) => String(row._id) === String(tenant.tenantId));
+    setEditTenant({ ...tenant, ...(record || {}) });
+    setTenantEditForm({
+      name: record?.name || tenant.name || "",
+      email: record?.email || "",
+      plan: record?.plan || tenant.plan || "starter",
+      address: record?.address || "",
+      phone: record?.phone || "",
+      registrationNumber: record?.registrationNumber || "",
+    });
+  };
+
+  const saveTenantEdit = async (event) => {
+    event.preventDefault();
+    if (!editTenant) return;
+    setTenantActionBusy(String(editTenant.tenantId || editTenant._id));
+    try {
+      await api.patch(`/tenants/${editTenant._id || editTenant.tenantId}`, tenantEditForm);
+      showToast("Tenant updated", "success");
+      setEditTenant(null);
+      await Promise.all([onReload?.(), loadTenantRecords()]);
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setTenantActionBusy(null);
+    }
+  };
+
+  const runTenantAction = async (tenant, action) => {
+    const id = String(tenant.tenantId || tenant._id);
+    if (tenantActionBusy) return;
+    if (action === "delete" && !window.confirm(`Delete tenant "${tenant.name}"? This action is permanent.`)) {
+      return;
+    }
+    setTenantActionBusy(id);
+    try {
+      if (action === "send-creds") {
+        const res = await api.post(`/tenants/${id}/send-creds`);
+        showToast(`Credentials sent to ${res.data.email}`, "success");
+      } else if (action === "unlock") {
+        await api.post(`/tenants/${id}/admin/unlock`);
+        showToast("Tenant administrator account activated.", "success");
+      } else if (action === "status") {
+        const nextStatus = tenant.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+        await api.patch(`/tenants/${id}`, { status: nextStatus });
+        showToast(`Tenant marked ${nextStatus}`, "success");
+      } else if (action === "delete") {
+        await api.delete(`/tenants/${id}`);
+        showToast("Tenant deleted", "success");
+      }
+      await Promise.all([onReload?.(), loadTenantRecords()]);
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setTenantActionBusy(null);
+    }
+  };
 
   const isSubOpen = (tenantId, kind) => !collapsedSub[`${tenantId}:${kind}`];
   const toggleSub = (tenantId, kind) =>
@@ -209,6 +344,81 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
         </div>
       </header>
 
+      <div className="wf-tenants-management">
+        <form className="wf-tenants-create-form" onSubmit={createTenant}>
+          <label>
+            <span>Name</span>
+            <input
+              value={tenantForm.name}
+              onChange={(event) => setTenantForm((previous) => ({ ...previous, name: event.target.value }))}
+              required
+            />
+          </label>
+          <label>
+            <span>Code</span>
+            <input
+              value={tenantForm.code}
+              onChange={(event) => setTenantForm((previous) => ({ ...previous, code: event.target.value }))}
+              required
+            />
+          </label>
+          <label>
+            <span>Admin email</span>
+            <input
+              type="email"
+              value={tenantForm.email}
+              onChange={(event) => setTenantForm((previous) => ({ ...previous, email: event.target.value }))}
+              required
+            />
+          </label>
+          <label className="wf-tenants-create-plan">
+            <span>Plan</span>
+            <select
+              value={tenantForm.plan}
+              onChange={(event) => setTenantForm((previous) => ({ ...previous, plan: event.target.value }))}
+            >
+              <option value="starter">Starter</option>
+              <option value="basic">Basic</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </label>
+          <button type="submit" className="btn-primary" disabled={tenantActionBusy === "create"}>
+            {tenantActionBusy === "create" ? "Creating…" : "Create tenant"}
+          </button>
+        </form>
+
+        <form
+          className="wf-tenants-search"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setTenantSearch(tenantSearchInput);
+          }}
+        >
+          <input
+            aria-label="Search tenants"
+            placeholder="Search tenants"
+            value={tenantSearchInput}
+            onChange={(event) => setTenantSearchInput(event.target.value)}
+          />
+          {tenantSearchInput ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              aria-label="Clear tenant search"
+              onClick={() => {
+                setTenantSearchInput("");
+                setTenantSearch("");
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+          <button type="submit" className="btn-secondary">Search</button>
+        </form>
+      </div>
+
       <div className="wf-table-wrap">
         <table className="wf-tenants-table">
           <thead>
@@ -220,44 +430,102 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
               <th className="wf-c-doctors">Doctors</th>
               <th className="wf-c-forms">Forms</th>
               <th className="wf-c-activity">Last activity</th>
-              <th className="wf-c-meta">Details</th>
+              <th className="wf-c-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {tenants.length === 0 && (
+            {filteredTenants.length === 0 && (
               <tr>
-                <td colSpan={cols} className="dash-empty">No tenants yet</td>
+                <td colSpan={cols} className="dash-empty">
+                  {tenantSearch ? "No tenants match your search." : "No tenants yet"}
+                </td>
               </tr>
             )}
-            {tenants.map((t) => {
+            {filteredTenants.map((t) => {
               const expanded = expandedTenant === t.tenantId;
               const empState = tenantEmployees[t.tenantId];
               const docState = tenantDoctors[t.tenantId];
               const status = statusMeta(t.status);
-              const people = Number(t.employeeCount) || 0;
-              const doctors = Number(t.doctorCount) || 0;
+              const tenantRecord = tenantRecords.find((row) => String(row._id) === String(t.tenantId));
+              const rowTenant = { ...t, ...(tenantRecord || {}) };
+              const actionBusy = tenantActionBusy === String(t.tenantId);
+              const isPlatformTenant = ["PINKTECH", "PLATFORM"].includes(
+                String(t.code || "").trim().toUpperCase(),
+              );
+              const canDelete =
+                !isPlatformTenant && String(t.tenantId) !== String(user?.tenantId);
               return (
                 <Fragment key={t.tenantId}>
                   <tr
                     className={`wf-tenant-row${expanded ? " is-open" : ""}`}
                     onClick={() => toggleTenant(t.tenantId)}
                   >
-                    <td className="wf-c-tenant">
+                    <td className="wf-c-tenant" data-label="Tenant">
                       <ExpandToggle expanded={expanded} label={t.name} />
                     </td>
-                    <td className="wf-c-plan">{capitalizeWord(t.plan)}</td>
-                    <td className="wf-c-status">
+                    <td className="wf-c-plan" data-label="Plan">{capitalizeWord(t.plan)}</td>
+                    <td className="wf-c-status" data-label="Status">
                       <span className={`dash-status dash-status--${status.mod}`}>{status.text}</span>
                     </td>
-                    <td className="wf-c-people">{t.employeeCount || "—"}</td>
-                    <td className="wf-c-doctors">{t.doctorCount || "—"}</td>
-                    <td className="wf-c-forms">
+                    <td className="wf-c-people" data-label="People">{t.employeeCount ?? 0}</td>
+                    <td className="wf-c-doctors" data-label="Doctors">{t.doctorCount ?? 0}</td>
+                    <td className="wf-c-forms" data-label="Forms">
                       {t.formCount || 0} created / {t.formSubmittedCount || 0} submitted
                     </td>
-                    <td className="wf-c-activity">{tenantLastActivity(t, feed)}</td>
-                    <td className="wf-c-meta">
-                      {capitalizeWord(t.plan)} · {people} {people === 1 ? "person" : "people"} · {doctors}{" "}
-                      {doctors === 1 ? "doctor" : "doctors"}
+                    <td className="wf-c-activity" data-label="Last activity">{tenantLastActivity(t, feed)}</td>
+                    <td className="wf-c-actions" data-label="Actions" onClick={(event) => event.stopPropagation()}>
+                      <div className="wf-tenant-actions">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={tenantActionBusy !== null || !tenantRecordsLoaded || !tenantRecord}
+                          onClick={() => openTenantEdit(rowTenant)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={tenantActionBusy !== null}
+                          onClick={() => runTenantAction(rowTenant, "send-creds")}
+                        >
+                          {actionBusy ? "Working…" : "Send creds"}
+                        </button>
+                        {rowTenant.adminAccountStatus === "LOCKED" ? (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={tenantActionBusy !== null}
+                            onClick={() => runTenantAction(rowTenant, "unlock")}
+                          >
+                            Activate admin
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={
+                            tenantActionBusy !== null || isPlatformTenant
+                          }
+                          onClick={() => runTenantAction(rowTenant, "status")}
+                        >
+                          {isPlatformTenant
+                            ? "Always Active"
+                            : t.status === "ACTIVE"
+                              ? "Deactivate"
+                              : "Activate"}
+                        </button>
+                        {canDelete ? (
+                          <button
+                            type="button"
+                            className="btn-danger"
+                            disabled={tenantActionBusy !== null}
+                            onClick={() => runTenantAction(rowTenant, "delete")}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                   {expanded && (
@@ -456,6 +724,83 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
           <IconArrow />
         </Link>
       </div>
+      {editTenant ? (
+        <div className="wf-tenant-edit-backdrop" onClick={() => setEditTenant(null)}>
+          <form
+            className="wf-tenant-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tenant-edit-title"
+            onSubmit={saveTenantEdit}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="tenant-edit-title">Edit tenant</h3>
+            <label>
+              <span>Name</span>
+              <input
+                value={tenantEditForm.name}
+                onChange={(event) => setTenantEditForm((previous) => ({ ...previous, name: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              <span>Code</span>
+              <input value={editTenant.code || ""} disabled />
+            </label>
+            <label>
+              <span>Admin email</span>
+              <input
+                type="email"
+                value={tenantEditForm.email}
+                onChange={(event) => setTenantEditForm((previous) => ({ ...previous, email: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Plan</span>
+              <select
+                value={tenantEditForm.plan}
+                onChange={(event) => setTenantEditForm((previous) => ({ ...previous, plan: event.target.value }))}
+              >
+                <option value="starter">Starter</option>
+                <option value="basic">Basic</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </label>
+            <label>
+              <span>Address</span>
+              <input
+                value={tenantEditForm.address}
+                onChange={(event) => setTenantEditForm((previous) => ({ ...previous, address: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Phone</span>
+              <input
+                value={tenantEditForm.phone}
+                onChange={(event) => setTenantEditForm((previous) => ({ ...previous, phone: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Registration number</span>
+              <input
+                value={tenantEditForm.registrationNumber}
+                onChange={(event) =>
+                  setTenantEditForm((previous) => ({ ...previous, registrationNumber: event.target.value }))
+                }
+              />
+            </label>
+            <div className="wf-tenant-edit-actions">
+              <button type="submit" className="btn-primary" disabled={tenantActionBusy !== null}>
+                {tenantActionBusy ? "Saving…" : "Save"}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setEditTenant(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }
