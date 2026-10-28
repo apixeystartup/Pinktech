@@ -37,7 +37,16 @@ describe("platform dashboard tenant context", () => {
     Tenant.findById.mockReturnValue(queryResult({ code: "PINKTECH" }));
     Role.find.mockReturnValue(queryResult([{ _id: superAdminRoleId, type: "SYSTEM" }]));
     User.countDocuments.mockResolvedValueOnce(4).mockResolvedValueOnce(9);
-    User.find.mockReturnValue(queryResult([]));
+    User.find.mockReturnValue(queryResult([{
+      _id: "507f1f77bcf86cd799439015",
+      name: "Casey Employee",
+      email: "casey@example.com",
+      empCode: "E-15",
+      roleIds: [],
+      status: "ACTIVE",
+      credentialsSentCount: 2,
+      passwordResetRequestedAt: null,
+    }]));
     Module.find.mockReturnValue(queryResult([]));
     Module.aggregate.mockResolvedValue([]);
     ExternalUser.countDocuments.mockResolvedValue(2);
@@ -61,7 +70,13 @@ describe("platform dashboard tenant context", () => {
         formsCreated: 0,
         formsSubmitted: 0,
       },
-      employees: [],
+      employees: [
+        expect.objectContaining({
+          name: "Casey Employee",
+          credentialsSentCount: 2,
+          passwordResetRequestedAt: null,
+        }),
+      ],
       doctors: [],
     });
     expect(String(User.countDocuments.mock.calls[0][0].tenantId)).toBe(selectedTenantId);

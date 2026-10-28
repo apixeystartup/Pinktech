@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 /* ------------------------------------------------------------------ *
  * The dashboard blocks as drawn in /wire-frame/Screen 1 + 2: the four *
  * stat cards, the "What's happening" chart with the recent activity   *
@@ -75,23 +73,6 @@ export function StatIcon({ name }) {
     ),
   };
   return <Glyph size={21}>{shapes[name] || shapes.forms}</Glyph>;
-}
-
-function IconArrow() {
-  return (
-    <Glyph size={15}>
-      <path d="M4.5 12h14" />
-      <path d="M13.4 6.9 18.5 12l-5.1 5.1" />
-    </Glyph>
-  );
-}
-
-function IconPlus() {
-  return (
-    <Glyph size={17}>
-      <path d="M12 5.2v13.6M5.2 12h13.6" />
-    </Glyph>
-  );
 }
 
 function IconDownload() {
@@ -277,14 +258,6 @@ export function StatCards({ cards }) {
           </div>
           <div className="wf-stat-foot">
             <StatGlyph card={card} />
-            {card.to ? (
-              <Link className="wf-stat-link" to={card.to}>
-                {card.linkLabel}
-                <IconArrow />
-              </Link>
-            ) : (
-              <span />
-            )}
           </div>
         </article>
       ))}
@@ -318,9 +291,6 @@ function ActivityRow({ entry }) {
       <span className="wf-act-text">
         <strong>{entry.time}</strong> — {entry.text}
       </span>
-      <Link className="wf-act-link" to="/app/audit">
-        View
-      </Link>
     </div>
   );
 }
@@ -430,9 +400,6 @@ export function AttentionCard({ items }) {
               <span className="wf-attn-title">{item.title}</span>
               <span className="wf-attn-body">{item.body}</span>
             </span>
-            <Link className="wf-attn-btn" to={item.to}>
-              {item.cta}
-            </Link>
           </li>
         ))}
       </ul>
@@ -445,15 +412,9 @@ export function AttentionCard({ items }) {
 /* The CSV export itself lives in ./reportDownload.js so this file only
  * exports components (react-refresh / fast refresh requirement). */
 
-export function HeaderButtons({ primary, onDownload, ready }) {
+export function HeaderButtons({ onDownload, ready }) {
   return (
     <div className="wf-dash-head-actions">
-      {primary ? (
-        <Link className="wf-btn wf-btn--primary" to={primary.to}>
-          <IconPlus />
-          {primary.label}
-        </Link>
-      ) : null}
       <button type="button" className="wf-btn wf-btn--light" onClick={onDownload} disabled={!ready}>
         <IconDownload />
         Download reports
@@ -462,4 +423,4 @@ export function HeaderButtons({ primary, onDownload, ready }) {
   );
 }
 
-export { IconArrow, IconSpark };
+export { IconSpark };

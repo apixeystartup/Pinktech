@@ -633,7 +633,7 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
                                                         ))}
                                                       </div>
                                                     </div>
-                                                    <div className="dash-edit-actions">
+                                                    <div className="dash-row-actions">
                                                       <button
                                                         type="button"
                                                         className="btn-primary"
@@ -805,6 +805,7 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
   const [editingUserId, setEditingUserId] = useState(null);
   const [editForm, setEditForm] = useState({ empCode: "", roleIds: [] });
   const [saving, setSaving] = useState(false);
+  const [employeeActionBusy, setEmployeeActionBusy] = useState(null);
 
   // Roles are re-read on mount and after every background refresh so a role
   // created on the Roles page is available in the edit dialog right away.
@@ -880,6 +881,33 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
     }
   };
 
+  const runEmployeeAction = async (emp) => {
+    const resetRequested = Boolean(emp.passwordResetRequestedAt);
+    const unlock = emp.status === "LOCKED" && !resetRequested;
+    setEmployeeActionBusy(emp.userId);
+    try {
+      if (unlock) {
+        await api.post(`/users/${emp.userId}/unlock`);
+        showToast("Account activated; failed-login attempts were reset.", "success");
+      } else {
+        await api.post(`/users/${emp.userId}/send-creds`);
+        showToast(`Credentials sent to ${emp.email}`, "success");
+      }
+      if (onReload) await onReload();
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setEmployeeActionBusy(null);
+    }
+  };
+
+  const employeeActionLabel = (emp) => {
+    if (emp.status === "LOCKED" && !emp.passwordResetRequestedAt) return "Activate";
+    return Number(emp.credentialsSentCount) > 0 || emp.status === "INVITED" || emp.passwordResetRequestedAt
+      ? "Resend creds"
+      : "Send creds";
+  };
+
   const cols = 9;
 
   return (
@@ -935,15 +963,27 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
                           {emp.status || "—"}
                         </span>
                       </td>
-                      <td className="dash-num">
+                      <td data-label="Actions">
                         {!isEditing && (
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={() => startEdit(emp)}
-                          >
-                            Edit
-                          </button>
+                          <div className="dash-edit-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              onClick={() => startEdit(emp)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              disabled={employeeActionBusy !== null}
+                              onClick={() => runEmployeeAction(emp)}
+                            >
+                              {employeeActionBusy === emp.userId
+                                ? "Working…"
+                                : employeeActionLabel(emp)}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -1228,12 +1268,6 @@ function DashboardPage() {
   });
   const greeting = `${now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening"}, ${audience}`;
 
-  const primary = isSuperAdmin
-    ? null
-    : data?.role === "tenant_admin" || accountRole === "tenant_admin"
-      ? { label: "Add employee", to: "/app/org-employees?view=employees" }
-      : null;
-
   return (
     <section className="wf-dash">
       <header className="wf-head">
@@ -1243,7 +1277,6 @@ function DashboardPage() {
           <p className="wf-head-lede">Here&rsquo;s what needs your attention today.</p>
         </div>
         <HeaderButtons
-          primary={primary}
           onDownload={() => model && downloadReport(model.report)}
           ready={Boolean(model?.report?.rows?.length)}
         />

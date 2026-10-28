@@ -620,12 +620,35 @@ function TreeLi({ node, onSelect }) {
   const [collapsed, setCollapsed] = useState(false);
   const selectedId = useOrgStore((s) => s.selectedId);
   const hasChildren = node.children?.length > 0;
+  const childrenId = `org-tree-children-${node.id}`;
 
   return (
     <li className={collapsed ? "collapsed" : ""}>
       <div className={`tree-node${node.is_vacant ? " vacant" : ""}${node.id === selectedId ? " selected" : ""}`}>
-        <div className={`tree-toggle${!hasChildren ? " empty" : ""}`} onClick={() => hasChildren && setCollapsed((c) => !c)}
-          title={hasChildren ? (collapsed ? "Expand" : "Collapse") : ""} />
+        {hasChildren ? (
+          <button
+            type="button"
+            className="tree-toggle"
+            aria-label={`${collapsed ? "Expand" : "Collapse"} reports for ${node.name}`}
+            aria-expanded={!collapsed}
+            aria-controls={childrenId}
+            title={`${collapsed ? "Expand" : "Collapse"} reports`}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            <span className={`dir-avatar${node.is_vacant ? " vacant" : ""}`} aria-hidden="true">
+              {node.is_vacant ? "V" : initials(node.name)}
+            </span>
+            <span className="tree-toggle-indicator" aria-hidden="true">
+              {collapsed ? "+" : "−"}
+            </span>
+          </button>
+        ) : (
+          <span className="tree-leading" aria-hidden="true">
+            <span className={`dir-avatar${node.is_vacant ? " vacant" : ""}`}>
+              {node.is_vacant ? "V" : initials(node.name)}
+            </span>
+          </span>
+        )}
         <div
           className="tree-body"
           role="button"
@@ -640,31 +663,32 @@ function TreeLi({ node, onSelect }) {
             }
           }}
         >
-          <div className="flex items-start gap-2">
-            <div className={`dir-avatar${node.is_vacant ? " vacant" : ""}`} style={{ width: 32, height: 32, fontSize: 11 }}>
-              {node.is_vacant ? "V" : initials(node.name)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="tree-name truncate">{node.name}</div>
-              <div className="tree-meta truncate">{node.designation || node.role_name || "Unspecified"}{node.emp_id ? ` · ${node.emp_id}` : ""}</div>
-              <div className="tree-tags">
-                <span className="tag level">L{node.level}</span>
-                <span className={scopeClass(node.scope)}>{scopeLabel(node.scope)}</span>
-                {node.pinktech_code && <span className="tag tenant">{node.pinktech_code}</span>}
-                {node.zone && <span className="tag zone">{node.zone}</span>}
-                {node.region && <span className="tag">{node.region}</span>}
-                {node.area && <span className="tag">{node.area}</span>}
-                {node.hq && <span className="tag">{node.hq}</span>}
-                {node.is_vacant && <span className="tag vacant">Vacant</span>}
-                {node.added_manually && <span className="tag reports">Added</span>}
-                {node.children?.length > 0 && <span className="tag reports reports-count">{node.children.length} reports · {node.total_descendants} total</span>}
-                {node.external_manager && <span className="tag ext">External boss</span>}
-              </div>
+          <div className="min-w-0">
+            <div className="tree-name truncate">{node.name}</div>
+            <div className="tree-meta truncate">{node.designation || node.role_name || "Unspecified"}{node.emp_id ? ` · ${node.emp_id}` : ""}</div>
+            <div className="tree-tags">
+              <span className="tag level">L{node.level}</span>
+              <span className={scopeClass(node.scope)}>{scopeLabel(node.scope)}</span>
+              {node.pinktech_code && <span className="tag tenant">{node.pinktech_code}</span>}
+              {node.zone && <span className="tag zone">{node.zone}</span>}
+              {node.region && <span className="tag">{node.region}</span>}
+              {node.area && <span className="tag">{node.area}</span>}
+              {node.hq && <span className="tag">{node.hq}</span>}
+              {node.is_vacant && <span className="tag vacant">Vacant</span>}
+              {node.added_manually && <span className="tag reports">Added</span>}
+              {hasChildren && <span className="tag reports reports-count">{node.children.length} reports · {node.total_descendants} total</span>}
+              {node.external_manager && <span className="tag ext">External boss</span>}
             </div>
           </div>
         </div>
       </div>
-      {hasChildren && <ul>{node.children.map((c) => <TreeLi key={c.id} node={c} onSelect={onSelect} />)}</ul>}
+      {hasChildren && (
+        <ul id={childrenId}>
+          {node.children.map((child) => (
+            <TreeLi key={child.id} node={child} onSelect={onSelect} />
+          ))}
+        </ul>
+      )}
     </li>
   );
 }

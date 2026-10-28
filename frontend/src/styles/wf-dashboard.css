@@ -374,25 +374,11 @@ html[data-theme='light'] .wf-stat-trend {
 html[data-theme='light'] .wf-stat-foot {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-top: auto;
   padding-top: 14px;
 }
-
-html[data-theme='light'] .wf-stat-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  font-weight: 700;
-  line-height: 1.4;
-  color: #202018;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-html[data-theme='light'] .wf-stat-link:hover { color: #1c7a45; }
 
 html[data-theme='light'] .wf-stat-art {
   display: block;
@@ -609,17 +595,6 @@ html[data-theme='light'] .wf-act-row.is-skeleton .wf-act-text {
   background: #ecede2;
 }
 
-html[data-theme='light'] .wf-act-link {
-  flex: none;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #202018;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-html[data-theme='light'] .wf-act-link:hover { color: #1c7a45; }
-
 html[data-theme='light'] .wf-act-empty {
   margin: 6px 0 0;
   font-size: 12.5px;
@@ -685,31 +660,6 @@ html[data-theme='light'] .wf-attn-body {
   color: #6d6d60;
 }
 
-html[data-theme='light'] .wf-attn-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  min-width: 74px;
-  padding: 8px 12px;
-  border: 1px solid #d4d5c8;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 11.5px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: #202018;
-  text-align: center;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-html[data-theme='light'] .wf-attn-btn:hover {
-  background: #f7f7ec;
-  border-color: #c6c7b9;
-}
-
 /* --------------------------------------------------------------------------
    6. Role sections (tenants / tenant overview / my overview)
    -------------------------------------------------------------------------- */
@@ -740,6 +690,12 @@ html[data-theme='light'] .wf-sec-card .dash-table-wrap {
 html[data-theme='light'] .wf-tenants-card .wf-table-wrap { margin-top: 16px; }
 
 html[data-theme='light'] .wf-sec-card .dash-table-wrap { margin-top: 16px; }
+
+html[data-theme='light'] .wf-sec-card .dash-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 html[data-theme='light'] .wf-sec-card .dash-sub-section + .dash-sub-section {
   margin-top: 20px;
@@ -1162,15 +1118,11 @@ html[data-theme='light'] .wf-foot {
     max-width: 100%;
   }
 
-  /* Screen 2 stacks the glyph above the card link instead of beside it. */
+  /* Keep the stat glyph aligned with each card's content. */
   html[data-theme='light'] .wf-stat-foot {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
+    align-items: flex-start;
     padding-top: 18px;
   }
-
-  html[data-theme='light'] .wf-stat-link { align-self: flex-start; }
 
   html[data-theme='light'] .wf-stat-bars--h {
     flex-direction: column;
@@ -1253,13 +1205,6 @@ html[data-theme='light'] .wf-foot {
   }
 
   html[data-theme='light'] .wf-attn-copy { flex: 1 1 auto; min-width: 120px; }
-
-  html[data-theme='light'] .wf-attn-btn {
-    flex: none;
-    min-width: 74px;
-    min-height: 34px;
-    font-size: 11.5px;
-  }
 
   html[data-theme='light'] .wf-act-row {
     align-items: flex-start;

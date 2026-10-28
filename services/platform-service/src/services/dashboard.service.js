@@ -282,7 +282,7 @@ async function getTenantAdminStats(auth, tenantId) {
     : 0;
 
   const employeeDocs = await User.find(activeFilter)
-    .select("name email empCode roleIds reportingToUserId status invitedByUserId")
+    .select("name email empCode roleIds reportingToUserId status invitedByUserId credentialsSentCount passwordResetRequestedAt")
     .sort({ name: 1 })
     .lean();
 
@@ -318,6 +318,8 @@ async function getTenantAdminStats(auth, tenantId) {
     email: u.email,
     empCode: u.empCode || null,
     status: u.status || null,
+    credentialsSentCount: Number(u.credentialsSentCount) || 0,
+    passwordResetRequestedAt: u.passwordResetRequestedAt || null,
     roleIds: (u.roleIds || []).map((r) => String(r)),
     roles: roleNamesFor(u, roleMap),
     reportingTo: u.reportingToUserId

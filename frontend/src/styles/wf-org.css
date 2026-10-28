@@ -505,6 +505,9 @@ html[data-theme="light"] .org-page .org-tree-list li::before {
 html[data-theme="light"] .org-page .tree-node,
 html[data-theme="light"] .org-page .node {
   position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
   border: 1px solid #d4d5c8;
   border-radius: 14px;
   background: #ffffff;
@@ -533,7 +536,9 @@ html[data-theme="light"] .org-page .node.vacant {
 
 html[data-theme="light"] .org-page .tree-body,
 html[data-theme="light"] .org-page .node-body {
-  padding: 16px 46px 16px 20px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 14px 20px;
 }
 
 html[data-theme="light"] .org-page .tree-toggle,
@@ -553,10 +558,57 @@ html[data-theme="light"] .org-page .node-toggle {
   line-height: 1;
 }
 
+html[data-theme="light"] .org-page .tree-toggle {
+  position: static;
+  display: flex;
+  flex: 0 0 82px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 82px;
+  height: auto;
+  padding: 8px;
+  transform: none;
+  border-right: 1px solid #d4d5c8;
+  border-radius: 0;
+  background: #f4f5e9;
+  color: #515045;
+  cursor: pointer;
+}
+
+html[data-theme="light"] .org-page .tree-leading {
+  display: grid;
+  flex: 0 0 82px;
+  place-items: center;
+  padding: 8px;
+  border-right: 1px solid #d4d5c8;
+  background: #f4f5e9;
+}
+
+html[data-theme="light"] .org-page .tree-toggle .dir-avatar,
+html[data-theme="light"] .org-page .tree-leading .dir-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+}
+
+html[data-theme="light"] .org-page .tree-toggle-indicator {
+  width: 14px;
+  font-size: 18px;
+  line-height: 1;
+}
+
 html[data-theme="light"] .org-page .tree-toggle:hover,
 html[data-theme="light"] .org-page .node-toggle:hover {
   background: #f0f1e4;
   color: #202018;
+}
+
+html[data-theme="light"] .org-page .tree-toggle:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #202018;
+  outline-offset: -3px;
 }
 
 html[data-theme="light"] .org-page .tree-toggle.empty,
@@ -791,7 +843,7 @@ html[data-theme="light"] .org-page .roles-table tbody tr:hover {
 
   html[data-theme="light"] .org-page .tree-body,
   html[data-theme="light"] .org-page .node-body {
-    padding: 14px 42px 14px 16px;
+    padding: 14px 16px;
   }
 
   html[data-theme="light"] .org-page .tree-name,

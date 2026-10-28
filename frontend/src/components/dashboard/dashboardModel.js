@@ -478,8 +478,6 @@ export function buildStatCards(data, feed) {
         badge: total ? { text: `${pct}% active`, tone: "green" } : null,
         glyph: "ring",
         ringPct: pct,
-        to: "/app/tenants",
-        linkLabel: "See tenants",
       },
       {
         key: "doctors",
@@ -490,8 +488,6 @@ export function buildStatCards(data, feed) {
         badge: { text: "On track", tone: "khaki" },
         glyph: "dots",
         dots: ["green", "yellow", "green"],
-        to: "/app/doctors",
-        linkLabel: "See doctors",
       },
       {
         key: "forms",
@@ -502,8 +498,6 @@ export function buildStatCards(data, feed) {
         badge: { text: totalForms ? "On track" : "Nothing yet", tone: "khaki" },
         glyph: "dots",
         dots: ["yellow", "yellow", "khaki"],
-        to: "/app/forms",
-        linkLabel: "See forms",
       },
       {
         key: "submitted",
@@ -514,8 +508,6 @@ export function buildStatCards(data, feed) {
         badge: null,
         trend: submissions > 0,
         glyph: "trend",
-        to: "/app/forms",
-        linkLabel: "View submissions",
       },
     ];
   }
@@ -537,8 +529,6 @@ export function buildStatCards(data, feed) {
         badge: total ? { text: `${pct}% active`, tone: "green" } : null,
         glyph: "ring",
         ringPct: pct,
-        to: "/app/org-employees?view=organization",
-        linkLabel: "Open directory",
       },
       {
         key: "doctors",
@@ -549,8 +539,6 @@ export function buildStatCards(data, feed) {
         badge: { text: "On track", tone: "khaki" },
         glyph: "dots",
         dots: ["green", "yellow", "green"],
-        to: "/app/doctors",
-        linkLabel: "See doctors",
       },
       {
         key: "forms",
@@ -561,8 +549,6 @@ export function buildStatCards(data, feed) {
         badge: { text: totalForms ? "On track" : "Nothing yet", tone: "khaki" },
         glyph: "dots",
         dots: ["yellow", "yellow", "khaki"],
-        to: "/app/forms",
-        linkLabel: "See forms",
       },
       {
         key: "submitted",
@@ -573,8 +559,6 @@ export function buildStatCards(data, feed) {
         badge: null,
         trend: submissions > 0,
         glyph: "trend",
-        to: "/app/forms",
-        linkLabel: "View submissions",
       },
     ];
   }
@@ -598,8 +582,6 @@ export function buildStatCards(data, feed) {
       badge: { text: totalForms ? "On track" : "Nothing yet", tone: "khaki" },
       glyph: "dots",
       dots: ["yellow", "yellow", "khaki"],
-      to: "/app/forms",
-      linkLabel: "See forms",
     },
     {
       key: "doctors",
@@ -610,8 +592,6 @@ export function buildStatCards(data, feed) {
       badge: { text: "On track", tone: "khaki" },
       glyph: "dots",
       dots: ["green", "yellow", "green"],
-      to: "/app/doctors",
-      linkLabel: "See doctors",
     },
   ];
 
@@ -625,8 +605,6 @@ export function buildStatCards(data, feed) {
       badge: { text: `${pct0(reports)}% active`, tone: "green" },
       glyph: "ring",
       ringPct: 100,
-      to: "/app/org-employees?view=organization",
-      linkLabel: "See team",
     });
   }
 
@@ -639,8 +617,6 @@ export function buildStatCards(data, feed) {
     badge: null,
     trend: submissions > 0,
     glyph: "trend",
-    to: "/app/forms",
-    linkLabel: "View submissions",
   });
 
   return cards;
@@ -665,8 +641,6 @@ export function buildAttentionItems(data) {
         icon: "alert",
         title: `Review ${total} tenant profile${total === 1 ? "" : "s"}`,
         body: "Make sure details are complete",
-        cta: "Review",
-        to: "/app/tenants",
       });
     }
     const needsFirst = total === 0 || tenants.some((tenant) => asCount(tenant.doctorCount) === 0);
@@ -675,16 +649,12 @@ export function buildAttentionItems(data) {
       icon: "person",
       title: needsFirst ? "Invite your first doctor" : "Invite more doctors",
       body: "Doctors can submit and manage forms",
-      cta: "Invite doctor",
-      to: "/app/doctors",
     });
     items.push({
       tone: "green",
       icon: "inbox",
       title: "Check recent submissions",
       body: "Stay on top of incoming data",
-      cta: "View forms",
-      to: "/app/forms",
     });
     return items;
   }
@@ -696,24 +666,18 @@ export function buildAttentionItems(data) {
       icon: "alert",
       title: total ? `Review ${total} employee profile${total === 1 ? "" : "s"}` : "Add your first employee",
       body: "Make sure details are complete",
-      cta: "Review",
-      to: "/app/org-employees?view=employees",
     });
     items.push({
       tone: "person",
       icon: "person",
       title: asCount(summary.totalDoctors) ? "Invite more doctors" : "Invite your first doctor",
       body: "Doctors can submit and manage forms",
-      cta: "Invite doctor",
-      to: "/app/doctors",
     });
     items.push({
       tone: "green",
       icon: "inbox",
       title: "Check recent submissions",
       body: "Stay on top of incoming data",
-      cta: "View forms",
-      to: "/app/forms",
     });
     return items;
   }
@@ -724,16 +688,12 @@ export function buildAttentionItems(data) {
     icon: "inbox",
     title: asCount(summary.formsCreated) ? "Check recent submissions" : "Start with your first form",
     body: "Stay on top of incoming data",
-    cta: "View forms",
-    to: "/app/forms",
   });
   items.push({
     tone: "person",
     icon: "person",
     title: onboarded ? "Invite more doctors" : "Invite your first doctor",
     body: "Doctors can submit and manage forms",
-    cta: "Invite doctor",
-    to: "/app/doctors",
   });
   const reports = asCount(summary.directReports);
   if (reports) {
@@ -742,8 +702,6 @@ export function buildAttentionItems(data) {
       icon: "alert",
       title: `Review ${reports} direct report${reports === 1 ? "" : "s"}`,
       body: "Keep your team's details complete",
-      cta: "Review",
-      to: "/app/org-employees?view=organization",
     });
   }
   return items;
