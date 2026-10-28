@@ -2,9 +2,15 @@ const mongoose = require("mongoose");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const User = require("../models/user.model");
+const Role = require("../models/role.model");
+const Tenant = require("../models/tenant.model");
 const ApiError = require("@pink/shared").ApiError;
 const { writeAudit } = require("../services/audit.service");
 const { notificationAdapter } = require("@pink/shared");
+const {
+  assertTenantAdminCanAssignRoles,
+  assertTenantAdminCanManageAccount,
+} = require("./accountAccess.service");
 
 async function listUsers(tenantId, options = {}) {
   const roleId = options.roleId ? String(options.roleId).trim() : "";
@@ -18,17 +24,43 @@ async function listUsers(tenantId, options = {}) {
     query.orgLeftAt = null;
     query.orgSeatVacant = { $ne: true };
   }
-  return User.find(query)
+  const users = await User.find(query)
     .populate("roleIds")
     .populate("currentPositionId")
     .populate("reportingToUserId", "name email empCode")
     .sort({ createdAt: -1 });
+  const tenant = await Tenant.findById(tenantId).select("adminUserId email").lean();
+  const allRoleIds = [...new Set(users.flatMap((user) => (user.roleIds || []).map((role) => String(role?._id || role))))];
+  const roles = allRoleIds.length
+    ? await Role.find({ _id: { $in: allRoleIds }, tenantId }).select("name type").lean()
+    : [];
+  const adminRoleIds = new Set(
+    roles
+      .filter((role) => role.type === "SYSTEM" || /admin/i.test(role.name || ""))
+      .map((role) => String(role._id)),
+  );
+
+  return users.map((user) => {
+    const data = typeof user.toObject === "function" ? user.toObject() : user;
+    const roleIds = (user.roleIds || []).map((role) => String(role?._id || role));
+    return {
+      ...data,
+      isTenantAdmin: Boolean(
+        (tenant?.adminUserId && String(tenant.adminUserId) === String(user._id))
+        || (tenant?.email && String(tenant.email).trim().toLowerCase() === String(user.email || "").trim().toLowerCase())
+        || roleIds.some((id) => adminRoleIds.has(id)),
+      ),
+    };
+  });
 }
 
 async function updateUser(tenantId, userId, payload, actor) {
   const user = await User.findOne({ _id: userId, tenantId });
   if (!user) {
     throw new ApiError(404, "User not found");
+  }
+  if (Object.keys(payload).length > 0) {
+    await assertTenantAdminCanManageAccount(actor, tenantId, user, "change");
   }
 
   const trimmedEmp = payload.empCode !== undefined && payload.empCode ? String(payload.empCode).trim() : null;
@@ -47,6 +79,7 @@ async function updateUser(tenantId, userId, payload, actor) {
     update.empCode = trimmedEmp;
   }
   if (payload.roleIds !== undefined) {
+    await assertTenantAdminCanAssignRoles(tenantId, payload.roleIds, actor);
     update.roleIds = payload.roleIds;
   }
   if (payload.currentPositionId !== undefined) {
@@ -68,6 +101,9 @@ async function updateUser(tenantId, userId, payload, actor) {
       update[geo] = payload[geo] ? String(payload[geo]).trim() : null;
     }
   }
+  if (payload.status !== undefined) {
+    update.status = payload.status;
+  }
 
   const updated = await User.findOneAndUpdate({ _id: userId, tenantId }, update, { returnDocument: "after" })
     .populate("roleIds")
@@ -85,6 +121,11 @@ async function updateUser(tenantId, userId, payload, actor) {
 }
 
 async function deleteUser(tenantId, userId, actor) {
+  const target = await User.findOne({ _id: userId, tenantId });
+  if (!target) {
+    throw new ApiError(404, "User not found");
+  }
+  await assertTenantAdminCanManageAccount(actor, tenantId, target, "delete");
   const user = await User.findOneAndDelete({ _id: userId, tenantId });
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -110,6 +151,12 @@ async function bulkAssignReporting(tenantId, payload, actor) {
     const manager = await User.findOne({ _id: reportingToUserId, tenantId });
     if (!manager) {
       throw new ApiError(404, "Reporting person not found");
+    }
+  }
+  if (!actor?.isSuperAdmin && actor?.accountRole === "tenant_admin") {
+    const targets = await User.find({ _id: { $in: uniqueUserIds }, tenantId }).select("_id email roleIds").lean();
+    for (const target of targets) {
+      await assertTenantAdminCanManageAccount(actor, tenantId, target, "change reporting lines for");
     }
   }
   const result = await User.updateMany(
@@ -163,6 +210,7 @@ async function sendCredentials(tenantId, userId, actor) {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  await assertTenantAdminCanManageAccount(actor, tenantId, user, "send credentials to");
   const tempPassword = "Emp@" + crypto.randomBytes(3).toString("hex");
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   user.passwordHash = passwordHash;
@@ -210,6 +258,7 @@ async function unlockAccount(tenantId, userId, actor) {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  await assertTenantAdminCanManageAccount(actor, tenantId, user, "activate");
   if (user.status !== "LOCKED") {
     throw new ApiError(409, "This account is not temporarily locked");
   }

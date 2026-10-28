@@ -697,6 +697,18 @@ html[data-theme='light'] .wf-sec-card .dash-row-actions {
   gap: 6px;
 }
 
+html[data-theme='light'] .wf-tenants-card .dash-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+html[data-theme='light'] .wf-sec-card .dash-row-actions .btn-danger,
+html[data-theme='light'] .wf-tenants-card .dash-row-actions .btn-danger {
+  border-color: #edd2cd;
+  color: #c8402f;
+}
+
 html[data-theme='light'] .wf-sec-card .dash-sub-section + .dash-sub-section {
   margin-top: 20px;
   padding-top: 18px;

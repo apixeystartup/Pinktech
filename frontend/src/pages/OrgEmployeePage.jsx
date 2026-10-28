@@ -732,18 +732,21 @@ function DetailPanel() {
   const setManagerMut = useSetManager();
   const reassignMut = useReassignReports();
   const canManage = useCanManageOrg();
-  const { tenantContextId } = useAuth();
+  const { tenantContextId, user, isSuperAdmin } = useAuth();
+  const profileTenantId = empQ.data?.employee?.tenant_id;
   const queryClient = useQueryClient();
   const userAccountsQ = useQuery({
-    queryKey: ["org-employee-user-accounts", tenantContextId || "all-tenants"],
+    queryKey: ["org-employee-user-accounts", profileTenantId || tenantContextId || "all-tenants"],
     queryFn: async () => {
-      const { data } = await api.get("/users?showAll=true");
+      const { data } = await api.get("/users?showAll=true", {
+        headers: profileTenantId ? { "X-Tenant-Id": profileTenantId } : undefined,
+      });
       if (!Array.isArray(data)) {
         throw new Error("The employee account service returned an unexpected response.");
       }
       return data;
     },
-    enabled: canManage,
+    enabled: canManage && Boolean(profileTenantId),
     staleTime: 30000,
   });
   const sendCredentials = useMutation({
@@ -769,6 +772,9 @@ function DetailPanel() {
   if (!empQ.data) return <div className="px-5 py-8 text-sm text-slate-500">Profile not found.</div>;
 
   const emp = empQ.data.employee;
+  const isSelf = String(user?.id || user?._id || "") === String(emp.id);
+  const protectedAdminAccount = !isSuperAdmin && (isSelf || emp.is_tenant_admin);
+  const canManageTarget = canManage && !protectedAdminAccount;
   const profileEmail = String(emp.official_email || emp.email || emp.contact_email || "").trim().toLowerCase();
   const profileEmpId = String(emp.emp_id || "").trim().toLowerCase();
   const linkedAccount = profileEmail || profileEmpId
@@ -860,7 +866,7 @@ function DetailPanel() {
             super admin, so this read-only root always sits above the tenant&apos;s admin. Pick a person below to view or
             edit their record.
           </p>
-        ) : canManage ? (
+        ) : canManageTarget ? (
           <>
         <button
           type="button"
@@ -922,8 +928,9 @@ function DetailPanel() {
           </>
         ) : (
           <p className="text-xs text-slate-500 leading-relaxed">
-            Read-only view — your organization admin manages reporting lines, roles, and people. You can browse your own
-            team and its reporting lines here.
+            {protectedAdminAccount
+              ? "This admin account is protected. Only the platform super admin can change its role, reporting line, credentials, or account status."
+              : "Read-only view — your organization admin manages reporting lines, roles, and people. You can browse your own team and its reporting lines here."}
           </p>
         )}
       </div>

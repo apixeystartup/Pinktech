@@ -75,6 +75,7 @@ describe("platform dashboard tenant context", () => {
           name: "Casey Employee",
           credentialsSentCount: 2,
           passwordResetRequestedAt: null,
+          isAdminAccount: false,
         }),
       ],
       doctors: [],

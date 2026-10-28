@@ -23,6 +23,7 @@ const patchUserSchema = Joi.object({
   region: Joi.string().trim().max(120).allow(null, ""),
   state: Joi.string().trim().max(120).allow(null, ""),
   hq: Joi.string().trim().max(120).allow(null, ""),
+  status: Joi.string().valid("ACTIVE", "DISABLED"),
 }).min(1);
 
 const bulkAssignSchema = Joi.object({

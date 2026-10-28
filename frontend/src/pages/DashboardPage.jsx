@@ -59,8 +59,19 @@ function statusMeta(status) {
   if (key === "OTP_PENDING") return { text: "Invite", mod: "invite" };
   if (key === "ACTIVE") return { text: "Active", mod: "active" };
   if (key === "INVITED") return { text: "Invited", mod: "invited" };
+  if (key === "DISABLED") return { text: "Deactivated", mod: "disabled" };
+  if (key === "LOCKED") return { text: "Locked", mod: "disabled" };
   if (key === "SUSPENDED") return { text: "Suspended", mod: "suspended" };
   return { text: status || "—", mod: key ? key.toLowerCase() : "unknown" };
+}
+
+function credentialActionLabel(employee) {
+  if (employee.status === "LOCKED" && !employee.passwordResetRequestedAt) return "Activate";
+  return Number(employee.credentialsSentCount) > 0
+    || employee.status === "INVITED"
+    || employee.passwordResetRequestedAt
+    ? "Resend creds"
+    : "Send creds";
 }
 
 function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
@@ -75,6 +86,7 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
   const [editingKey, setEditingKey] = useState(null);
   const [editForm, setEditForm] = useState({ empCode: "", roleIds: [] });
   const [savingEmp, setSavingEmp] = useState(false);
+  const [employeeActionBusy, setEmployeeActionBusy] = useState(null);
   const [tenantRecords, setTenantRecords] = useState([]);
   const [tenantRecordsLoaded, setTenantRecordsLoaded] = useState(false);
   const [tenantForm, setTenantForm] = useState({ name: "", code: "", email: "", plan: "starter" });
@@ -331,6 +343,36 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
     }
   };
 
+  const runEmployeeAction = async (tenantId, employee, action) => {
+    const key = `${tenantId}:${employee.userId}`;
+    if (action === "delete" && !window.confirm(`Permanently delete ${employee.name}'s account?`)) return;
+    if (action === "deactivate" && !window.confirm(`Deactivate ${employee.name}'s account?`)) return;
+    setEmployeeActionBusy(key);
+    try {
+      if (action === "credentials") {
+        if (employee.status === "LOCKED" && !employee.passwordResetRequestedAt) {
+          await api.post(`/users/${employee.userId}/unlock`, {}, { headers: { "X-Tenant-Id": tenantId } });
+          showToast("Account activated; failed-login attempts were reset.", "success");
+        } else {
+          await api.post(`/users/${employee.userId}/send-creds`, {}, { headers: { "X-Tenant-Id": tenantId } });
+          showToast(`Credentials sent to ${employee.email}`, "success");
+        }
+      } else if (action === "status") {
+        const status = employee.status === "DISABLED" ? "ACTIVE" : "DISABLED";
+        await api.patch(`/users/${employee.userId}`, { status }, { headers: { "X-Tenant-Id": tenantId } });
+        showToast(status === "ACTIVE" ? "Account activated" : "Account deactivated", "success");
+      } else if (action === "delete") {
+        await api.delete(`/users/${employee.userId}`, { headers: { "X-Tenant-Id": tenantId } });
+        showToast("Employee account deleted", "success");
+      }
+      await Promise.all([onReload?.(), loadRows(tenantId)]);
+    } catch (error) {
+      showToast(getErrorMessage(error), "error");
+    } finally {
+      setEmployeeActionBusy(null);
+    }
+  };
+
   const cols = 8;
 
   return (
@@ -579,13 +621,41 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
                                             </td>
                                             <td className="dash-num" data-label="Actions">
                                               {!isEditing && (
-                                                <button
-                                                  type="button"
-                                                  className="btn-secondary"
-                                                  onClick={() => startEdit(t.tenantId, emp)}
-                                                >
-                                                  Edit
-                                                </button>
+                                                <div className="dash-row-actions">
+                                                  <button
+                                                    type="button"
+                                                    className="btn-secondary"
+                                                    onClick={() => startEdit(t.tenantId, emp)}
+                                                  >
+                                                    Edit
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-secondary"
+                                                    disabled={employeeActionBusy !== null}
+                                                    onClick={() => runEmployeeAction(t.tenantId, emp, "credentials")}
+                                                  >
+                                                    {employeeActionBusy === `${t.tenantId}:${emp.userId}`
+                                                      ? "Working…"
+                                                      : credentialActionLabel(emp)}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-secondary"
+                                                    disabled={employeeActionBusy !== null}
+                                                    onClick={() => runEmployeeAction(t.tenantId, emp, "status")}
+                                                  >
+                                                    {emp.status === "DISABLED" ? "Activate" : "Deactivate"}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-danger"
+                                                    disabled={employeeActionBusy !== null}
+                                                    onClick={() => runEmployeeAction(t.tenantId, emp, "delete")}
+                                                  >
+                                                    Delete
+                                                  </button>
+                                                </div>
                                               )}
                                             </td>
                                           </tr>
@@ -800,6 +870,8 @@ function SuperAdminDashboard({ data, feed, onReload, refreshTick = 0 }) {
 function AdminDashboard({ data, onReload, refreshTick = 0 }) {
   const { summary, employees, doctors = [] } = data;
   const { showToast } = useToast();
+  const { user, isSuperAdmin } = useAuth();
+  const currentUserId = String(user?.id || user?._id || "");
   const [collapsedSub, setCollapsedSub] = useState({});
   const [roles, setRoles] = useState([]);
   const [editingUserId, setEditingUserId] = useState(null);
@@ -857,13 +929,20 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
     return before !== after;
   };
 
+  const isProtectedAccount = (emp) =>
+    !isSuperAdmin
+    && (String(emp.userId) === currentUserId || Boolean(emp.isAdminAccount));
+
   const saveEdit = async (emp) => {
+    if (isProtectedAccount(emp)) {
+      showToast("Admin accounts can only be edited by the platform super admin.", "error");
+      return;
+    }
     setSaving(true);
     try {
-      await api.patch(`/users/${emp.userId}`, {
-        empCode: editForm.empCode.trim(),
-        roleIds: editForm.roleIds,
-      });
+      const payload = { empCode: editForm.empCode.trim() };
+      payload.roleIds = editForm.roleIds;
+      await api.patch(`/users/${emp.userId}`, payload);
       if (rolesChanged(emp)) {
         try {
           await api.post("/org/roles/auto-detect");
@@ -881,17 +960,26 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
     }
   };
 
-  const runEmployeeAction = async (emp) => {
-    const resetRequested = Boolean(emp.passwordResetRequestedAt);
-    const unlock = emp.status === "LOCKED" && !resetRequested;
+  const runEmployeeAction = async (emp, action) => {
+    if (action === "delete" && !window.confirm(`Permanently delete ${emp.name}'s account?`)) return;
+    if (action === "status" && emp.status !== "DISABLED" && !window.confirm(`Deactivate ${emp.name}'s account?`)) return;
     setEmployeeActionBusy(emp.userId);
     try {
-      if (unlock) {
-        await api.post(`/users/${emp.userId}/unlock`);
-        showToast("Account activated; failed-login attempts were reset.", "success");
-      } else {
-        await api.post(`/users/${emp.userId}/send-creds`);
-        showToast(`Credentials sent to ${emp.email}`, "success");
+      if (action === "credentials") {
+        if (emp.status === "LOCKED" && !emp.passwordResetRequestedAt) {
+          await api.post(`/users/${emp.userId}/unlock`);
+          showToast("Account activated; failed-login attempts were reset.", "success");
+        } else {
+          await api.post(`/users/${emp.userId}/send-creds`);
+          showToast(`Credentials sent to ${emp.email}`, "success");
+        }
+      } else if (action === "status") {
+        const status = emp.status === "DISABLED" ? "ACTIVE" : "DISABLED";
+        await api.patch(`/users/${emp.userId}`, { status });
+        showToast(status === "ACTIVE" ? "Account activated" : "Account deactivated", "success");
+      } else if (action === "delete") {
+        await api.delete(`/users/${emp.userId}`);
+        showToast("Employee account deleted", "success");
       }
       if (onReload) await onReload();
     } catch (error) {
@@ -899,13 +987,6 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
     } finally {
       setEmployeeActionBusy(null);
     }
-  };
-
-  const employeeActionLabel = (emp) => {
-    if (emp.status === "LOCKED" && !emp.passwordResetRequestedAt) return "Activate";
-    return Number(emp.credentialsSentCount) > 0 || emp.status === "INVITED" || emp.passwordResetRequestedAt
-      ? "Resend creds"
-      : "Send creds";
   };
 
   const cols = 9;
@@ -948,6 +1029,7 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
               )}
               {employees.map((emp) => {
                 const isEditing = editingUserId === emp.userId;
+                const protectedAccount = isProtectedAccount(emp);
                 return (
                   <Fragment key={emp.userId}>
                     <tr>
@@ -959,30 +1041,52 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
                       <td className="dash-num">{emp.formsCreated}</td>
                       <td className="dash-num">{emp.usersCreated}</td>
                       <td>
-                        <span className={`dash-status dash-status--${(emp.status || "").toLowerCase()}`}>
-                          {emp.status || "—"}
+                        <span className={`dash-status dash-status--${statusMeta(emp.status).mod}`}>
+                          {statusMeta(emp.status).text}
                         </span>
                       </td>
                       <td data-label="Actions">
                         {!isEditing && (
-                          <div className="dash-edit-actions">
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              onClick={() => startEdit(emp)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              disabled={employeeActionBusy !== null}
-                              onClick={() => runEmployeeAction(emp)}
-                            >
-                              {employeeActionBusy === emp.userId
-                                ? "Working…"
-                                : employeeActionLabel(emp)}
-                            </button>
+                          <div className="dash-row-actions">
+                            {!protectedAccount && (
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => startEdit(emp)}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {!protectedAccount && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={employeeActionBusy !== null}
+                                  onClick={() => runEmployeeAction(emp, "credentials")}
+                                >
+                                  {employeeActionBusy === emp.userId
+                                    ? "Working…"
+                                    : credentialActionLabel(emp)}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={employeeActionBusy !== null}
+                                  onClick={() => runEmployeeAction(emp, "status")}
+                                >
+                                  {emp.status === "DISABLED" ? "Activate" : "Deactivate"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-danger"
+                                  disabled={employeeActionBusy !== null}
+                                  onClick={() => runEmployeeAction(emp, "delete")}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </td>
@@ -1001,24 +1105,32 @@ function AdminDashboard({ data, onReload, refreshTick = 0 }) {
                                   placeholder="Employee code"
                                 />
                               </label>
-                              <div className="dash-edit-field">
-                                <span>Roles</span>
-                                <div className="dash-edit-roles">
-                                  {roles.length === 0 && (
-                                    <span className="dash-empty-text">No roles available</span>
-                                  )}
-                                  {roles.map((role) => (
-                                    <label key={role._id} className="dash-edit-role-option">
-                                      <input
-                                        type="checkbox"
-                                        checked={editForm.roleIds.includes(String(role._id))}
-                                        onChange={() => toggleRole(role._id)}
-                                      />
-                                      {role.name}
-                                    </label>
-                                  ))}
+                              {protectedAccount ? (
+                                <p className="dash-empty-text">
+                                  This admin account&apos;s role and reporting line are reserved for the platform super admin.
+                                </p>
+                              ) : (
+                                <div className="dash-edit-field">
+                                  <span>Roles</span>
+                                  <div className="dash-edit-roles">
+                                    {roles.length === 0 && (
+                                      <span className="dash-empty-text">No roles available</span>
+                                    )}
+                                    {roles
+                                      .filter((role) => isSuperAdmin || (role.type !== "SYSTEM" && !/admin/i.test(role.name || "")))
+                                      .map((role) => (
+                                      <label key={role._id} className="dash-edit-role-option">
+                                        <input
+                                          type="checkbox"
+                                          checked={editForm.roleIds.includes(String(role._id))}
+                                          onChange={() => toggleRole(role._id)}
+                                        />
+                                        {role.name}
+                                      </label>
+                                      ))}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                               <div className="dash-edit-actions">
                                 <button
                                   type="button"

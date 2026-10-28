@@ -3,9 +3,11 @@ const authController = require("./auth.controller");
 const usersController = require("./users.controller");
 const { validate: validateAuth, inviteSchema } = require("./auth.validator");
 const { validate: validateUsers, patchUserSchema, bulkAssignSchema } = require("./users.validator");
+const accountAdminMiddleware = require("../middlewares/accountAdmin.middleware");
 
 const router = express.Router();
 
+router.use(accountAdminMiddleware);
 router.get("/", usersController.listUsers);
 router.patch(
   "/:userId",

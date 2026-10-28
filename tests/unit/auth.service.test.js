@@ -56,6 +56,122 @@ describe("auth.service", () => {
     });
   });
 
+  describe("tenant admin account protections", () => {
+    it("blocks tenant admins from changing their own role", async () => {
+      User.findOne.mockResolvedValue({ _id: "admin-1", roleIds: [] });
+
+      await expect(
+        usersService.updateUser(
+          "tenant-1",
+          "admin-1",
+          { roleIds: ["employee-role"] },
+          { userId: "admin-1", accountRole: "tenant_admin" },
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it("blocks tenant admins from sending credentials to their own account", async () => {
+      User.findOne.mockResolvedValue({ _id: "admin-1", roleIds: [] });
+
+      await expect(
+        usersService.sendCredentials(
+          "tenant-1",
+          "admin-1",
+          { userId: "admin-1", accountRole: "tenant_admin" },
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+    });
+
+    it("blocks tenant admins from sending credentials to another tenant admin", async () => {
+      User.findOne.mockResolvedValue({ _id: "other-admin", email: "other-admin@test.com", roleIds: [] });
+      Tenant.findById.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue({ adminUserId: "other-admin", email: "admin@test.com" }),
+      });
+
+      await expect(
+        usersService.sendCredentials(
+          "tenant-1",
+          "other-admin",
+          { userId: "admin-1", accountRole: "tenant_admin" },
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+    });
+
+    it("blocks tenant admins from assigning an administrative role to an employee", async () => {
+      User.findOne.mockResolvedValue({ _id: "employee-1", roleIds: [] });
+      Tenant.findById.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue({ adminUserId: "admin-1", email: "admin@test.com" }),
+      });
+      Role.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue([{ _id: "admin-role", name: "Tenant Admin", type: "CUSTOM" }]),
+      });
+
+      await expect(
+        usersService.updateUser(
+          "tenant-1",
+          "employee-1",
+          { roleIds: ["admin-role"] },
+          { userId: "admin-1", accountRole: "tenant_admin" },
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it("blocks tenant admins from changing any field on an admin account", async () => {
+      User.findOne.mockResolvedValue({ _id: "other-admin", email: "admin@test.com", roleIds: [] });
+      Tenant.findById.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue({ adminUserId: "other-admin", email: "admin@test.com" }),
+      });
+
+      await expect(
+        usersService.updateUser(
+          "tenant-1",
+          "other-admin",
+          { empCode: "CHANGED" },
+          { userId: "admin-1", accountRole: "tenant_admin" },
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it("blocks tenant admins from inviting an account with an administrative role", async () => {
+      Tenant.findById.mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: "tenant-1", status: "ACTIVE" }),
+      });
+      User.findOne.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null),
+      });
+      Role.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue([{ _id: "admin-role", name: "Tenant Admin", type: "CUSTOM" }]),
+      });
+
+      await expect(
+        authService.inviteUser({
+          tenantId: "tenant-1",
+          name: "New admin",
+          email: "new-admin@test.com",
+          roleIds: ["admin-role"],
+          actor: { userId: "admin-1", accountRole: "tenant_admin" },
+        }),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe("login", () => {
     it("returns tokens and user on valid credentials", async () => {
       const save = jest.fn().mockResolvedValue(undefined);

@@ -322,7 +322,11 @@ function resolveManagerMappings(rows, dbIndex = null) {
 async function discoverRolesForUsers(tenantId, users) {
   // The Admin seat belongs to the tenant admin and anchors Org Explore — it
   // is never rebuilt from sheet designations, so it survives every re-import.
-  await Role.deleteMany({ tenantId, type: "CUSTOM", name: { $ne: ADMIN_ROLE_NAME } });
+  await Role.deleteMany({
+    tenantId,
+    type: "CUSTOM",
+    name: { $ne: ADMIN_ROLE_NAME, $not: /admin/i },
+  });
   console.log(`[workbook-import] Cleared all custom roles for tenant ${tenantId}`);
 
   const existing = await Role.find({ tenantId }, { aliases: 1 }).lean();
@@ -415,6 +419,35 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
     );
   }
 
+  const tenantAdminImport = !actor?.isSuperAdmin && actor?.accountRole === "tenant_admin";
+  let protectedAccountIds = [];
+  if (tenantAdminImport) {
+    if (rows.some((row) => /admin/i.test(row.designation || ""))) {
+      throw new ApiError(403, "Tenant admins cannot assign administrative designations through workbook imports");
+    }
+
+    const adminRoles = await Role.find({
+      tenantId,
+      $or: [{ type: "SYSTEM" }, { name: /admin/i }],
+    }).select("_id").lean();
+    const protectedCriteria = [{ _id: actor.userId }];
+    if (tenantDoc.adminUserId) protectedCriteria.push({ _id: tenantDoc.adminUserId });
+    if (tenantDoc.email) protectedCriteria.push({ email: tenantDoc.email });
+    if (adminRoles.length) protectedCriteria.push({ roleIds: { $in: adminRoles.map((role) => role._id) } });
+
+    const protectedAccounts = await User.find({ tenantId, $or: protectedCriteria })
+      .select("_id empCode orgRowNumber")
+      .lean();
+    protectedAccountIds = protectedAccounts.map((user) => user._id);
+    const rowTargetsProtectedAccount = rows.some((row) => protectedAccounts.some((user) => (
+      (row.empId && user.empCode && String(row.empId).trim().toUpperCase() === String(user.empCode).trim().toUpperCase())
+      || (row.rowNumber != null && user.orgRowNumber != null && String(row.rowNumber) === String(user.orgRowNumber))
+    )));
+    if (rowTargetsProtectedAccount) {
+      throw new ApiError(403, "This workbook includes a tenant admin account. Only the platform super admin can import changes to it.");
+    }
+  }
+
   const importRecord = await Import.create({
     tenantId,
     fileName: filename || "workbook.xlsx",
@@ -428,7 +461,11 @@ async function runOrgWorkbookImport({ tenantId, buffer, filename, actor, skipPar
       await rollbackService.saveRollback(tenantId);
     }
 
-    await User.deleteMany({ tenantId, orgFromWorkbook: true });
+    await User.deleteMany({
+      tenantId,
+      orgFromWorkbook: true,
+      ...(protectedAccountIds.length ? { _id: { $nin: protectedAccountIds } } : {}),
+    });
     console.log(`[workbook-import] Cleared all existing workbook employees for tenant ${tenantId}`);
 
     const empKeys = [...new Set(rows.filter((r) => r.empId).map((r) => String(r.empId).trim().toUpperCase()))];

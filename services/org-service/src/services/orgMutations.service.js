@@ -8,6 +8,49 @@ const { loadSnapshot, findInSnapshot, enrich, userToPosition } = require("./orgD
 const { runOrgRoleEngine } = require("./orgRoleEngine.service");
 const { syncPositionLevelsFromOrg } = require("./positions.service");
 
+async function isTenantAdminAccount(tenantId, subjectId) {
+  const user = await User.findOne({ tenantId, _id: subjectId })
+    .select("_id email roleIds")
+    .lean();
+  if (!user) return false;
+
+  const tenantKey = mongoose.Types.ObjectId.isValid(String(tenantId))
+    ? new mongoose.Types.ObjectId(String(tenantId))
+    : tenantId;
+  const tenant = await mongoose.connection.collection("tenants").findOne({ _id: tenantKey });
+  if (
+    (tenant?.adminUserId && String(tenant.adminUserId) === String(user._id))
+    || (tenant?.email && String(tenant.email).trim().toLowerCase() === String(user.email || "").trim().toLowerCase())
+  ) {
+    return true;
+  }
+
+  const roleIds = (user.roleIds || []).map((roleId) => String(roleId?._id || roleId));
+  if (!roleIds.length) return false;
+  const roles = await Role.find({ _id: { $in: roleIds }, tenantId }).select("name type").lean();
+  return roles.some((role) => role.type === "SYSTEM" || /admin/i.test(role.name || ""));
+}
+
+async function assertTenantAdminCanManageAccount(tenantId, subjectId, actor, action) {
+  if (actor?.isSuperAdmin || actor?.accountRole !== "tenant_admin") return;
+  if (
+    String(actor.userId) === String(subjectId)
+    || await isTenantAdminAccount(tenantId, subjectId)
+  ) {
+    throw new ApiError(403, `Tenant admins cannot ${action} their own or another admin account`);
+  }
+}
+
+async function assertTenantAdminCanAssignRole(role, actor) {
+  if (
+    !actor?.isSuperAdmin
+    && actor?.accountRole === "tenant_admin"
+    && (role?.type === "SYSTEM" || /admin/i.test(role?.name || ""))
+  ) {
+    throw new ApiError(403, "Tenant admins cannot assign administrative roles");
+  }
+}
+
 async function wouldCreateCycle(tenantId, subjectId, managerId) {
   if (!managerId) return false;
   if (String(managerId) === String(subjectId)) return true;
@@ -33,6 +76,7 @@ async function refreshOrgEngine(tenantId) {
 }
 
 async function setManager(tenantId, subjectId, managerId, actor) {
+  await assertTenantAdminCanManageAccount(tenantId, subjectId, actor, "change reporting lines for");
   if (managerId) {
     const mgr = await User.findOne({ tenantId, _id: managerId, orgLeftAt: null }).select("_id").lean();
     if (!mgr) throw new ApiError(404, "Manager not found");
@@ -62,6 +106,8 @@ async function setManager(tenantId, subjectId, managerId, actor) {
 async function setRole(tenantId, subjectId, roleId, actor) {
   const role = await Role.findOne({ _id: roleId, tenantId });
   if (!role) throw new ApiError(404, "Role not found");
+  await assertTenantAdminCanManageAccount(tenantId, subjectId, actor, "change roles for");
+  await assertTenantAdminCanAssignRole(role, actor);
   const user = await User.findOneAndUpdate(
     { tenantId, _id: subjectId, orgLeftAt: null },
     { $set: { roleIds: [roleId] } },
@@ -82,6 +128,11 @@ async function setRole(tenantId, subjectId, roleId, actor) {
 }
 
 async function putEmployee(tenantId, subjectId, body, actor) {
+  if (body.role_id !== undefined) {
+    const role = await Role.findOne({ _id: body.role_id, tenantId });
+    if (!role) throw new ApiError(404, "Role not found");
+    await assertTenantAdminCanAssignRole(role, actor);
+  }
   let last = null;
   if (body.manager_id !== undefined) {
     last = await setManager(tenantId, subjectId, body.manager_id || null, actor);
@@ -128,6 +179,7 @@ async function putEmployee(tenantId, subjectId, body, actor) {
 async function markLeft(tenantId, subjectId, reassignTo, actor) {
   const subject = await User.findOne({ tenantId, _id: subjectId, orgLeftAt: null });
   if (!subject) throw new ApiError(404, "Employee not found");
+  await assertTenantAdminCanManageAccount(tenantId, subjectId, actor, "remove");
 
   const directReports = await User.find({
     tenantId,
@@ -161,6 +213,7 @@ async function markLeft(tenantId, subjectId, reassignTo, actor) {
 }
 
 async function restoreEmployee(tenantId, subjectId, actor) {
+  await assertTenantAdminCanManageAccount(tenantId, subjectId, actor, "restore");
   const user = await User.findOneAndUpdate(
     { tenantId, _id: subjectId, orgLeftAt: { $ne: null } },
     { $set: { orgLeftAt: null, status: "ACTIVE" } },
@@ -181,6 +234,7 @@ async function restoreEmployee(tenantId, subjectId, actor) {
 }
 
 async function reassignReports(tenantId, fromId, toId, reportIds, actor) {
+  await assertTenantAdminCanManageAccount(tenantId, fromId, actor, "reassign reports from");
   if (toId) {
     const target = await User.findOne({ tenantId, _id: toId, orgLeftAt: null }).select("_id").lean();
     if (!target) throw new ApiError(404, "Reassign target not found");
@@ -188,6 +242,9 @@ async function reassignReports(tenantId, fromId, toId, reportIds, actor) {
   const q = { tenantId, reportingToUserId: fromId, orgLeftAt: null };
   if (reportIds?.length) q._id = { $in: reportIds };
   const targets = await User.find(q).select("_id");
+  for (const target of targets) {
+    await assertTenantAdminCanManageAccount(tenantId, target._id, actor, "change reporting lines for");
+  }
   for (const t of targets) {
     if (toId && (await wouldCreateCycle(tenantId, String(t._id), toId))) {
       throw new ApiError(400, "Invalid reporting line (cycle)");
@@ -236,12 +293,23 @@ async function addEmployee(tenantId, payload, actor) {
   const name = String(payload.name || "").trim();
   if (!name) throw new ApiError(400, "Name is required");
 
+  if (
+    !actor?.isSuperAdmin
+    && actor?.accountRole === "tenant_admin"
+    && /admin/i.test(payload.designation || "")
+  ) {
+    throw new ApiError(403, "Tenant admins cannot assign administrative roles");
+  }
+
   let roleId = payload.role_id || null;
   if (!roleId && payload.designation) {
     const r = await ensureDesignationRole(tenantId, payload.designation);
     roleId = r._id;
   }
   if (!roleId) throw new ApiError(400, "role_id or designation is required");
+  const role = await Role.findOne({ _id: roleId, tenantId });
+  if (!role) throw new ApiError(404, "Role not found");
+  await assertTenantAdminCanAssignRole(role, actor);
 
   const empId = payload.emp_id ? String(payload.emp_id).trim() : "";
   const rawContact = payload.contact_email || payload.email || null;
@@ -356,6 +424,7 @@ async function resetHierarchy(tenantId, actor) {
 }
 
 module.exports = {
+  isTenantAdminAccount,
   setManager,
   setRole,
   putEmployee,

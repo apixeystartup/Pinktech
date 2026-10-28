@@ -10,6 +10,7 @@ const Assignment = require("../models/assignment.model");
 const permissionMiddleware = require("../middlewares/permission.middleware");
 const ApiError = require("@pink/shared").ApiError;
 const rolesService = require("../services/roles.service");
+const orgMutations = require("../services/orgMutations.service");
 
 const router = express.Router();
 
@@ -394,6 +395,26 @@ router.post(
       }
 
       const { rows: parsedRows, pickedHeaders } = mapImportRows(await parseWorkbookRows(req.file.buffer));
+      const roleNames = new Set();
+      for (const row of parsedRows) {
+        for (const rn of row.roleNames) {
+          roleNames.add(rn);
+        }
+      }
+      const tenantAdminImport = !req.auth?.isSuperAdmin && req.auth?.accountRole === "tenant_admin";
+      if (tenantAdminImport) {
+        const roleNameList = [...roleNames];
+        const requestedRoles = roleNameList.length
+          ? await Role.find({ tenantId: req.tenantId, name: { $in: roleNameList } }).select("name type").lean()
+          : [];
+        if (
+          roleNameList.some((name) => /admin/i.test(name))
+          || requestedRoles.some((role) => role.type === "SYSTEM")
+        ) {
+          throw new ApiError(403, "Tenant admins cannot assign administrative roles through imports");
+        }
+      }
+
       const importRecord = await Import.create({
         tenantId: req.tenantId,
         fileName: req.file.originalname,
@@ -401,13 +422,6 @@ router.post(
         createdBy: req.auth.userId,
         status: "PENDING",
       });
-
-      const roleNames = new Set();
-      for (const row of parsedRows) {
-        for (const rn of row.roleNames) {
-          roleNames.add(rn);
-        }
-      }
 
       const roleByName = await ensureRoles(req.tenantId, [...roleNames]);
 
@@ -457,8 +471,25 @@ router.post(
 
         let userDoc = null;
         try {
+          const byEmp = row.empCode ? await findUserByEmpCode(req.tenantId, row.empCode) : null;
+          const byEmail = byEmp ? null : await User.findOne({ tenantId: req.tenantId, email }).select("_id");
+          const existingTarget = byEmp || byEmail;
+          if (
+            tenantAdminImport
+            && existingTarget
+            && await orgMutations.isTenantAdminAccount(req.tenantId, existingTarget._id)
+          ) {
+            failedRows += 1;
+            await ImportError.create({
+              importId: importRecord._id,
+              rowNumber: i + 1,
+              reason: "Tenant admin accounts can only be changed by the platform super admin",
+              rawData: row,
+            });
+            continue;
+          }
+
           if (row.empCode) {
-            const byEmp = await findUserByEmpCode(req.tenantId, row.empCode);
             if (byEmp) {
               const emailTaken = await User.findOne({
                 tenantId: req.tenantId,
@@ -535,6 +566,19 @@ router.post(
 
         const wantsReport = Boolean(row.reportsToEmpCode || row.reportsToEmail);
         if (!wantsReport) {
+          continue;
+        }
+        if (
+          tenantAdminImport
+          && await orgMutations.isTenantAdminAccount(req.tenantId, employee._id)
+        ) {
+          reportingSkipped += 1;
+          await ImportError.create({
+            importId: importRecord._id,
+            rowNumber: i + 1,
+            reason: "Tenant admin reporting lines can only be changed by the platform super admin",
+            rawData: row.rawData || row,
+          });
           continue;
         }
 

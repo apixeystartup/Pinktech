@@ -54,7 +54,7 @@ function SearchIcon() {
 
 function EmployeeManagementPage({ embedded = false }) {
   const { showToast } = useToast();
-  const { permissionCodes = [] } = useAuth();
+  const { user, isSuperAdmin, accountRole } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [selected, setSelected] = useState(new Set());
@@ -63,9 +63,14 @@ function EmployeeManagementPage({ embedded = false }) {
   const [loading, setLoading] = useState(true);
   const [resetRequestIds, setResetRequestIds] = useState(new Set());
 
-  const canAssign = permissionCodes.includes("*") || permissionCodes.includes("tenant.manage");
+  const canAssign = Boolean(isSuperAdmin) || accountRole === "tenant_admin";
+  const currentUserId = String(user?.id || user?._id || "");
+  const isProtectedAccount = (row) =>
+    !isSuperAdmin
+    && (Boolean(row.isTenantAdmin) || String(row._id) === currentUserId);
 
   const load = async () => {
+    if (!canAssign) return;
     setLoading(true);
     try {
       const { data } = await api.get("/users?showAll=true");
@@ -135,6 +140,9 @@ function EmployeeManagementPage({ embedded = false }) {
 
   const adminBadge = (row) => {
     if (!canAssign) return null;
+    if (row.isTenantAdmin) {
+      return <span style={adminBadgeStyle} title="Tenant administrator account">Admin</span>;
+    }
     const adminTenant = adminTenantOfRow(row);
     if (adminTenant) {
       return (
@@ -160,21 +168,26 @@ function EmployeeManagementPage({ embedded = false }) {
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === filtered.length) {
+    const selectable = filtered.filter((employee) => !isProtectedAccount(employee));
+    if (selectable.every((employee) => selected.has(employee._id))) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(filtered.map((e) => e._id)));
+      setSelected(new Set(selectable.map((employee) => employee._id)));
     }
   };
 
   const sendCreds = async (userIds) => {
-    if (!userIds.length) {
+    const permittedIds = userIds.filter((id) => {
+      const target = employees.find((employee) => String(employee._id) === String(id));
+      return target && !isProtectedAccount(target);
+    });
+    if (!permittedIds.length) {
       showToast("No employees selected", "error");
       return;
     }
     try {
       let sent = 0;
-      for (const id of userIds) {
+      for (const id of permittedIds) {
         await api.post(`/users/${id}/send-creds`);
         sent++;
       }
@@ -186,13 +199,17 @@ function EmployeeManagementPage({ embedded = false }) {
   };
 
   const resetCreds = async (userIds) => {
-    if (!userIds.length) {
+    const permittedIds = userIds.filter((id) => {
+      const target = employees.find((employee) => String(employee._id) === String(id));
+      return target && !isProtectedAccount(target);
+    });
+    if (!permittedIds.length) {
       showToast("No employees selected", "error");
       return;
     }
     try {
       let reset = 0;
-      for (const id of userIds) {
+      for (const id of permittedIds) {
         await api.post(`/users/${id}/reset-creds`);
         reset++;
       }
@@ -204,6 +221,11 @@ function EmployeeManagementPage({ embedded = false }) {
   };
 
   const activateAccount = async (userId) => {
+    const target = employees.find((employee) => String(employee._id) === String(userId));
+    if (!target || isProtectedAccount(target)) {
+      showToast("Tenant admin accounts can only be managed by the platform super admin.", "error");
+      return;
+    }
     try {
       await api.post(`/users/${userId}/unlock`);
       showToast("Account activated; failed-login attempts were reset.", "success");
@@ -227,6 +249,7 @@ function EmployeeManagementPage({ embedded = false }) {
           ? "Resend creds"
           : "Send creds",
     tone: statusTone(row.status),
+    restricted: isProtectedAccount(row),
     onClick: () =>
       row.status === "LOCKED" && !resetRequestIds.has(String(row._id))
         ? activateAccount(row._id)
@@ -240,7 +263,11 @@ function EmployeeManagementPage({ embedded = false }) {
         <input
           type="checkbox"
           aria-label="Select all"
-          checked={selected.size === filtered.length && filtered.length > 0}
+          checked={
+            filtered.some((employee) => !isProtectedAccount(employee))
+            && filtered.filter((employee) => !isProtectedAccount(employee))
+              .every((employee) => selected.has(employee._id))
+          }
           onChange={toggleSelectAll}
         />
       ),
@@ -249,6 +276,7 @@ function EmployeeManagementPage({ embedded = false }) {
           type="checkbox"
           aria-label={`Select ${row.name}`}
           checked={selected.has(row._id)}
+          disabled={isProtectedAccount(row)}
           onChange={() => toggleSelect(row._id)}
         />
       ),
@@ -285,9 +313,12 @@ function EmployeeManagementPage({ embedded = false }) {
     },
     {
       key: "send",
-      label: "Send creds",
+      label: "Actions",
       render: (row) => {
         const action = actionFor(row);
+        if (action.restricted) {
+          return <span className="emp-card-label">Admin account protected</span>;
+        }
         return (
           <button
             type="button"
@@ -378,6 +409,7 @@ function EmployeeManagementPage({ embedded = false }) {
                       type="checkbox"
                       aria-label={`Select ${row.name}`}
                       checked={selected.has(row._id)}
+                      disabled={isProtectedAccount(row)}
                       onChange={() => toggleSelect(row._id)}
                     />
                     <span className="emp-card-name">{row.name}</span>
@@ -401,13 +433,17 @@ function EmployeeManagementPage({ embedded = false }) {
                       <span className="emp-card-label">Role</span>
                       <span className="emp-card-value">{formatRoles(row.roleIds)}</span>
                     </div>
-                    <button
-                      type="button"
-                      className={`emp-send emp-send--${action.tone} emp-card-action`}
-                      onClick={action.onClick}
-                    >
-                      {action.label}
-                    </button>
+                    {action.restricted ? (
+                      <span className="emp-card-label">Admin account protected</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`emp-send emp-send--${action.tone} emp-card-action`}
+                        onClick={action.onClick}
+                      >
+                        {action.label}
+                      </button>
+                    )}
                   </div>
                 </article>
               );
@@ -416,6 +452,20 @@ function EmployeeManagementPage({ embedded = false }) {
         </div>
     </div>
   );
+
+  if (!canAssign) {
+    const message = (
+      <p role="alert" className="text-sm text-slate-600">
+        Only administrators can manage employee accounts.
+      </p>
+    );
+    if (embedded) return message;
+    return (
+      <ModulePage title="Employee Management" description="Manage employee accounts for your organization.">
+        {message}
+      </ModulePage>
+    );
+  }
 
   if (embedded) return content;
 

@@ -120,7 +120,14 @@ async function getEmployee(req, res, next) {
     const snap = await resolveOrgSnapshot(req);
     const p = orgDirectory.findInSnapshot(snap, req.params.key);
     if (!p) throw new ApiError(404, "not_found");
-    res.json({ employee: orgDirectory.enrich(snap, p) });
+    const employee = orgDirectory.enrich(snap, p);
+    if (!employee.is_virtual_root) {
+      employee.is_tenant_admin = await orgMutations.isTenantAdminAccount(
+        employee.tenant_id || req.tenantId,
+        employee.id,
+      );
+    }
+    res.json({ employee });
   } catch (e) {
     next(e);
   }

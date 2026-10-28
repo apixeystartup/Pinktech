@@ -74,7 +74,12 @@ async function doctorsCreatedByMap(tenantId, userIds) {
 // Shared definition of an "employee" everywhere: still in the org (not marked
 // as left) and occupying a real seat (vacant seats are excluded).
 function activeEmployeeFilter(tenantId) {
-  return { ...(tenantId ? { tenantId } : {}), orgLeftAt: null, orgSeatVacant: { $ne: true } };
+  return {
+    ...(tenantId ? { tenantId } : {}),
+    orgLeftAt: null,
+    orgSeatVacant: { $ne: true },
+    status: { $ne: "DISABLED" },
+  };
 }
 
 async function getSuperAdminStats() {
@@ -275,13 +280,18 @@ async function getTenantAdminStats(auth, tenantId) {
   const totalEmployees = await User.countDocuments(activeFilter);
   const totalUsers = await User.countDocuments({ tenantId });
   const totalDoctors = await ExternalUser.countDocuments({ tenantId });
+  const tenant = await Tenant.findById(tenantId).select("email adminUserId").lean();
   const tenantFormModules = await Module.find({ tenantId, moduleType: "FORM" }).select("_id").lean();
   const formsCreated = tenantFormModules.length;
   const formsSubmitted = tenantFormModules.length
     ? await Submission.countDocuments({ moduleId: { $in: tenantFormModules.map((m) => m._id) } })
     : 0;
 
-  const employeeDocs = await User.find(activeFilter)
+  const employeeDocs = await User.find({
+    tenantId,
+    orgLeftAt: null,
+    orgSeatVacant: { $ne: true },
+  })
     .select("name email empCode roleIds reportingToUserId status invitedByUserId credentialsSentCount passwordResetRequestedAt")
     .sort({ name: 1 })
     .lean();
@@ -318,6 +328,11 @@ async function getTenantAdminStats(auth, tenantId) {
     email: u.email,
     empCode: u.empCode || null,
     status: u.status || null,
+    isAdminAccount: Boolean(
+      (tenant?.adminUserId && String(tenant.adminUserId) === String(u._id))
+      || (tenant?.email && String(tenant.email).trim().toLowerCase() === String(u.email || "").trim().toLowerCase())
+      || (u.roleIds || []).some((id) => /admin/i.test(roleMap.get(String(id)) || "")),
+    ),
     credentialsSentCount: Number(u.credentialsSentCount) || 0,
     passwordResetRequestedAt: u.passwordResetRequestedAt || null,
     roleIds: (u.roleIds || []).map((r) => String(r)),

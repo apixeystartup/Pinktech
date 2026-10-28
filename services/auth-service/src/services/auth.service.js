@@ -13,6 +13,10 @@ const env = require("../config/env");
 const { signAccessToken, signRefreshToken } = require("./token.service");
 const { writeAudit } = require("../services/audit.service");
 const { notificationAdapter } = require("@pink/shared");
+const {
+  assertTenantAdminCanAssignRoles,
+  assertTenantAdminCanManageAccount,
+} = require("./accountAccess.service");
 
 function generateOtpCode() {
   if (env.NODE_ENV !== "production" && env.DEV_OTP) {
@@ -269,13 +273,18 @@ async function inviteUser({ tenantId, name, email, empCode = null, roleIds = [],
     throw new ApiError(403, "Tenant is inactive");
   }
 
+  await assertTenantAdminCanAssignRoles(tenantId, roleIds, actor);
+
   const normalizedEmail = String(email).toLowerCase().trim();
   const trimmedEmp = empCode ? String(empCode).trim() : null;
 
   const existing = await User.findOne({
     tenantId,
     $or: [{ email: normalizedEmail }, { orgContactEmail: normalizedEmail }],
-  }).select("_id email orgContactEmail empCode");
+  }).select("_id email orgContactEmail empCode roleIds");
+  if (existing) {
+    await assertTenantAdminCanManageAccount(actor, tenantId, existing, "invite to");
+  }
 
   if (trimmedEmp) {
     const empQ = { tenantId, empCode: trimmedEmp };
