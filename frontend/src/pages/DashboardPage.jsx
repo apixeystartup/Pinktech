@@ -1151,7 +1151,7 @@ function EmployeeDashboard({ data }) {
 }
 
 function DashboardPage() {
-  const { user, isSuperAdmin: authSuperAdmin, accountRole } = useAuth();
+  const { user, isSuperAdmin: authSuperAdmin, accountRole, tenantContextId, currentTenant } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1216,6 +1216,8 @@ function DashboardPage() {
     .split(/\s+/)[0];
   const audience = isSuperAdmin
     ? "Platform admin"
+    : tenantContextId && authSuperAdmin
+      ? `${currentTenant?.name || "Tenant"} admin`
     : firstName || (data?.role === "tenant_admin" || accountRole === "tenant_admin" ? "Admin" : "Employee");
   const now = new Date();
   const dateLine = now.toLocaleDateString(undefined, {

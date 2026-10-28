@@ -421,6 +421,12 @@ async function getEmployeeStats(auth, tenantId) {
 async function getDashboardStats(auth) {
   const accountRole = await resolveAccountRole(auth);
   if (accountRole === "super_admin") {
+    if (auth.actingAsTenantId) {
+      if (!mongoose.Types.ObjectId.isValid(String(auth.actingAsTenantId))) {
+        throw new ApiError(400, "Invalid tenant context");
+      }
+      return getTenantAdminStats(auth, new mongoose.Types.ObjectId(String(auth.actingAsTenantId)));
+    }
     return getSuperAdminStats();
   }
 

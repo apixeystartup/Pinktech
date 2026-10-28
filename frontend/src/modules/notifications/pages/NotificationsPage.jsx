@@ -63,6 +63,7 @@ function NotificationsPage({ embedded = false }) {
     accountRole === "tenant_admin" ||
     accountRole === "super_admin" ||
     isSuperAdmin;
+  const isPlatformHome = Boolean(isSuperAdmin && !tenantContextId);
   const canCompose =
     isTenantAdmin ||
     permissionCodes.includes("*") ||
@@ -242,7 +243,7 @@ function NotificationsPage({ embedded = false }) {
     if (!items.length) return [];
     return items.filter((row) => {
       if (isTenantAdmin || isSuperAdmin) {
-        if (accountRole === "super_admin" || isSuperAdmin) {
+        if (isPlatformHome) {
           const fromId = row.fromUserId?._id || row.fromUserId;
           const toId = row.recipientUserId?._id || row.recipientUserId;
           if (String(fromId) === String(currentUserId) || String(toId) === String(currentUserId)) return true;
@@ -270,7 +271,7 @@ function NotificationsPage({ embedded = false }) {
         action.includes("DISPATCH")
       );
     });
-  }, [items, isTenantAdmin, isSuperAdmin, accountRole, currentUserId]);
+  }, [items, isTenantAdmin, isPlatformHome, isSuperAdmin, accountRole, currentUserId]);
 
   const threadItems = useMemo(
     () => [...relevantNotifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),

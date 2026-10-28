@@ -162,8 +162,17 @@ function AppLayout() {
   const empCode = (user?.empCode || "").trim();
   const accountEmail = displayAccountEmail(user);
   const roleLabel = platformAdmin ? "Super Admin" : accountRole === "tenant_admin" ? "Admin" : "Employee";
-  const tenantName = currentTenant?.name || "Pinktech";
+  const selectedTenant = tenants.find((tenant) => String(tenant._id) === String(tenantContextId));
+  const tenantName = tenantContextId
+    ? currentTenant?.name || selectedTenant?.name || "Loading tenant…"
+    : currentTenant?.name || "Pinktech";
   const tenantLogo = currentTenant?.logo || "";
+  const accountContextLabel = platformAdmin && tenantContextId
+    ? tenantName
+    : displayName ? displayName.split(/\s+/)[0] : roleLabel;
+  const accountAvatarLabel = platformAdmin && tenantContextId
+    ? tenantName
+    : displayName || roleLabel;
   const canEditBrand = isAdminRole(accountRole, isSuperAdmin);
   const designation = user?.designationOverride || user?.designation || (
     platformAdmin ? "Platform admin" : accountRole === "tenant_admin" ? "Tenant admin" : "Employee"
@@ -269,11 +278,11 @@ function AppLayout() {
               className="account-trigger"
               aria-expanded={accountOpen}
               aria-haspopup="menu"
-              title={topbarSummaryTitle || undefined}
+              title={platformAdmin && tenantContextId ? `${tenantName} tenant context` : topbarSummaryTitle || undefined}
               onClick={() => setAccountOpen((prev) => !prev)}
             >
-              <span className="account-avatar" aria-hidden="true">{initialsOf(displayName || roleLabel)}</span>
-              <span className="account-name">{displayName ? displayName.split(/\s+/)[0] : roleLabel}</span>
+              <span className="account-avatar" aria-hidden="true">{initialsOf(accountAvatarLabel)}</span>
+              <span className="account-name">{accountContextLabel}</span>
               <span className="account-caret" aria-hidden="true" />
             </button>
 

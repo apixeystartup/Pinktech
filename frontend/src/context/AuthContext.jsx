@@ -47,11 +47,16 @@ export function AuthProvider({ children }) {
 
   const refreshCurrentTenant = useCallback(async () => {
     if (!accessToken) return null;
-    const res = await api.get("/tenants/current");
+    const requestedContextId = tenantContextId || "";
+    const res = await api.get(
+      "/tenants/current",
+      requestedContextId ? { headers: { "X-Tenant-Id": requestedContextId } } : undefined,
+    );
+    if ((localStorage.getItem("tenantContextId") || "") !== requestedContextId) return null;
     const tenant = res.data || null;
     setCurrentTenant(tenant);
     return tenant;
-  }, [accessToken]);
+  }, [accessToken, tenantContextId]);
 
   const updateCurrentTenant = useCallback((tenant) => {
     const updatedTenant = tenant || null;
@@ -152,6 +157,7 @@ export function AuthProvider({ children }) {
     }
     void queryClient.cancelQueries();
     queryClient.removeQueries();
+    setCurrentTenant(null);
     setTenantContextId(value);
   }, [queryClient, tenantContextId]);
 

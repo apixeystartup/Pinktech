@@ -178,9 +178,9 @@ function AuditPage({ embedded = false }) {
   const [loading, setLoading] = useState(true);
   const [selectedError, setSelectedError] = useState(null);
 
-  const role = isSuperAdmin || accountRole === "super_admin"
+  const role = (isSuperAdmin || accountRole === "super_admin") && !tenantContextId
     ? "super_admin"
-    : accountRole === "tenant_admin"
+    : accountRole === "tenant_admin" || (isSuperAdmin && tenantContextId)
       ? "tenant_admin"
       : "employee";
   const roleLabel = role === "super_admin" ? "Super admin" : role === "tenant_admin" ? "Admin" : "Employee";
